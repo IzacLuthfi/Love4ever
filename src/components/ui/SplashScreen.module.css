@@ -1,0 +1,397 @@
+/* src/components/ui/SplashScreen.module.css */
+
+.splash {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #061c29;
+}
+
+/* BACKGROUND */
+
+.background {
+  position: absolute;
+  inset: -2%;
+
+  background-image: url("/images/splash.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  transform: scale(1.04);
+
+  animation:
+    backgroundReveal
+    2.8s
+    ease-out
+    forwards;
+}
+
+/* OVERLAY */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(3, 18, 28, 0.16) 0%,
+      rgba(3, 18, 28, 0.2) 45%,
+      rgba(3, 18, 28, 0.56) 100%
+    );
+}
+
+/* SNOW */
+
+.snow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.snowFlake {
+  --drift: 0px;
+
+  position: absolute;
+
+  top: -30px;
+
+  display: block;
+
+  border-radius: 999px;
+
+  background: rgba(
+    255,
+    255,
+    255,
+    0.95
+  );
+
+  box-shadow:
+    0 0 5px
+      rgba(
+        255,
+        255,
+        255,
+        0.55
+      ),
+    0 0 12px
+      rgba(
+        200,
+        235,
+        255,
+        0.4
+      );
+
+  filter: blur(0.2px);
+
+  animation-name:
+    snowFall;
+
+  animation-timing-function:
+    linear;
+
+  animation-iteration-count:
+    infinite;
+}
+
+/* CONTENT */
+
+.content {
+  position: relative;
+  z-index: 5;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+
+  font-family:
+    var(--font-playfair),
+    Georgia,
+    serif;
+
+  font-size:
+    clamp(
+      3.4rem,
+      10vw,
+      6.8rem
+    );
+
+  font-weight: 600;
+  line-height: 1;
+
+  letter-spacing: 0.08em;
+
+  color: #ffffff;
+
+  text-shadow:
+    0 4px 18px
+      rgba(
+        0,
+        0,
+        0,
+        0.22
+      ),
+    0 14px 55px
+      rgba(
+        0,
+        0,
+        0,
+        0.35
+      );
+
+  opacity: 0;
+
+  animation:
+    titleReveal
+    1.25s
+    cubic-bezier(
+      0.22,
+      1,
+      0.36,
+      1
+    )
+    0.2s
+    forwards;
+}
+
+/* LOADING */
+
+.loadingTrack {
+  position: relative;
+
+  width: 110px;
+  height: 2px;
+
+  margin-top: 30px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.2
+    );
+
+  opacity: 0;
+
+  animation:
+    simpleFade
+    0.8s
+    ease
+    0.9s
+    forwards;
+}
+
+.loadingBar {
+  position: absolute;
+  inset-block: 0;
+
+  width: 45%;
+
+  border-radius: inherit;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.95
+    );
+
+  animation:
+    loadingMove
+    1.3s
+    ease-in-out
+    infinite;
+}
+
+/* ANIMATIONS */
+
+@keyframes snowFall {
+  0% {
+    transform:
+      translate3d(
+        0,
+        -40px,
+        0
+      )
+      rotate(0deg);
+  }
+
+  25% {
+    transform:
+      translate3d(
+        calc(
+          var(--drift) * 0.35
+        ),
+        28vh,
+        0
+      )
+      rotate(90deg);
+  }
+
+  50% {
+    transform:
+      translate3d(
+        calc(
+          var(--drift) * -0.2
+        ),
+        55vh,
+        0
+      )
+      rotate(180deg);
+  }
+
+  75% {
+    transform:
+      translate3d(
+        var(--drift),
+        82vh,
+        0
+      )
+      rotate(270deg);
+  }
+
+  100% {
+    transform:
+      translate3d(
+        calc(
+          var(--drift) * 0.45
+        ),
+        110vh,
+        0
+      )
+      rotate(360deg);
+  }
+}
+
+@keyframes titleReveal {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(18px)
+      scale(0.98);
+
+    filter:
+      blur(5px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+
+    filter:
+      blur(0);
+  }
+}
+
+@keyframes loadingMove {
+  0% {
+    transform:
+      translateX(-130%);
+  }
+
+  100% {
+    transform:
+      translateX(250%);
+  }
+}
+
+@keyframes simpleFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes backgroundReveal {
+  from {
+    transform:
+      scale(1.08);
+
+    filter:
+      brightness(0.8);
+  }
+
+  to {
+    transform:
+      scale(1.04);
+
+    filter:
+      brightness(1);
+  }
+}
+
+/* MOBILE */
+
+@media (
+  max-width: 640px
+) {
+  .background {
+    background-position:
+      54% center;
+  }
+
+  .title {
+    letter-spacing:
+      0.055em;
+  }
+
+  .loadingTrack {
+    width: 90px;
+    margin-top: 24px;
+  }
+
+  .snowFlake {
+    filter:
+      blur(0);
+  }
+}
+
+/* REDUCED MOTION */
+
+@media (
+  prefers-reduced-motion:
+    reduce
+) {
+  .background,
+  .title,
+  .loadingTrack,
+  .loadingBar,
+  .snowFlake {
+    animation: none;
+  }
+
+  .title,
+  .loadingTrack {
+    opacity: 1;
+  }
+}
