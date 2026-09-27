@@ -1,42 +1,77 @@
 // src/components/dashboard/DashboardClient.tsx
 
+
+
 "use client";
 
+
+
 import Image from "next/image";
+
 import Link from "next/link";
-import DailyRatingTracker from "@/components/dashboard/DailyRatingTracker";
+
+
 
 import {
-  type ElementType,
+
+  type ReactNode,
+
   useEffect,
+
   useMemo,
+
   useState,
+
 } from "react";
 
+
+
 import {
+
   ArrowRight,
-  CalendarDays,
-  Camera,
-  CheckCircle2,
-  Clock3,
-  Heart,
-  Images,
-  MapPin,
-  NotebookPen,
-  Plus,
-  Sparkles,
+
 } from "lucide-react";
 
+
+
+import DailyRatingTracker from "@/components/dashboard/DailyRatingTracker";
+
 import AppSidebar from "@/components/layout/AppSidebar";
+
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
+
+
+import {
+
+  differenceInDays,
+
+  formatDateID,
+
+  formatTime,
+
+  getCurrentTimeInJakarta,
+
+  getTodayInJakarta,
+
+} from "@/utils/date";
+
+
+
 /*
+
  * =========================================================
+
  * TYPES
+
  * =========================================================
+
  */
 
+
+
 type DashboardUser = {
+
   id: string;
 
   email: string;
@@ -45,18 +80,24 @@ type DashboardUser = {
 
   nickname: string;
 
-  avatarUrl:
-    | string
-    | null;
+  avatarUrl: string | null;
+
 };
 
+
+
 type DashboardCouple = {
+
   name: string;
 
   anniversaryDate: string;
+
 };
 
+
+
 type DashboardStats = {
+
   totalPlans: number;
 
   plannedPlans: number;
@@ -66,1872 +107,3419 @@ type DashboardStats = {
   totalMemories: number;
 
   totalPhotos: number;
+
 };
 
+
+
 type NextPlan = {
+
   id: string;
 
   title: string;
 
   planDate: string;
 
-  planTime:
-    | string
-    | null;
+  planTime: string | null;
 
-  locationName:
-    | string
-    | null;
+  locationName: string | null;
 
-  coverUrl:
-    | string
-    | null;
+  coverUrl: string | null;
+
 };
 
+
+
 type LatestMemory = {
+
   id: string;
 
   title: string;
 
-  story:
-    | string
-    | null;
+  story: string | null;
 
   memoryDate: string;
 
-  memoryTime:
-    | string
-    | null;
+  memoryTime: string | null;
 
-  locationName:
-    | string
-    | null;
+  locationName: string | null;
 
-  coverUrl:
-    | string
-    | null;
+  coverUrl: string | null;
 
   photoCount: number;
+
 };
 
+
+
 type DashboardClientProps = {
+
   user: DashboardUser;
 
   couple: DashboardCouple;
 
   stats: DashboardStats;
 
-  nextPlan:
-    | NextPlan
-    | null;
+  nextPlan: NextPlan | null;
 
-  latestMemory:
-    | LatestMemory
-    | null;
+  latestMemory: LatestMemory | null;
+
 };
 
+
+
 /*
+
  * =========================================================
+
  * COMPONENT
+
  * =========================================================
+
  */
 
+
+
 export default function DashboardClient({
+
   user,
+
   couple,
+
   stats,
+
   nextPlan,
+
   latestMemory,
+
 }: DashboardClientProps) {
+
   const [
+
     greeting,
+
     setGreeting,
-  ] =
-    useState("Hello");
+
+  ] = useState("");
+
+
 
   /*
+
    * =========================================================
+
    * GREETING
+
    * =========================================================
+
    */
+
+
 
   useEffect(() => {
+
+    const time =
+
+      getCurrentTimeInJakarta();
+
+
+
     const hour =
-      new Date().getHours();
+
+      Number(
+
+        time.slice(
+
+          0,
+
+          2
+
+        )
+
+      );
+
+
 
     if (hour < 11) {
+
       setGreeting(
+
         "Good morning"
+
       );
 
+
+
       return;
+
     }
+
+
 
     if (hour < 15) {
+
       setGreeting(
+
         "Good afternoon"
+
       );
 
+
+
       return;
+
     }
+
+
 
     if (hour < 19) {
+
       setGreeting(
+
         "Good evening"
+
       );
 
+
+
       return;
+
     }
 
+
+
     setGreeting(
+
       "Good night"
+
     );
+
   }, []);
 
+
+
   /*
+
    * =========================================================
-   * DAYS TOGETHER
+
+   * DATA
+
    * =========================================================
+
    */
 
-  const daysTogether =
+
+
+  const today =
+
+    getTodayInJakarta();
+
+
+
+  const displayName =
+
+    user.nickname?.trim() ||
+
+    user.fullName?.trim() ||
+
+    "You";
+
+
+
+  const greetingMessages =
+
     useMemo(
+
       () =>
-        calculateDaysTogether(
-          couple.anniversaryDate
-        ),
+
+        greeting
+
+          ? [
+
+              `${greeting}, ${displayName}`,
+
+              "Still my favorite person.",
+
+              "Home feels better with you.",
+
+              "Always you. Always us.",
+
+            ]
+
+          : [],
+
       [
-        couple.anniversaryDate,
+
+        greeting,
+
+        displayName,
+
       ]
+
     );
 
-  /*
-   * =========================================================
-   * PLAN PROGRESS
-   * =========================================================
-   */
+
+
+  const daysTogether =
+
+    Math.max(
+
+      0,
+
+      differenceInDays(
+
+        couple.anniversaryDate,
+
+        today
+
+      )
+
+    );
+
+
 
   const completionRate =
+
     stats.totalPlans > 0
+
       ? Math.round(
+
           (
+
             stats.donePlans /
+
             stats.totalPlans
-          ) *
-            100
+
+          ) * 100
+
         )
+
       : 0;
 
+
+
+  const anniversary =
+
+    useMemo(
+
+      () =>
+
+        getAnniversaryMeta(
+
+          couple.anniversaryDate,
+
+          today
+
+        ),
+
+      [
+
+        couple.anniversaryDate,
+
+        today,
+
+      ]
+
+    );
+
+
+
+  /*
+
+   * =========================================================
+
+   * UI
+
+   * =========================================================
+
+   */
+
+
+
   return (
+
     <div
+
       className="
+
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_50%,#f8f2e9_100%)]
+
       "
+
     >
+
       <AppSidebar
+
         user={user}
+
       />
+
+
 
       <MobileBottomNav />
 
+
+
       <main
+
         className="
+
           min-h-[100svh]
+
           px-4
+
           pb-28
-          pt-5
+
+          pt-6
+
           sm:px-6
+
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+
+          lg:px-8
+
+          lg:pb-14
+
+          lg:pt-9
+
           xl:px-10
+
         "
+
       >
+
         <div
+
           className="
+
             mx-auto
+
             w-full
-            max-w-[1500px]
+
+            max-w-[1440px]
+
           "
+
         >
-          {/* =====================================
+
+          {/* =================================================
+
               HEADER
-          ====================================== */}
+
+          ================================================= */}
+
+
 
           <header
+
             className="
+
               flex
-              flex-col
-              gap-5
-              sm:flex-row
-              sm:items-end
-              sm:justify-between
+
+              items-end
+
+              justify-between
+
+              gap-6
+
             "
+
           >
-            <div>
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.22em]
-                  text-ocean-500
-                "
-              >
-                Love4ever
-              </p>
 
-              <h1
-                className="
-                  mt-1
-                  font-display
-                  text-3xl
-                  font-semibold
-                  text-ocean-950
-                  sm:text-4xl
-                "
-              >
-                {greeting},{" "}
-                {user.nickname}
-              </h1>
+            <h1
 
-              <p
-                className="
-                  mt-2
-                  text-sm
-                  text-ink-soft
-                "
-              >
-                Here&apos;s what&apos;s
-                happening in{" "}
-                {couple.name}.
-              </p>
-            </div>
-
-            <div
               className="
-                flex
-                gap-2
+
+                min-h-[40px]
+
+                font-display
+
+                text-[32px]
+
+                font-semibold
+
+                leading-none
+
+                tracking-[-0.035em]
+
+                text-ocean-950
+
+                sm:min-h-[48px]
+
+                sm:text-[40px]
+
               "
+
             >
-              <Link
-                href="/planner"
-                className="
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
-                  border
-                  border-ocean-100
-                  bg-white/70
-                  px-4
-                  py-3
-                  text-xs
-                  font-semibold
-                  text-ocean-700
-                  backdrop-blur-xl
-                  transition
-                  hover:bg-white
-                "
-              >
-                <CalendarDays
-                  size={16}
-                />
 
-                Planner
-              </Link>
+              <RotatingTypewriter
 
-              <Link
-                href="/memories"
-                className="
-                  love-button
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-xs
-                  font-semibold
-                "
-              >
-                <Heart
-                  size={16}
-                />
+                messages={
 
-                Memories
-              </Link>
-            </div>
+                  greetingMessages
+
+                }
+
+              />
+
+            </h1>
+
+
+
+            <p
+
+              className="
+
+                hidden
+
+                pb-0.5
+
+                text-xs
+
+                text-ink-soft
+
+                sm:block
+
+              "
+
+            >
+
+              {formatDateID(
+
+                today
+
+              )}
+
+            </p>
+
           </header>
 
-          {/* =====================================
-              HERO
-          ====================================== */}
+
+
+          {/* =================================================
+
+              RELATIONSHIP HERO
+
+          ================================================= */}
+
+
 
           <section
+
             className="
+
               relative
-              mt-7
+
+              mt-8
+
               overflow-hidden
+
               rounded-[32px]
-              bg-gradient-to-br
-              from-ocean-950
-              via-ocean-800
-              to-ocean-500
-              p-6
+
+              bg-ocean-950
+
               text-white
-              shadow-love-lg
-              sm:p-8
-              lg:p-10
+
+              shadow-[0_24px_65px_rgba(6,42,63,0.12)]
+
             "
+
           >
-            <div
-              className="
-                absolute
-                -right-24
-                -top-28
-                h-80
-                w-80
-                rounded-full
-                bg-white/[0.08]
-                blur-3xl
-              "
-            />
+
+            {/* subtle light */}
+
+
 
             <div
+
               className="
+
+                pointer-events-none
+
                 absolute
-                -bottom-32
-                left-[30%]
-                h-72
-                w-72
+
+                -right-32
+
+                -top-40
+
+                h-[420px]
+
+                w-[420px]
+
                 rounded-full
-                bg-ocean-200/10
-                blur-3xl
+
+                bg-ocean-400/[0.12]
+
+                blur-[100px]
+
               "
+
             />
 
+
+
             <div
+
               className="
+
+                pointer-events-none
+
+                absolute
+
+                -bottom-40
+
+                left-[22%]
+
+                h-[340px]
+
+                w-[340px]
+
+                rounded-full
+
+                bg-white/[0.05]
+
+                blur-[100px]
+
+              "
+
+            />
+
+
+
+            <div
+
+              className="
+
                 relative
+
                 z-10
+
                 grid
-                gap-8
-                lg:grid-cols-[1fr_auto]
-                lg:items-center
+
+                lg:grid-cols-[1fr_500px]
+
               "
+
             >
-              <div>
-                <div
-                  className="
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-[17px]
-                    border
-                    border-white/15
-                    bg-white/10
-                    backdrop-blur-xl
-                  "
-                >
-                  <Heart
-                    size={21}
-                  />
-                </div>
 
-                <p
-                  className="
-                    mt-6
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-[0.25em]
-                    text-white/55
-                  "
-                >
-                  Since{" "}
-                  {formatDate(
-                    couple.anniversaryDate
-                  )}
-                </p>
+              {/* HERO MAIN */}
 
-                <div
-                  className="
-                    mt-2
-                    flex
-                    flex-wrap
-                    items-end
-                    gap-x-3
-                    gap-y-1
-                  "
-                >
-                  <p
-                    className="
-                      font-display
-                      text-6xl
-                      font-semibold
-                      leading-none
-                      sm:text-7xl
-                    "
-                  >
-                    {daysTogether}
-                  </p>
 
-                  <p
-                    className="
-                      pb-1
-                      font-display
-                      text-2xl
-                      text-white/70
-                    "
-                  >
-                    days together
-                  </p>
-                </div>
-
-                <p
-                  className="
-                    mt-5
-                    max-w-xl
-                    text-sm
-                    leading-7
-                    text-white/60
-                  "
-                >
-                  Plans, places,
-                  photos, and memories
-                  stored in one shared
-                  space.
-                </p>
-              </div>
 
               <div
+
                 className="
-                  grid
-                  grid-cols-2
-                  gap-2
-                  sm:grid-cols-4
-                  lg:grid-cols-2
+
+                  px-6
+
+                  py-8
+
+                  sm:px-9
+
+                  sm:py-10
+
+                  lg:px-11
+
+                  lg:py-12
+
                 "
+
               >
-                <HeroStat
-                  value={
-                    stats.totalPlans
-                  }
-                  label="Plans"
-                />
-
-                <HeroStat
-                  value={
-                    stats.donePlans
-                  }
-                  label="Done"
-                />
-
-                <HeroStat
-                  value={
-                    stats.totalMemories
-                  }
-                  label="Memories"
-                />
-
-                <HeroStat
-                  value={
-                    stats.totalPhotos
-                  }
-                  label="Photos"
-                />
-              </div>
-            </div>
-          </section>
-          
-          <div className="mt-6">
-    <DailyRatingTracker />
-  </div>
-
-          {/* =====================================
-              MAIN GRID
-          ====================================== */}
-
-          <section
-            className="
-              mt-5
-              grid
-              gap-5
-              xl:grid-cols-[1.15fr_0.85fr]
-            "
-          >
-            {/* =====================================
-                NEXT PLAN
-            ====================================== */}
-
-            <article
-              className="
-                glass-card
-                overflow-hidden
-                rounded-[30px]
-              "
-            >
-              {nextPlan ? (
-                <div
-                  className="
-                    grid
-                    h-full
-                    md:grid-cols-[0.95fr_1.05fr]
-                  "
-                >
-                  {/* PLAN COVER */}
-
-                  <div
-                    className="
-                      relative
-                      min-h-[280px]
-                      overflow-hidden
-                      bg-gradient-to-br
-                      from-ocean-900
-                      via-ocean-700
-                      to-ocean-400
-                    "
-                  >
-                    {nextPlan.coverUrl ? (
-                      <>
-                        <Image
-                          src={
-                            nextPlan.coverUrl
-                          }
-                          alt={
-                            nextPlan.title
-                          }
-                          fill
-                          unoptimized
-                          className="
-                            object-cover
-                          "
-                        />
-
-                        <div
-                          className="
-                            absolute
-                            inset-0
-                            bg-gradient-to-t
-                            from-ocean-950/80
-                            via-transparent
-                            to-transparent
-                          "
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <div
-                          className="
-                            absolute
-                            inset-0
-                            bg-[radial-gradient(circle_at_80%_15%,rgba(255,255,255,.14),transparent_30%),radial-gradient(circle_at_10%_90%,rgba(158,223,240,.25),transparent_36%)]
-                          "
-                        />
-
-                        <CalendarDays
-                          size={140}
-                          className="
-                            absolute
-                            -right-6
-                            -top-5
-                            text-white/[0.05]
-                          "
-                        />
-                      </>
-                    )}
-
-                    <div
-                      className="
-                        absolute
-                        bottom-5
-                        left-5
-                        z-10
-                      "
-                    >
-                      <span
-                        className="
-                          rounded-full
-                          border
-                          border-white/20
-                          bg-black/20
-                          px-3
-                          py-1.5
-                          text-[9px]
-                          font-bold
-                          uppercase
-                          tracking-[0.15em]
-                          text-white
-                          backdrop-blur-xl
-                        "
-                      >
-                        Next Plan
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* CONTENT */}
-
-                  <div
-                    className="
-                      flex
-                      flex-col
-                      p-6
-                      sm:p-7
-                    "
-                  >
-                    <div>
-                      <p
-                        className="
-                          text-[10px]
-                          font-bold
-                          uppercase
-                          tracking-[0.2em]
-                          text-ocean-500
-                        "
-                      >
-                        Upcoming
-                      </p>
-
-                      <h2
-                        className="
-                          mt-2
-                          font-display
-                          text-3xl
-                          font-semibold
-                          text-ocean-950
-                        "
-                      >
-                        {nextPlan.title}
-                      </h2>
-
-                      <div
-                        className="
-                          mt-5
-                          space-y-3
-                        "
-                      >
-                        <InfoRow
-                          icon={
-                            CalendarDays
-                          }
-                        >
-                          {formatDate(
-                            nextPlan.planDate
-                          )}
-                        </InfoRow>
-
-                        {nextPlan.planTime && (
-                          <InfoRow
-                            icon={
-                              Clock3
-                            }
-                          >
-                            {formatTime(
-                              nextPlan.planTime
-                            )}
-                          </InfoRow>
-                        )}
-
-                        {nextPlan.locationName && (
-                          <InfoRow
-                            icon={
-                              MapPin
-                            }
-                          >
-                            {
-                              nextPlan.locationName
-                            }
-                          </InfoRow>
-                        )}
-                      </div>
-                    </div>
-
-                    <Link
-                      href={`/planner/${nextPlan.id}`}
-                      className="
-                        mt-auto
-                        flex
-                        items-center
-                        justify-center
-                        gap-2
-                        rounded-[15px]
-                        bg-ocean-700
-                        px-4
-                        py-3
-                        text-sm
-                        font-semibold
-                        text-white
-                        transition
-                        hover:bg-ocean-800
-                      "
-                    >
-                      Open Plan
-
-                      <ArrowRight
-                        size={15}
-                      />
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <EmptyNextPlan />
-              )}
-            </article>
-
-            {/* =====================================
-                PLAN PROGRESS
-            ====================================== */}
-
-            <article
-              className="
-                glass-card
-                rounded-[30px]
-                p-6
-                sm:p-7
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-start
-                  justify-between
-                  gap-4
-                "
-              >
-                <div>
-                  <p
-                    className="
-                      text-[10px]
-                      font-bold
-                      uppercase
-                      tracking-[0.2em]
-                      text-ocean-500
-                    "
-                  >
-                    Planner
-                  </p>
-
-                  <h2
-                    className="
-                      mt-1
-                      font-display
-                      text-2xl
-                      font-semibold
-                      text-ocean-950
-                    "
-                  >
-                    Plan Progress
-                  </h2>
-                </div>
-
-                <div
-                  className="
-                    flex
-                    h-11
-                    w-11
-                    items-center
-                    justify-center
-                    rounded-[15px]
-                    bg-ocean-100
-                    text-ocean-700
-                  "
-                >
-                  <CheckCircle2
-                    size={20}
-                  />
-                </div>
-              </div>
-
-              <div
-                className="
-                  mt-8
-                  flex
-                  items-end
-                  gap-2
-                "
-              >
-                <p
-                  className="
-                    font-display
-                    text-5xl
-                    font-semibold
-                    text-ocean-950
-                  "
-                >
-                  {completionRate}%
-                </p>
 
                 <p
+
                   className="
-                    pb-1
+
                     text-xs
-                    text-ink-soft
+
+                    font-medium
+
+                    tracking-wide
+
+                    text-white/42
+
                   "
+
                 >
-                  completed
+
+                  {couple.name}
+
                 </p>
-              </div>
 
-              <div
-                className="
-                  mt-5
-                  h-2.5
-                  overflow-hidden
-                  rounded-full
-                  bg-ocean-50
-                "
-              >
+
+
                 <div
+
                   className="
-                    h-full
-                    rounded-full
-                    bg-gradient-to-r
-                    from-ocean-800
-                    via-ocean-500
-                    to-ocean-300
-                    transition-all
-                    duration-500
+
+                    mt-5
+
+                    flex
+
+                    items-end
+
+                    gap-3
+
                   "
-                  style={{
-                    width:
-                      `${completionRate}%`,
-                  }}
-                />
-              </div>
 
-              <div
-                className="
-                  mt-6
-                  grid
-                  grid-cols-3
-                  gap-2
-                "
-              >
-                <MiniStat
-                  value={
-                    stats.totalPlans
-                  }
-                  label="Total"
-                />
-
-                <MiniStat
-                  value={
-                    stats.plannedPlans
-                  }
-                  label="Planned"
-                />
-
-                <MiniStat
-                  value={
-                    stats.donePlans
-                  }
-                  label="Done"
-                />
-              </div>
-
-              <Link
-                href="/planner"
-                className="
-                  mt-6
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
-                  border
-                  border-ocean-100
-                  bg-white/70
-                  px-4
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-ocean-700
-                  transition
-                  hover:bg-white
-                "
-              >
-                View Planner
-
-                <ArrowRight
-                  size={15}
-                />
-              </Link>
-            </article>
-          </section>
-
-          {/* =====================================
-              SECOND GRID
-          ====================================== */}
-
-          <section
-            className="
-              mt-5
-              grid
-              gap-5
-              xl:grid-cols-[1.25fr_0.75fr]
-            "
-          >
-            {/* =====================================
-                LATEST MEMORY
-            ====================================== */}
-
-            <article
-              className="
-                glass-card
-                overflow-hidden
-                rounded-[30px]
-              "
-            >
-              {latestMemory ? (
-                <div
-                  className="
-                    grid
-                    h-full
-                    md:grid-cols-[300px_1fr]
-                  "
                 >
-                  <div
+
+                  <p
+
                     className="
-                      relative
-                      min-h-[280px]
-                      overflow-hidden
-                      bg-gradient-to-br
-                      from-ocean-800
-                      via-ocean-600
-                      to-ocean-300
+
+                      font-display
+
+                      text-[64px]
+
+                      font-semibold
+
+                      leading-[0.85]
+
+                      tracking-[-0.055em]
+
+                      sm:text-[82px]
+
                     "
+
                   >
-                    {latestMemory.coverUrl ? (
-                      <>
-                        <Image
-                          src={
-                            latestMemory.coverUrl
-                          }
-                          alt={
-                            latestMemory.title
-                          }
-                          fill
-                          unoptimized
-                          className="
-                            object-cover
-                          "
-                        />
 
-                        <div
-                          className="
-                            absolute
-                            inset-0
-                            bg-gradient-to-t
-                            from-ocean-950/85
-                            via-transparent
-                            to-transparent
-                          "
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Heart
-                          size={150}
-                          fill="currentColor"
-                          className="
-                            absolute
-                            -right-5
-                            -top-6
-                            text-white/[0.05]
-                          "
-                        />
-                      </>
-                    )}
+                    {daysTogether}
 
-                    {latestMemory.photoCount >
-                      0 && (
-                      <div
-                        className="
-                          absolute
-                          left-4
-                          top-4
-                          z-10
-                          flex
-                          items-center
-                          gap-2
-                          rounded-full
-                          border
-                          border-white/20
-                          bg-black/20
-                          px-3
-                          py-1.5
-                          text-[10px]
-                          font-semibold
-                          text-white
-                          backdrop-blur-xl
-                        "
-                      >
-                        <Camera
-                          size={12}
-                        />
+                  </p>
 
-                        {
-                          latestMemory.photoCount
-                        }{" "}
-                        {latestMemory.photoCount ===
-                        1
-                          ? "photo"
-                          : "photos"}
-                      </div>
-                    )}
-                  </div>
 
-                  <div
+
+                  <p
+
                     className="
-                      flex
-                      flex-col
-                      p-6
-                      sm:p-7
+
+                      pb-1
+
+                      text-lg
+
+                      font-medium
+
+                      text-white/50
+
                     "
+
                   >
-                    <div>
-                      <div
-                        className="
-                          flex
-                          items-center
-                          gap-2
-                          text-[10px]
-                          font-bold
-                          uppercase
-                          tracking-[0.2em]
-                          text-ocean-500
-                        "
-                      >
-                        <Sparkles
-                          size={13}
-                        />
 
-                        Latest Memory
-                      </div>
+                    days
 
-                      <h2
-                        className="
-                          mt-3
-                          font-display
-                          text-3xl
-                          font-semibold
-                          text-ocean-950
-                        "
-                      >
-                        {
-                          latestMemory.title
-                        }
-                      </h2>
+                  </p>
 
-                      <div
-                        className="
-                          mt-3
-                          flex
-                          flex-wrap
-                          gap-3
-                          text-xs
-                          text-ink-soft
-                        "
-                      >
-                        <span>
-                          {formatDate(
-                            latestMemory.memoryDate
-                          )}
-                        </span>
-
-                        {latestMemory.locationName && (
-                          <span
-                            className="
-                              flex
-                              items-center
-                              gap-1
-                            "
-                          >
-                            <MapPin
-                              size={12}
-                            />
-
-                            {
-                              latestMemory.locationName
-                            }
-                          </span>
-                        )}
-                      </div>
-
-                      <p
-                        className="
-                          mt-5
-                          line-clamp-4
-                          whitespace-pre-line
-                          text-sm
-                          leading-7
-                          text-ink-soft
-                        "
-                      >
-                        {latestMemory.story ||
-                          "Belum ada cerita untuk memory ini."}
-                      </p>
-                    </div>
-
-                    <Link
-                      href={`/memories/${latestMemory.id}`}
-                      className="
-                        mt-auto
-                        flex
-                        items-center
-                        justify-center
-                        gap-2
-                        rounded-[15px]
-                        bg-ocean-700
-                        px-4
-                        py-3
-                        text-sm
-                        font-semibold
-                        text-white
-                        transition
-                        hover:bg-ocean-800
-                      "
-                    >
-                      View Memory
-
-                      <ArrowRight
-                        size={15}
-                      />
-                    </Link>
-                  </div>
                 </div>
-              ) : (
-                <EmptyLatestMemory />
-              )}
-            </article>
 
-            {/* =====================================
-                COLLECTION
-            ====================================== */}
 
-            <article
-              className="
-                glass-card
-                rounded-[30px]
-                p-6
-                sm:p-7
-              "
-            >
-              <div
-                className="
-                  flex
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-[15px]
-                  bg-ocean-100
-                  text-ocean-700
-                "
-              >
-                <Images
-                  size={20}
-                />
+
+                <p
+
+                  className="
+
+                    mt-5
+
+                    text-sm
+
+                    text-white/42
+
+                  "
+
+                >
+
+                  Since{" "}
+
+                  {formatDateID(
+
+                    couple.anniversaryDate
+
+                  )}
+
+                </p>
+
+
+
+                {/* ANNIVERSARY */}
+
+
+
+                <div
+
+                  className="
+
+                    mt-9
+
+                    flex
+
+                    max-w-md
+
+                    items-end
+
+                    justify-between
+
+                    gap-6
+
+                    border-t
+
+                    border-white/10
+
+                    pt-5
+
+                  "
+
+                >
+
+                  <div>
+
+                    <p
+
+                      className="
+
+                        text-[10px]
+
+                        uppercase
+
+                        tracking-[0.16em]
+
+                        text-white/30
+
+                      "
+
+                    >
+
+                      Anniversary
+
+                    </p>
+
+
+
+                    <p
+
+                      className="
+
+                        mt-1.5
+
+                        text-sm
+
+                        font-medium
+
+                        text-white/75
+
+                      "
+
+                    >
+
+                      {formatDateID(
+
+                        anniversary.nextDate
+
+                      )}
+
+                    </p>
+
+                  </div>
+
+
+
+                  <div className="text-right">
+
+                    <p
+
+                      className="
+
+                        font-display
+
+                        text-2xl
+
+                        font-semibold
+
+                        tracking-tight
+
+                      "
+
+                    >
+
+                      {
+
+                        anniversary.daysUntil
+
+                      }
+
+                    </p>
+
+
+
+                    <p
+
+                      className="
+
+                        mt-0.5
+
+                        text-[10px]
+
+                        text-white/35
+
+                      "
+
+                    >
+
+                      {anniversary.daysUntil ===
+
+                      1
+
+                        ? "day"
+
+                        : "days"}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
               </div>
 
-              <p
-                className="
-                  mt-6
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.2em]
-                  text-ocean-500
-                "
-              >
-                Collection
-              </p>
 
-              <h2
-                className="
-                  mt-1
-                  font-display
-                  text-2xl
-                  font-semibold
-                  text-ocean-950
-                "
-              >
-                Memory Library
-              </h2>
+
+              {/* HERO STATS */}
+
+
 
               <div
+
                 className="
-                  mt-6
+
                   grid
+
                   grid-cols-2
-                  gap-3
+
+                  border-t
+
+                  border-white/10
+
+                  sm:grid-cols-4
+
+                  lg:grid-cols-2
+
+                  lg:border-l
+
+                  lg:border-t-0
+
                 "
+
               >
-                <CollectionStat
-                  icon={
-                    Heart
-                  }
+
+                <HeroStat
+
                   value={
-                    stats.totalMemories
+
+                    stats.totalPlans
+
                   }
-                  label="Memories"
+
+                  label="Plans"
+
                 />
 
-                <CollectionStat
-                  icon={
-                    Camera
-                  }
+
+
+                <HeroStat
+
                   value={
-                    stats.totalPhotos
+
+                    stats.donePlans
+
                   }
-                  label="Photos"
+
+                  label="Done"
+
                 />
+
+
+
+                <HeroStat
+
+                  value={
+
+                    stats.totalMemories
+
+                  }
+
+                  label="Memories"
+
+                />
+
+
+
+                <HeroStat
+
+                  value={
+
+                    stats.totalPhotos
+
+                  }
+
+                  label="Photos"
+
+                />
+
               </div>
 
-              <Link
-                href="/memories"
-                className="
-                  mt-6
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
-                  border
-                  border-ocean-100
-                  bg-white/70
-                  px-4
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-ocean-700
-                  transition
-                  hover:bg-white
-                "
-              >
-                Open Memories
+            </div>
 
-                <ArrowRight
-                  size={15}
-                />
-              </Link>
-            </article>
           </section>
 
-          {/* =====================================
-              QUICK ACTIONS
-          ====================================== */}
+
+
+          {/* =================================================
+
+              RATING
+
+          ================================================= */}
+
+
+
+          <section className="mt-5">
+
+            <DailyRatingTracker />
+
+          </section>
+
+
+
+          {/* =================================================
+
+              PLANNER
+
+          ================================================= */}
+
+
 
           <section
+
             className="
+
               mt-5
+
               grid
-              gap-3
-              sm:grid-cols-2
+
+              gap-5
+
+              xl:grid-cols-[1.28fr_0.72fr]
+
             "
+
           >
-            <QuickAction
-              href="/planner"
-              icon={
-                CalendarDays
-              }
-              title="Create a Plan"
-              description="Add a new date, trip, or activity."
+
+            <NextPlanCard
+
+              plan={nextPlan}
+
+              today={today}
+
             />
 
-            <QuickAction
-              href="/memories"
-              icon={
-                NotebookPen
+
+
+            <PlanProgress
+
+              total={
+
+                stats.totalPlans
+
               }
-              title="Add a Memory"
-              description="Save a story, place, and photos."
+
+              planned={
+
+                stats.plannedPlans
+
+              }
+
+              done={
+
+                stats.donePlans
+
+              }
+
+              percentage={
+
+                completionRate
+
+              }
+
             />
+
           </section>
+
+
+
+          {/* =================================================
+
+              MEMORY
+
+          ================================================= */}
+
+
+
+          <section className="mt-5">
+
+            <LatestMemoryCard
+
+              memory={
+
+                latestMemory
+
+              }
+
+            />
+
+          </section>
+
         </div>
+
       </main>
+
     </div>
+
   );
+
 }
 
-/*
- * =========================================================
- * HERO STAT
- * =========================================================
- */
 
-function HeroStat({
-  value,
-  label,
-}: {
-  value: number;
-
-  label: string;
-}) {
-  return (
-    <div
-      className="
-        min-w-[105px]
-        rounded-[20px]
-        border
-        border-white/15
-        bg-white/[0.08]
-        p-4
-        backdrop-blur-xl
-      "
-    >
-      <p
-        className="
-          font-display
-          text-3xl
-          font-semibold
-        "
-      >
-        {value}
-      </p>
-
-      <p
-        className="
-          mt-1
-          text-[9px]
-          font-bold
-          uppercase
-          tracking-[0.14em]
-          text-white/50
-        "
-      >
-        {label}
-      </p>
-    </div>
-  );
-}
 
 /*
+
  * =========================================================
- * INFO ROW
+
+ * ROTATING TYPEWRITER
+
  * =========================================================
+
  */
 
-function InfoRow({
-  icon: Icon,
-  children,
-}: {
-  icon: ElementType;
 
-  children:
-    React.ReactNode;
+
+function RotatingTypewriter({
+
+  messages,
+
+  typingSpeed = 62,
+
+  deletingSpeed = 34,
+
+  holdDuration = 2200,
+
+}: {
+
+  messages: string[];
+
+  typingSpeed?: number;
+
+  deletingSpeed?: number;
+
+  holdDuration?: number;
+
 }) {
+
+  const [
+
+    messageIndex,
+
+    setMessageIndex,
+
+  ] = useState(0);
+
+
+
+  const [
+
+    visibleText,
+
+    setVisibleText,
+
+  ] = useState("");
+
+
+
+  const [
+
+    phase,
+
+    setPhase,
+
+  ] = useState<
+
+    "typing" |
+
+    "holding" |
+
+    "deleting"
+
+  >("typing");
+
+
+
+  useEffect(() => {
+
+    if (
+
+      messages.length === 0
+
+    ) {
+
+      setVisibleText(
+
+        ""
+
+      );
+
+
+
+      setMessageIndex(
+
+        0
+
+      );
+
+
+
+      setPhase(
+
+        "typing"
+
+      );
+
+
+
+      return;
+
+    }
+
+
+
+    const currentMessage =
+
+      messages[
+
+        messageIndex %
+
+          messages.length
+
+      ];
+
+
+
+    let timeoutId:
+
+      number | undefined;
+
+
+
+    if (
+
+      phase ===
+
+      "typing"
+
+    ) {
+
+      if (
+
+        visibleText.length <
+
+        currentMessage.length
+
+      ) {
+
+        timeoutId =
+
+          window.setTimeout(
+
+            () => {
+
+              setVisibleText(
+
+                currentMessage.slice(
+
+                  0,
+
+                  visibleText.length +
+
+                    1
+
+                )
+
+              );
+
+            },
+
+            typingSpeed
+
+          );
+
+      } else {
+
+        timeoutId =
+
+          window.setTimeout(
+
+            () => {
+
+              setPhase(
+
+                "holding"
+
+              );
+
+            },
+
+            160
+
+          );
+
+      }
+
+    }
+
+
+
+    if (
+
+      phase ===
+
+      "holding"
+
+    ) {
+
+      timeoutId =
+
+        window.setTimeout(
+
+          () => {
+
+            setPhase(
+
+              "deleting"
+
+            );
+
+          },
+
+          holdDuration
+
+        );
+
+    }
+
+
+
+    if (
+
+      phase ===
+
+      "deleting"
+
+    ) {
+
+      if (
+
+        visibleText.length >
+
+        0
+
+      ) {
+
+        timeoutId =
+
+          window.setTimeout(
+
+            () => {
+
+              setVisibleText(
+
+                (current) =>
+
+                  current.slice(
+
+                    0,
+
+                    -1
+
+                  )
+
+              );
+
+            },
+
+            deletingSpeed
+
+          );
+
+      } else {
+
+        setMessageIndex(
+
+          (current) =>
+
+            (current + 1) %
+
+            messages.length
+
+        );
+
+
+
+        setPhase(
+
+          "typing"
+
+        );
+
+      }
+
+    }
+
+
+
+    return () => {
+
+      if (
+
+        timeoutId !==
+
+        undefined
+
+      ) {
+
+        window.clearTimeout(
+
+          timeoutId
+
+        );
+
+      }
+
+    };
+
+  }, [
+
+    deletingSpeed,
+
+    holdDuration,
+
+    messageIndex,
+
+    messages,
+
+    phase,
+
+    typingSpeed,
+
+    visibleText,
+
+  ]);
+
+
+
   return (
-    <div
+
+    <span
+
       className="
-        flex
-        items-start
-        gap-3
-        text-sm
-        text-ink-soft
+
+        inline-flex
+
+        items-center
+
       "
+
     >
-      <Icon
-        size={16}
-        className="
-          mt-0.5
-          shrink-0
-          text-ocean-500
-        "
-      />
 
       <span>
-        {children}
+
+        {visibleText}
+
       </span>
-    </div>
-  );
-}
 
-/*
- * =========================================================
- * MINI STAT
- * =========================================================
- */
 
-function MiniStat({
-  value,
-  label,
-}: {
-  value: number;
 
-  label: string;
-}) {
-  return (
-    <div
-      className="
-        rounded-[17px]
-        bg-ocean-50/75
-        px-3
-        py-4
-        text-center
-      "
-    >
-      <p
+      <span
+
+        aria-hidden="true"
+
         className="
-          font-display
-          text-2xl
-          font-semibold
-          text-ocean-950
+
+          ml-1
+
+          inline-block
+
+          h-[0.82em]
+
+          w-[2px]
+
+          animate-pulse
+
+          rounded-full
+
+          bg-ocean-700
+
         "
-      >
-        {value}
-      </p>
 
-      <p
-        className="
-          mt-1
-          text-[9px]
-          font-bold
-          uppercase
-          tracking-[0.1em]
-          text-ink-soft
-        "
-      >
-        {label}
-      </p>
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * COLLECTION STAT
- * =========================================================
- */
-
-function CollectionStat({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: ElementType;
-
-  value: number;
-
-  label: string;
-}) {
-  return (
-    <div
-      className="
-        rounded-[20px]
-        border
-        border-ocean-100
-        bg-ocean-50/60
-        p-4
-      "
-    >
-      <Icon
-        size={17}
-        className="
-          text-ocean-600
-        "
       />
 
-      <p
-        className="
-          mt-4
-          font-display
-          text-3xl
-          font-semibold
-          text-ocean-950
-        "
-      >
-        {value}
-      </p>
+    </span>
 
-      <p
-        className="
-          mt-1
-          text-[10px]
-          font-semibold
-          text-ink-soft
-        "
-      >
-        {label}
-      </p>
-    </div>
   );
+
 }
 
+
+
 /*
+
  * =========================================================
- * QUICK ACTION
+
+ * HERO STAT
+
  * =========================================================
+
  */
 
-function QuickAction({
-  href,
-  icon: Icon,
-  title,
-  description,
+
+
+function HeroStat({
+
+  value,
+
+  label,
+
 }: {
+
+  value: number;
+
+  label: string;
+
+}) {
+
+  return (
+
+    <div
+
+      className="
+
+        flex
+
+        min-h-[118px]
+
+        flex-col
+
+        justify-center
+
+        border-b
+
+        border-r
+
+        border-white/10
+
+        px-5
+
+        py-6
+
+        even:border-r-0
+
+        sm:border-b-0
+
+        sm:even:border-r
+
+        sm:last:border-r-0
+
+        lg:min-h-[50%]
+
+        lg:border-b
+
+        lg:even:border-r-0
+
+        lg:[&:nth-child(3)]:border-b-0
+
+        lg:[&:nth-child(4)]:border-b-0
+
+      "
+
+    >
+
+      <p
+
+        className="
+
+          font-display
+
+          text-[32px]
+
+          font-semibold
+
+          leading-none
+
+          tracking-[-0.04em]
+
+        "
+
+      >
+
+        {value}
+
+      </p>
+
+
+
+      <p
+
+        className="
+
+          mt-2.5
+
+          text-[11px]
+
+          font-medium
+
+          text-white/38
+
+        "
+
+      >
+
+        {label}
+
+      </p>
+
+    </div>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * NEXT PLAN
+
+ * =========================================================
+
+ */
+
+
+
+function NextPlanCard({
+
+  plan,
+
+  today,
+
+}: {
+
+  plan:
+
+    | NextPlan
+
+    | null;
+
+
+
+  today: string;
+
+}) {
+
+  if (!plan) {
+
+    return (
+
+      <Surface>
+
+        <div
+
+          className="
+
+            flex
+
+            min-h-[360px]
+
+            flex-col
+
+            p-7
+
+            sm:p-8
+
+          "
+
+        >
+
+          <SectionTitle>
+
+            Next Plan
+
+          </SectionTitle>
+
+
+
+          <p
+
+            className="
+
+              mt-4
+
+              text-sm
+
+              text-ink-soft
+
+            "
+
+          >
+
+            Nothing planned yet.
+
+          </p>
+
+
+
+          <div
+
+            className="
+
+              mt-auto
+
+              pt-8
+
+            "
+
+          >
+
+            <PrimaryLink
+
+              href="/planner"
+
+            >
+
+              Planner
+
+            </PrimaryLink>
+
+          </div>
+
+        </div>
+
+      </Surface>
+
+    );
+
+  }
+
+
+
+  const daysUntil =
+
+    differenceInDays(
+
+      today,
+
+      plan.planDate
+
+    );
+
+
+
+  return (
+
+    <Surface>
+
+      <div
+
+        className="
+
+          grid
+
+          min-h-[360px]
+
+          md:grid-cols-[0.94fr_1.06fr]
+
+        "
+
+      >
+
+        {/* COVER */}
+
+
+
+        <Link
+
+          href={`/planner/${plan.id}`}
+
+          className="
+
+            group
+
+            relative
+
+            min-h-[260px]
+
+            overflow-hidden
+
+            bg-ocean-100
+
+            md:min-h-full
+
+          "
+
+        >
+
+          {plan.coverUrl ? (
+
+            <Image
+
+              src={
+
+                plan.coverUrl
+
+              }
+
+              alt={
+
+                plan.title
+
+              }
+
+              fill
+
+              unoptimized
+
+              className="
+
+                object-cover
+
+                transition
+
+                duration-700
+
+                ease-out
+
+                group-hover:scale-[1.025]
+
+              "
+
+            />
+
+          ) : (
+
+            <div
+
+              className="
+
+                absolute
+
+                inset-0
+
+                bg-[linear-gradient(145deg,#0b4f71_0%,#1688b5_100%)]
+
+              "
+
+            />
+
+          )}
+
+
+
+          <div
+
+            className="
+
+              absolute
+
+              inset-0
+
+              bg-[linear-gradient(to_top,rgba(6,42,63,0.26),transparent_55%)]
+
+            "
+
+          />
+
+        </Link>
+
+
+
+        {/* CONTENT */}
+
+
+
+        <div
+
+          className="
+
+            flex
+
+            flex-col
+
+            p-7
+
+            sm:p-8
+
+            lg:p-9
+
+          "
+
+        >
+
+          <div
+
+            className="
+
+              flex
+
+              items-start
+
+              justify-between
+
+              gap-5
+
+            "
+
+          >
+
+            <p
+
+              className="
+
+                text-xs
+
+                font-medium
+
+                text-ink-soft
+
+              "
+
+            >
+
+              Next Plan
+
+            </p>
+
+
+
+            {daysUntil >= 0 && (
+
+              <p
+
+                className="
+
+                  shrink-0
+
+                  text-[11px]
+
+                  font-medium
+
+                  text-ocean-600
+
+                "
+
+              >
+
+                {getPlanDistanceLabel(
+
+                  daysUntil
+
+                )}
+
+              </p>
+
+            )}
+
+          </div>
+
+
+
+          <h2
+
+            className="
+
+              mt-3
+
+              max-w-xl
+
+              font-display
+
+              text-[30px]
+
+              font-semibold
+
+              leading-[1.1]
+
+              tracking-[-0.03em]
+
+              text-ocean-950
+
+              sm:text-[36px]
+
+            "
+
+          >
+
+            {plan.title}
+
+          </h2>
+
+
+
+          <div
+
+            className="
+
+              mt-6
+
+              space-y-1
+
+              text-sm
+
+              leading-6
+
+              text-ink-soft
+
+            "
+
+          >
+
+            <p>
+
+              {formatDateID(
+
+                plan.planDate
+
+              )}
+
+            </p>
+
+
+
+            {plan.planTime && (
+
+              <p>
+
+                {formatTime(
+
+                  plan.planTime
+
+                )}
+
+              </p>
+
+            )}
+
+
+
+            {plan.locationName && (
+
+              <p>
+
+                {
+
+                  plan.locationName
+
+                }
+
+              </p>
+
+            )}
+
+          </div>
+
+
+
+          <div
+
+            className="
+
+              mt-auto
+
+              pt-9
+
+            "
+
+          >
+
+            <PrimaryLink
+
+              href={`/planner/${plan.id}`}
+
+            >
+
+              Open
+
+            </PrimaryLink>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </Surface>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * PLAN PROGRESS
+
+ * =========================================================
+
+ */
+
+
+
+function PlanProgress({
+
+  total,
+
+  planned,
+
+  done,
+
+  percentage,
+
+}: {
+
+  total: number;
+
+  planned: number;
+
+  done: number;
+
+  percentage: number;
+
+}) {
+
+  return (
+
+    <Surface>
+
+      <div
+
+        className="
+
+          flex
+
+          min-h-[360px]
+
+          flex-col
+
+          p-7
+
+          sm:p-8
+
+          lg:p-9
+
+        "
+
+      >
+
+        <SectionTitle>
+
+          Plan Progress
+
+        </SectionTitle>
+
+
+
+        <div
+
+          className="
+
+            mt-10
+
+            flex
+
+            items-end
+
+            justify-between
+
+            gap-5
+
+          "
+
+        >
+
+          <p
+
+            className="
+
+              font-display
+
+              text-[58px]
+
+              font-semibold
+
+              leading-none
+
+              tracking-[-0.055em]
+
+              text-ocean-950
+
+            "
+
+          >
+
+            {percentage}
+
+            <span
+
+              className="
+
+                ml-1
+
+                text-2xl
+
+                text-ocean-400
+
+              "
+
+            >
+
+              %
+
+            </span>
+
+          </p>
+
+
+
+          <p
+
+            className="
+
+              pb-1
+
+              text-xs
+
+              text-ink-soft
+
+            "
+
+          >
+
+            {done}/{total}
+
+          </p>
+
+        </div>
+
+
+
+        {/* PROGRESS */}
+
+
+
+        <div
+
+          className="
+
+            mt-6
+
+            h-[6px]
+
+            overflow-hidden
+
+            rounded-full
+
+            bg-ocean-50
+
+          "
+
+        >
+
+          <div
+
+            className="
+
+              h-full
+
+              rounded-full
+
+              bg-ocean-700
+
+              transition-[width]
+
+              duration-700
+
+              ease-out
+
+            "
+
+            style={{
+
+              width:
+
+                `${Math.min(
+
+                  100,
+
+                  Math.max(
+
+                    0,
+
+                    percentage
+
+                  )
+
+                )}%`,
+
+            }}
+
+          />
+
+        </div>
+
+
+
+        {/* STATS */}
+
+
+
+        <div
+
+          className="
+
+            mt-9
+
+            grid
+
+            grid-cols-3
+
+            divide-x
+
+            divide-ocean-100
+
+          "
+
+        >
+
+          <ProgressStat
+
+            value={total}
+
+            label="Total"
+
+          />
+
+
+
+          <ProgressStat
+
+            value={planned}
+
+            label="Planned"
+
+          />
+
+
+
+          <ProgressStat
+
+            value={done}
+
+            label="Done"
+
+          />
+
+        </div>
+
+
+
+        <div
+
+          className="
+
+            mt-auto
+
+            pt-9
+
+          "
+
+        >
+
+          <PrimaryLink
+
+            href="/planner"
+
+          >
+
+            Planner
+
+          </PrimaryLink>
+
+        </div>
+
+      </div>
+
+    </Surface>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * LATEST MEMORY
+
+ * =========================================================
+
+ */
+
+
+
+function LatestMemoryCard({
+
+  memory,
+
+}: {
+
+  memory:
+
+    | LatestMemory
+
+    | null;
+
+}) {
+
+  if (!memory) {
+
+    return (
+
+      <Surface>
+
+        <div
+
+          className="
+
+            flex
+
+            min-h-[270px]
+
+            flex-col
+
+            p-7
+
+            sm:p-8
+
+          "
+
+        >
+
+          <SectionTitle>
+
+            Latest Memory
+
+          </SectionTitle>
+
+
+
+          <p
+
+            className="
+
+              mt-4
+
+              text-sm
+
+              text-ink-soft
+
+            "
+
+          >
+
+            No memories yet.
+
+          </p>
+
+
+
+          <div
+
+            className="
+
+              mt-auto
+
+              pt-9
+
+            "
+
+          >
+
+            <PrimaryLink
+
+              href="/memories"
+
+            >
+
+              Memories
+
+            </PrimaryLink>
+
+          </div>
+
+        </div>
+
+      </Surface>
+
+    );
+
+  }
+
+
+
+  return (
+
+    <Surface>
+
+      <div
+
+        className="
+
+          grid
+
+          md:grid-cols-[380px_1fr]
+
+          xl:grid-cols-[440px_1fr]
+
+        "
+
+      >
+
+        {/* IMAGE */}
+
+
+
+        <Link
+
+          href={`/memories/${memory.id}`}
+
+          className="
+
+            group
+
+            relative
+
+            min-h-[320px]
+
+            overflow-hidden
+
+            bg-ocean-100
+
+          "
+
+        >
+
+          {memory.coverUrl ? (
+
+            <Image
+
+              src={
+
+                memory.coverUrl
+
+              }
+
+              alt={
+
+                memory.title
+
+              }
+
+              fill
+
+              unoptimized
+
+              className="
+
+                object-cover
+
+                transition
+
+                duration-700
+
+                ease-out
+
+                group-hover:scale-[1.025]
+
+              "
+
+            />
+
+          ) : (
+
+            <div
+
+              className="
+
+                absolute
+
+                inset-0
+
+                bg-[linear-gradient(145deg,#0b4f71_0%,#67c5e2_100%)]
+
+              "
+
+            />
+
+          )}
+
+
+
+          <div
+
+            className="
+
+              absolute
+
+              inset-0
+
+              bg-[linear-gradient(to_top,rgba(6,42,63,0.22),transparent_55%)]
+
+            "
+
+          />
+
+
+
+          {memory.photoCount > 0 && (
+
+            <p
+
+              className="
+
+                absolute
+
+                bottom-5
+
+                left-5
+
+                rounded-full
+
+                bg-black/25
+
+                px-3
+
+                py-1.5
+
+                text-[10px]
+
+                font-medium
+
+                text-white
+
+                backdrop-blur-lg
+
+              "
+
+            >
+
+              {memory.photoCount}{" "}
+
+              {memory.photoCount ===
+
+              1
+
+                ? "photo"
+
+                : "photos"}
+
+            </p>
+
+          )}
+
+        </Link>
+
+
+
+        {/* CONTENT */}
+
+
+
+        <div
+
+          className="
+
+            flex
+
+            min-h-[320px]
+
+            flex-col
+
+            p-7
+
+            sm:p-8
+
+            lg:p-10
+
+          "
+
+        >
+
+          <p
+
+            className="
+
+              text-xs
+
+              font-medium
+
+              text-ink-soft
+
+            "
+
+          >
+
+            Latest Memory
+
+          </p>
+
+
+
+          <h2
+
+            className="
+
+              mt-3
+
+              max-w-3xl
+
+              font-display
+
+              text-[30px]
+
+              font-semibold
+
+              leading-[1.1]
+
+              tracking-[-0.03em]
+
+              text-ocean-950
+
+              sm:text-[38px]
+
+            "
+
+          >
+
+            {memory.title}
+
+          </h2>
+
+
+
+          <div
+
+            className="
+
+              mt-4
+
+              flex
+
+              flex-wrap
+
+              items-center
+
+              gap-x-2
+
+              gap-y-1
+
+              text-xs
+
+              text-ink-soft
+
+            "
+
+          >
+
+            <span>
+
+              {formatDateID(
+
+                memory.memoryDate
+
+              )}
+
+            </span>
+
+
+
+            {memory.memoryTime && (
+
+              <>
+
+                <MetaDot />
+
+
+
+                <span>
+
+                  {formatTime(
+
+                    memory.memoryTime
+
+                  )}
+
+                </span>
+
+              </>
+
+            )}
+
+
+
+            {memory.locationName && (
+
+              <>
+
+                <MetaDot />
+
+
+
+                <span>
+
+                  {
+
+                    memory.locationName
+
+                  }
+
+                </span>
+
+              </>
+
+            )}
+
+          </div>
+
+
+
+          {memory.story && (
+
+            <p
+
+              className="
+
+                mt-7
+
+                max-w-3xl
+
+                line-clamp-3
+
+                whitespace-pre-line
+
+                text-sm
+
+                leading-7
+
+                text-ink-soft
+
+              "
+
+            >
+
+              {memory.story}
+
+            </p>
+
+          )}
+
+
+
+          <div
+
+            className="
+
+              mt-auto
+
+              pt-9
+
+            "
+
+          >
+
+            <PrimaryLink
+
+              href={`/memories/${memory.id}`}
+
+            >
+
+              Open
+
+            </PrimaryLink>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </Surface>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * SECTION TITLE
+
+ * =========================================================
+
+ */
+
+
+
+function SectionTitle({
+
+  children,
+
+}: {
+
+  children: ReactNode;
+
+}) {
+
+  return (
+
+    <h2
+
+      className="
+
+        font-display
+
+        text-[25px]
+
+        font-semibold
+
+        leading-tight
+
+        tracking-[-0.025em]
+
+        text-ocean-950
+
+      "
+
+    >
+
+      {children}
+
+    </h2>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * PROGRESS STAT
+
+ * =========================================================
+
+ */
+
+
+
+function ProgressStat({
+
+  value,
+
+  label,
+
+}: {
+
+  value: number;
+
+  label: string;
+
+}) {
+
+  return (
+
+    <div
+
+      className="
+
+        px-4
+
+        first:pl-0
+
+        last:pr-0
+
+      "
+
+    >
+
+      <p
+
+        className="
+
+          font-display
+
+          text-2xl
+
+          font-semibold
+
+          leading-none
+
+          tracking-[-0.025em]
+
+          text-ocean-950
+
+        "
+
+      >
+
+        {value}
+
+      </p>
+
+
+
+      <p
+
+        className="
+
+          mt-2
+
+          text-[11px]
+
+          text-ink-soft
+
+        "
+
+      >
+
+        {label}
+
+      </p>
+
+    </div>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * META DOT
+
+ * =========================================================
+
+ */
+
+
+
+function MetaDot() {
+
+  return (
+
+    <span
+
+      className="
+
+        h-[3px]
+
+        w-[3px]
+
+        rounded-full
+
+        bg-ocean-300
+
+      "
+
+    />
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * SURFACE
+
+ * =========================================================
+
+ */
+
+
+
+function Surface({
+
+  children,
+
+}: {
+
+  children: ReactNode;
+
+}) {
+
+  return (
+
+    <article
+
+      className="
+
+        overflow-hidden
+
+        rounded-[30px]
+
+        border
+
+        border-ocean-100/70
+
+        bg-white/80
+
+        shadow-[0_16px_50px_rgba(8,59,89,0.045)]
+
+        backdrop-blur-xl
+
+      "
+
+    >
+
+      {children}
+
+    </article>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * PRIMARY BUTTON
+
+ * =========================================================
+
+ */
+
+
+
+function PrimaryLink({
+
+  href,
+
+  children,
+
+}: {
+
   href: string;
 
-  icon: ElementType;
+  children: ReactNode;
 
-  title: string;
-
-  description: string;
 }) {
+
   return (
+
     <Link
+
       href={href}
+
+      style={{
+
+        color: "#ffffff",
+
+      }}
+
       className="
-        glass-card
+
         group
-        flex
+
+        inline-flex
+
         items-center
-        gap-4
-        rounded-[24px]
-        p-5
+
+        gap-2.5
+
+        rounded-[13px]
+
+        bg-ocean-800
+
+        px-5
+
+        py-2.5
+
+        text-sm
+
+        font-semibold
+
+        shadow-[0_8px_20px_rgba(8,59,89,0.13)]
+
         transition
-        hover:-translate-y-0.5
-        hover:shadow-love
+
+        duration-200
+
+        hover:bg-ocean-900
+
+        active:scale-[0.98]
+
       "
+
     >
-      <div
-        className="
-          flex
-          h-12
-          w-12
-          shrink-0
-          items-center
-          justify-center
-          rounded-[16px]
-          bg-ocean-100
-          text-ocean-700
-          transition
-          group-hover:bg-ocean-700
-          group-hover:text-white
-        "
-      >
-        <Icon
-          size={20}
-        />
-      </div>
 
-      <div
-        className="
-          min-w-0
-          flex-1
-        "
-      >
-        <p
-          className="
-            font-semibold
-            text-ocean-950
-          "
-        >
-          {title}
-        </p>
+      <span>
 
-        <p
-          className="
-            mt-1
-            text-xs
-            text-ink-soft
-          "
-        >
-          {description}
-        </p>
-      </div>
+        {children}
+
+      </span>
+
+
 
       <ArrowRight
-        size={17}
+
+        size={15}
+
+        strokeWidth={1.8}
+
         className="
-          shrink-0
-          text-ocean-400
-          transition
-          group-hover:translate-x-1
-          group-hover:text-ocean-700
+
+          transition-transform
+
+          duration-200
+
+          group-hover:translate-x-0.5
+
         "
+
       />
+
     </Link>
+
   );
+
 }
 
-/*
- * =========================================================
- * EMPTY NEXT PLAN
- * =========================================================
- */
 
-function EmptyNextPlan() {
-  return (
-    <div
-      className="
-        flex
-        min-h-[320px]
-        flex-col
-        items-center
-        justify-center
-        px-6
-        py-12
-        text-center
-      "
-    >
-      <div
-        className="
-          flex
-          h-14
-          w-14
-          items-center
-          justify-center
-          rounded-[19px]
-          bg-ocean-100
-          text-ocean-600
-        "
-      >
-        <CalendarDays
-          size={24}
-        />
-      </div>
-
-      <h2
-        className="
-          mt-5
-          font-display
-          text-2xl
-          font-semibold
-          text-ocean-950
-        "
-      >
-        No upcoming plan
-      </h2>
-
-      <p
-        className="
-          mt-2
-          max-w-sm
-          text-sm
-          leading-6
-          text-ink-soft
-        "
-      >
-        Belum ada plan mendatang
-        yang berstatus Planned.
-      </p>
-
-      <Link
-        href="/planner"
-        className="
-          love-button
-          mt-6
-          flex
-          items-center
-          gap-2
-          rounded-[15px]
-          px-4
-          py-3
-          text-sm
-          font-semibold
-        "
-      >
-        <Plus
-          size={16}
-        />
-
-        Add Plan
-      </Link>
-    </div>
-  );
-}
 
 /*
+
  * =========================================================
- * EMPTY MEMORY
+
+ * PLAN DISTANCE
+
  * =========================================================
+
  */
 
-function EmptyLatestMemory() {
-  return (
-    <div
-      className="
-        flex
-        min-h-[320px]
-        flex-col
-        items-center
-        justify-center
-        px-6
-        py-12
-        text-center
-      "
-    >
-      <div
-        className="
-          flex
-          h-14
-          w-14
-          items-center
-          justify-center
-          rounded-[19px]
-          bg-ocean-100
-          text-ocean-600
-        "
-      >
-        <Heart
-          size={24}
-        />
-      </div>
 
-      <h2
-        className="
-          mt-5
-          font-display
-          text-2xl
-          font-semibold
-          text-ocean-950
-        "
-      >
-        No memories yet
-      </h2>
 
-      <p
-        className="
-          mt-2
-          max-w-sm
-          text-sm
-          leading-6
-          text-ink-soft
-        "
-      >
-        Memory terbaru akan
-        muncul di sini setelah
-        ditambahkan.
-      </p>
+function getPlanDistanceLabel(
 
-      <Link
-        href="/memories"
-        className="
-          mt-6
-          flex
-          items-center
-          gap-2
-          rounded-[15px]
-          bg-ocean-700
-          px-4
-          py-3
-          text-sm
-          font-semibold
-          text-white
-          transition
-          hover:bg-ocean-800
-        "
-      >
-        Open Memories
+  days: number
 
-        <ArrowRight
-          size={15}
-        />
-      </Link>
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * DAYS TOGETHER
- * =========================================================
- */
-
-function calculateDaysTogether(
-  anniversaryDate: string
 ) {
+
+  if (days === 0) {
+
+    return "Today";
+
+  }
+
+
+
+  if (days === 1) {
+
+    return "Tomorrow";
+
+  }
+
+
+
+  return `In ${days} days`;
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * ANNIVERSARY
+
+ * =========================================================
+
+ */
+
+
+
+function getAnniversaryMeta(
+
+  anniversaryDate: string,
+
+  today: string
+
+) {
+
   const [
-    year,
+
+    anniversaryYear,
+
     month,
+
     day,
+
   ] =
+
     anniversaryDate
+
       .split("-")
+
       .map(Number);
 
-  const anniversary =
-    Date.UTC(
-      year,
-      month - 1,
+
+
+  const [
+
+    currentYear,
+
+  ] =
+
+    today
+
+      .split("-")
+
+      .map(Number);
+
+
+
+  const monthKey =
+
+    String(
+
+      month
+
+    ).padStart(
+
+      2,
+
+      "0"
+
+    );
+
+
+
+  const dayKey =
+
+    String(
+
       day
+
+    ).padStart(
+
+      2,
+
+      "0"
+
     );
 
-  const now =
-    new Date();
 
-  const today =
-    Date.UTC(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
+
+  const anniversaryThisYear =
+
+    `${currentYear}-${monthKey}-${dayKey}`;
+
+
+
+  const nextDate =
+
+    anniversaryThisYear >=
+
+    today
+
+      ? anniversaryThisYear
+
+      : `${currentYear + 1}-${monthKey}-${dayKey}`;
+
+
+
+  const nextYear =
+
+    Number(
+
+      nextDate.slice(
+
+        0,
+
+        4
+
+      )
+
     );
 
-  const difference =
-    today -
-    anniversary;
 
-  return Math.max(
-    0,
-    Math.floor(
-      difference /
-        (
-          1000 *
-          60 *
-          60 *
-          24
+
+  return {
+
+    nextDate,
+
+
+
+    years:
+
+      nextYear -
+
+      anniversaryYear,
+
+
+
+    daysUntil:
+
+      Math.max(
+
+        0,
+
+        differenceInDays(
+
+          today,
+
+          nextDate
+
         )
-    )
-  );
-}
 
-/*
- * =========================================================
- * FORMAT DATE
- * =========================================================
- */
+      ),
 
-function formatDate(
-  value: string
-) {
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day:
-        "numeric",
+  };
 
-      month:
-        "long",
-
-      year:
-        "numeric",
-    }
-  ).format(
-    new Date(
-      `${value}T00:00:00`
-    )
-  );
-}
-
-/*
- * =========================================================
- * FORMAT TIME
- * =========================================================
- */
-
-function formatTime(
-  value: string
-) {
-  return value.slice(
-    0,
-    5
-  );
 }

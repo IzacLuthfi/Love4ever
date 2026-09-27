@@ -3,20 +3,18 @@
 "use client";
 
 import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+  X,
+} from "lucide-react";
 
-type CameraSide =
-  | "user"
-  | "environment";
+import { useCamera } from "@/hooks/useCamera";
 
 type CameraCaptureModalProps = {
-  onClose: () => void;
+  onClose:
+    () => void;
 
   onCapture: (
-    file: File
+    file:
+      File
   ) => void;
 };
 
@@ -24,285 +22,33 @@ export default function CameraCaptureModal({
   onClose,
   onCapture,
 }: CameraCaptureModalProps) {
-  const videoRef =
-    useRef<HTMLVideoElement | null>(
-      null
-    );
-
-  const canvasRef =
-    useRef<HTMLCanvasElement | null>(
-      null
-    );
-
-  const streamRef =
-    useRef<MediaStream | null>(
-      null
-    );
-
-  const [
+  const {
+    videoRef,
+    canvasRef,
     cameraSide,
-    setCameraSide,
-  ] =
-    useState<CameraSide>(
-      "environment"
-    );
-
-  const [
     loading,
-    setLoading,
-  ] =
-    useState(true);
-
-  const [
     error,
-    setError,
-  ] =
-    useState<string | null>(
-      null
-    );
+    isSupported,
+    setCameraSide,
+    stopCamera,
+    capturePhoto,
+  } =
+    useCamera({
+      initialSide:
+        "environment",
 
-  /*
-   * =========================================================
-   * STOP CAMERA
-   * =========================================================
-   */
+      autoStart:
+        true,
 
-  const stopCamera =
-    () => {
-      streamRef.current
-        ?.getTracks()
-        .forEach(
-          (track) => {
-            track.stop();
-          }
-        );
+      idealWidth:
+        1920,
 
-      streamRef.current =
-        null;
-    };
+      idealHeight:
+        1080,
 
-  /*
-   * =========================================================
-   * START CAMERA
-   * =========================================================
-   */
-
-  const startCamera =
-    async (
-      side:
-        CameraSide
-    ) => {
-      stopCamera();
-
-      setLoading(
-        true
-      );
-
-      setError(
-        null
-      );
-
-      try {
-        if (
-          !navigator.mediaDevices ||
-          !navigator.mediaDevices
-            .getUserMedia
-        ) {
-          throw new Error(
-            "Browser ini tidak mendukung akses kamera."
-          );
-        }
-
-        const stream =
-          await navigator.mediaDevices.getUserMedia(
-            {
-              audio:
-                false,
-
-              video: {
-                facingMode: {
-                  ideal:
-                    side,
-                },
-
-                width: {
-                  ideal:
-                    1920,
-                },
-
-                height: {
-                  ideal:
-                    1080,
-                },
-              },
-            }
-          );
-
-        streamRef.current =
-          stream;
-
-        if (
-          videoRef.current
-        ) {
-          videoRef.current.srcObject =
-            stream;
-
-          await videoRef.current.play();
-        }
-      } catch (cameraError) {
-        console.error(
-          "Camera error:",
-          cameraError
-        );
-
-        setError(
-          cameraError instanceof
-            Error
-            ? cameraError.message
-            : "Kamera tidak dapat dibuka."
-        );
-      } finally {
-        setLoading(
-          false
-        );
-      }
-    };
-
-  /*
-   * =========================================================
-   * CAMERA SIDE
-   * =========================================================
-   */
-
-  useEffect(() => {
-    void startCamera(
-      cameraSide
-    );
-
-    return () => {
-      stopCamera();
-    };
-  }, [cameraSide]);
-
-  /*
-   * =========================================================
-   * SWITCH CAMERA
-   * =========================================================
-   */
-
-  const handleSwitchCamera =
-    (
-      side:
-        CameraSide
-    ) => {
-      if (
-        cameraSide ===
-        side
-      ) {
-        return;
-      }
-
-      setCameraSide(
-        side
-      );
-    };
-
-  /*
-   * =========================================================
-   * CAPTURE
-   * =========================================================
-   */
-
-  const handleCapture =
-    () => {
-      const video =
-        videoRef.current;
-
-      const canvas =
-        canvasRef.current;
-
-      if (
-        !video ||
-        !canvas ||
-        video.videoWidth ===
-          0 ||
-        video.videoHeight ===
-          0
-      ) {
-        return;
-      }
-
-      canvas.width =
-        video.videoWidth;
-
-      canvas.height =
-        video.videoHeight;
-
-      const context =
-        canvas.getContext(
-          "2d"
-        );
-
-      if (!context) {
-        return;
-      }
-
-      /*
-       * Selfie dibuat mirror agar
-       * hasilnya sama seperti preview.
-       */
-
-      if (
-        cameraSide ===
-        "user"
-      ) {
-        context.translate(
-          canvas.width,
-          0
-        );
-
-        context.scale(
-          -1,
-          1
-        );
-      }
-
-      context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            return;
-          }
-
-          const file =
-            new File(
-              [
-                blob,
-              ],
-              `camera-${Date.now()}.jpg`,
-              {
-                type:
-                  "image/jpeg",
-              }
-            );
-
-          stopCamera();
-
-          onCapture(
-            file
-          );
-        },
-        "image/jpeg",
-        0.92
-      );
-    };
+      jpegQuality:
+        0.92,
+    });
 
   /*
    * =========================================================
@@ -317,17 +63,44 @@ export default function CameraCaptureModal({
       onClose();
     };
 
+  /*
+   * =========================================================
+   * CAPTURE
+   * =========================================================
+   */
+
+  const handleCapture =
+    async () => {
+      const file =
+        await capturePhoto();
+
+      if (!file) {
+        return;
+      }
+
+      stopCamera();
+
+      onCapture(
+        file
+      );
+    };
+
+  /*
+   * =========================================================
+   * UI
+   * =========================================================
+   */
+
   return (
     <div
       className="
         fixed
         inset-0
-        z-[1600]
+        z-[1800]
         flex
         items-center
         justify-center
         bg-black
-        p-0
         sm:bg-black/90
         sm:p-5
       "
@@ -338,130 +111,126 @@ export default function CameraCaptureModal({
           flex
           h-[100svh]
           w-full
-          max-w-[900px]
+          max-w-[960px]
           flex-col
           overflow-hidden
           bg-black
-          sm:h-auto
-          sm:max-h-[92svh]
-          sm:rounded-[26px]
+          sm:h-[92svh]
+          sm:rounded-[30px]
+          sm:shadow-[0_30px_100px_rgba(0,0,0,0.45)]
         "
       >
-        {/* HEADER */}
+        {/* =================================================
+            TOP
+        ================================================= */}
 
         <div
           className="
+            pointer-events-none
             absolute
             inset-x-0
             top-0
-            z-20
+            z-30
             flex
             items-center
             justify-between
             bg-gradient-to-b
-            from-black/70
+            from-black/65
+            via-black/20
             to-transparent
-            px-5
-            pb-10
-            pt-5
+            px-4
+            pb-16
+            pt-4
+            sm:px-5
+            sm:pt-5
           "
         >
+          {/* CAMERA SIDE */}
+
           <div
             className="
+              pointer-events-auto
               flex
               rounded-full
-              bg-black/35
+              border
+              border-white/10
+              bg-black/25
               p-1
               backdrop-blur-xl
             "
           >
-            <button
-              type="button"
+            <CameraSideButton
+              active={
+                cameraSide ===
+                "user"
+              }
               onClick={() =>
-                handleSwitchCamera(
+                setCameraSide(
                   "user"
                 )
               }
-              className={`
-                rounded-full
-                px-4
-                py-2
-                text-xs
-                font-semibold
-                transition
-                ${
-                  cameraSide ===
-                  "user"
-                    ? "bg-white text-black"
-                    : "text-white"
-                }
-              `}
             >
-              Depan
-            </button>
+              Front
+            </CameraSideButton>
 
-            <button
-              type="button"
+            <CameraSideButton
+              active={
+                cameraSide ===
+                "environment"
+              }
               onClick={() =>
-                handleSwitchCamera(
+                setCameraSide(
                   "environment"
                 )
               }
-              className={`
-                rounded-full
-                px-4
-                py-2
-                text-xs
-                font-semibold
-                transition
-                ${
-                  cameraSide ===
-                  "environment"
-                    ? "bg-white text-black"
-                    : "text-white"
-                }
-              `}
             >
-              Belakang
-            </button>
+              Back
+            </CameraSideButton>
           </div>
+
+          {/* CLOSE */}
 
           <button
             type="button"
             onClick={
               handleClose
             }
+            aria-label="Close camera"
             className="
+              pointer-events-auto
               flex
               h-10
               w-10
               items-center
               justify-center
               rounded-full
-              bg-black/35
-              text-xl
+              border
+              border-white/10
+              bg-black/25
               text-white
               backdrop-blur-xl
+              transition
+              hover:bg-black/45
             "
-            aria-label="Close camera"
           >
-            ×
+            <X
+              size={18}
+              strokeWidth={1.8}
+            />
           </button>
         </div>
 
-        {/* CAMERA */}
+        {/* =================================================
+            VIEW
+        ================================================= */}
 
         <div
           className="
             relative
-            flex
             min-h-0
             flex-1
-            items-center
-            justify-center
             overflow-hidden
             bg-black
-            sm:aspect-[4/3]
           "
         >
           <video
@@ -475,6 +244,7 @@ export default function CameraCaptureModal({
               h-full
               w-full
               object-cover
+
               ${
                 cameraSide ===
                 "user"
@@ -483,6 +253,8 @@ export default function CameraCaptureModal({
               }
             `}
           />
+
+          {/* LOADING */}
 
           {loading && (
             <div
@@ -493,54 +265,60 @@ export default function CameraCaptureModal({
                 items-center
                 justify-center
                 bg-black
-                text-sm
-                text-white/70
               "
             >
-              Membuka kamera...
+              <div
+                className="
+                  h-7
+                  w-7
+                  animate-spin
+                  rounded-full
+                  border-2
+                  border-white/20
+                  border-t-white/80
+                "
+              />
             </div>
           )}
+
+          {/* UNSUPPORTED */}
+
+          {!isSupported && (
+            <CameraMessage>
+              Camera unavailable.
+            </CameraMessage>
+          )}
+
+          {/* ERROR */}
 
           {error && (
-            <div
-              className="
-                absolute
-                inset-0
-                flex
-                items-center
-                justify-center
-                bg-black
-                px-8
-                text-center
-              "
-            >
-              <div>
-                <p
-                  className="
-                    text-sm
-                    font-semibold
-                    text-white
-                  "
-                >
-                  Kamera tidak dapat dibuka
-                </p>
-
-                <p
-                  className="
-                    mt-2
-                    text-xs
-                    leading-6
-                    text-white/55
-                  "
-                >
-                  {error}
-                </p>
-              </div>
-            </div>
+            <CameraMessage>
+              {error}
+            </CameraMessage>
           )}
+
+          {/* SUBTLE FRAME */}
+
+          {!loading &&
+            !error &&
+            isSupported && (
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  inset-5
+                  rounded-[24px]
+                  border
+                  border-white/[0.06]
+                  sm:inset-8
+                "
+              />
+            )}
         </div>
 
-        {/* SHUTTER */}
+        {/* =================================================
+            SHUTTER
+        ================================================= */}
 
         <div
           className="
@@ -551,36 +329,41 @@ export default function CameraCaptureModal({
             bg-black
             px-5
             py-7
+            sm:py-8
           "
         >
           <button
             type="button"
-            onClick={
-              handleCapture
+            onClick={() =>
+              void handleCapture()
             }
             disabled={
               loading ||
               Boolean(
                 error
-              )
+              ) ||
+              !isSupported
             }
             aria-label="Take photo"
             className="
               flex
-              h-[74px]
-              w-[74px]
+              h-[76px]
+              w-[76px]
               items-center
               justify-center
               rounded-full
-              border-[4px]
+              border-[3px]
               border-white
-              disabled:opacity-40
+              transition
+              duration-150
+              active:scale-95
+              disabled:opacity-25
             "
           >
             <span
               className="
-                h-[58px]
-                w-[58px]
+                h-[62px]
+                w-[62px]
                 rounded-full
                 bg-white
                 transition
@@ -597,6 +380,92 @@ export default function CameraCaptureModal({
           className="hidden"
         />
       </div>
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * CAMERA SIDE
+ * =========================================================
+ */
+
+function CameraSideButton({
+  active,
+  onClick,
+  children,
+}: {
+  active:
+    boolean;
+
+  onClick:
+    () => void;
+
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className={`
+        rounded-full
+        px-4
+        py-2
+        text-xs
+        font-medium
+        transition
+        duration-200
+
+        ${
+          active
+            ? "bg-white text-black"
+            : "text-white/60 hover:text-white"
+        }
+      `}
+    >
+      {children}
+    </button>
+  );
+}
+
+/*
+ * =========================================================
+ * MESSAGE
+ * =========================================================
+ */
+
+function CameraMessage({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <div
+      className="
+        absolute
+        inset-0
+        flex
+        items-center
+        justify-center
+        bg-black
+        px-8
+        text-center
+      "
+    >
+      <p
+        className="
+          max-w-sm
+          text-sm
+          leading-6
+          text-white/60
+        "
+      >
+        {children}
+      </p>
     </div>
   );
 }

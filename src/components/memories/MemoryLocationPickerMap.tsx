@@ -17,8 +17,11 @@ import {
 } from "react-leaflet";
 
 type MemoryLocationPickerMapProps = {
-  latitude: number | null;
-  longitude: number | null;
+  latitude:
+    number | null;
+
+  longitude:
+    number | null;
 
   onChange: (
     latitude: number,
@@ -26,11 +29,23 @@ type MemoryLocationPickerMapProps = {
   ) => void;
 };
 
+/*
+ * =========================================================
+ * DEFAULT
+ * =========================================================
+ */
+
 const DEFAULT_CENTER:
   [number, number] = [
     -2.5489,
     118.0149,
   ];
+
+/*
+ * =========================================================
+ * MARKER
+ * =========================================================
+ */
 
 const pickerIcon =
   L.divIcon({
@@ -40,43 +55,42 @@ const pickerIcon =
     html: `
       <div
         style="
-          width:40px;
-          height:40px;
+          width:34px;
+          height:34px;
           display:flex;
           align-items:center;
           justify-content:center;
-          border-radius:15px 15px 15px 4px;
-          transform:rotate(-45deg);
-          background:linear-gradient(
-            135deg,
-            #0b4f71,
-            #2ca6cf
-          );
+          border-radius:50%;
+          background:#062a3f;
           border:3px solid white;
           box-shadow:
-            0 9px 25px
-            rgba(11,79,113,.30);
+            0 8px 24px
+            rgba(6,42,63,.28);
         "
       >
         <div
           style="
-            transform:rotate(45deg);
-            color:white;
-            font-size:18px;
-            line-height:1;
+            width:8px;
+            height:8px;
+            border-radius:50%;
+            background:white;
           "
-        >
-          ♥
-        </div>
+        ></div>
       </div>
     `,
 
     iconSize:
-      [40, 40],
+      [34, 34],
 
     iconAnchor:
-      [20, 40],
+      [17, 17],
   });
+
+/*
+ * =========================================================
+ * COMPONENT
+ * =========================================================
+ */
 
 export default function MemoryLocationPickerMap({
   latitude,
@@ -84,8 +98,10 @@ export default function MemoryLocationPickerMap({
   onChange,
 }: MemoryLocationPickerMapProps) {
   const hasLocation =
-    latitude !== null &&
-    longitude !== null;
+    latitude !==
+      null &&
+    longitude !==
+      null;
 
   const center:
     [number, number] =
@@ -99,11 +115,11 @@ export default function MemoryLocationPickerMap({
   return (
     <div
       className="
-        h-[320px]
+        h-[330px]
         w-full
         overflow-hidden
         bg-ocean-50
-        sm:h-[360px]
+        sm:h-[370px]
       "
     >
       <MapContainer
@@ -159,7 +175,7 @@ export default function MemoryLocationPickerMap({
 
 /*
  * =========================================================
- * CLICK HANDLER
+ * CLICK
  * =========================================================
  */
 
@@ -185,7 +201,7 @@ function MapClickHandler({
 
 /*
  * =========================================================
- * MAP POSITION SYNC
+ * POSITION
  * =========================================================
  */
 
@@ -193,16 +209,21 @@ function MapPositionSync({
   latitude,
   longitude,
 }: {
-  latitude: number | null;
-  longitude: number | null;
+  latitude:
+    number | null;
+
+  longitude:
+    number | null;
 }) {
   const map =
     useMap();
 
   useEffect(() => {
     if (
-      latitude === null ||
-      longitude === null
+      latitude ===
+        null ||
+      longitude ===
+        null
     ) {
       return;
     }
@@ -214,8 +235,11 @@ function MapPositionSync({
       ],
       15,
       {
-        animate: true,
-        duration: 0.8,
+        animate:
+          true,
+
+        duration:
+          0.65,
       }
     );
   }, [

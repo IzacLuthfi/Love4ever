@@ -4,8 +4,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
+
 import {
   type ChangeEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useState,
@@ -13,25 +15,19 @@ import {
 
 import {
   ArrowLeft,
-  CalendarDays,
+  ArrowRight,
   Check,
-  CheckCircle2,
-  Clock3,
-  ExternalLink,
-  Heart,
   ImagePlus,
-  MapPin,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
-  WalletCards,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+
 import { createClient } from "@/lib/supabase/client";
 
 /*
@@ -49,19 +45,15 @@ type PlanDetail = {
   id: string;
 
   couple_id: string;
-
   created_by: string;
 
   title: string;
-
   description: string | null;
 
   plan_date: string;
-
   plan_time: string | null;
 
   location_name: string | null;
-
   maps_url: string | null;
 
   budget: number | null;
@@ -69,21 +61,17 @@ type PlanDetail = {
   status: PlanStatus;
 
   cover_path: string | null;
-
   completed_at: string | null;
 
   created_at: string;
-
   updated_at: string;
 };
 
 type PlanTask = {
   id: string;
-
   plan_id: string;
 
   title: string;
-
   is_completed: boolean;
 
   created_at: string;
@@ -91,39 +79,32 @@ type PlanTask = {
 
 type PlannerUser = {
   id: string;
-
   email: string;
-
   fullName: string;
-
   nickname: string;
-
   avatarUrl: string | null;
 };
 
 type PlanDetailClientProps = {
   user: PlannerUser;
 
-  initialPlan: PlanDetail;
+  initialPlan:
+    PlanDetail;
 
-  initialTasks: PlanTask[];
+  initialTasks:
+    PlanTask[];
 
   initialCoverUrl:
-    | string
-    | null;
+    string | null;
 
   initialMemoryId:
-    | string
-    | null;
+    string | null;
 };
 
 type Countdown = {
   days: number;
-
   hours: number;
-
   minutes: number;
-
   seconds: number;
 
   finished: boolean;
@@ -142,12 +123,18 @@ export default function PlanDetailClient({
   initialCoverUrl,
   initialMemoryId,
 }: PlanDetailClientProps) {
-  const [plan, setPlan] =
+  const [
+    plan,
+    setPlan,
+  ] =
     useState<PlanDetail>(
       initialPlan
     );
 
-  const [tasks, setTasks] =
+  const [
+    tasks,
+    setTasks,
+  ] =
     useState<PlanTask[]>(
       initialTasks
     );
@@ -155,35 +142,39 @@ export default function PlanDetailClient({
   const [
     coverUrl,
     setCoverUrl,
-  ] = useState<
-    string | null
-  >(
-    initialCoverUrl
-  );
+  ] =
+    useState<
+      string | null
+    >(
+      initialCoverUrl
+    );
 
   const [
     memoryId,
     setMemoryId,
-  ] = useState<
-    string | null
-  >(
-    initialMemoryId
-  );
+  ] =
+    useState<
+      string | null
+    >(
+      initialMemoryId
+    );
 
   const [
     isUploading,
     setIsUploading,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     countdown,
     setCountdown,
-  ] = useState<Countdown>(
-    () =>
-      calculateCountdown(
-        initialPlan
-      )
-  );
+  ] =
+    useState<Countdown>(
+      () =>
+        calculateCountdown(
+          initialPlan
+        )
+    );
 
   /*
    * =========================================================
@@ -219,9 +210,15 @@ export default function PlanDetailClient({
 
   /*
    * =========================================================
-   * CHECKLIST PROGRESS
+   * PROGRESS
    * =========================================================
    */
+
+  const completedTasks =
+    tasks.filter(
+      (task) =>
+        task.is_completed
+    ).length;
 
   const progress =
     useMemo(() => {
@@ -232,26 +229,16 @@ export default function PlanDetailClient({
         return 0;
       }
 
-      const completed =
-        tasks.filter(
-          (task) =>
-            task.is_completed
-        ).length;
-
       return Math.round(
         (
-          completed /
+          completedTasks /
           tasks.length
-        ) *
-          100
+        ) * 100
       );
-    }, [tasks]);
-
-  const completedTasks =
-    tasks.filter(
-      (task) =>
-        task.is_completed
-    ).length;
+    }, [
+      completedTasks,
+      tasks.length,
+    ]);
 
   /*
    * =========================================================
@@ -264,37 +251,38 @@ export default function PlanDetailClient({
       const result =
         await Swal.fire({
           title:
-            "Tambah Checklist",
+            "New Task",
 
-          input: "text",
-
-          inputLabel:
-            "Apa yang harus disiapkan?",
+          input:
+            "text",
 
           inputPlaceholder:
-            "Contoh: Bawa kamera",
+            "What needs to be prepared?",
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Tambah",
+            "Add",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
 
-          cancelButtonColor:
-            "#78909c",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
 
           inputValidator:
             (value) => {
               if (
                 !value.trim()
               ) {
-                return "Checklist tidak boleh kosong.";
+                return "Task cannot be empty.";
               }
 
               return undefined;
@@ -334,7 +322,7 @@ export default function PlanDetailClient({
 
       if (error) {
         await showError(
-          "Checklist gagal dibuat",
+          "Task could not be added",
           error.message
         );
 
@@ -347,18 +335,6 @@ export default function PlanDetailClient({
           data as PlanTask,
         ]
       );
-
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Checklist ditambahkan",
-
-        timer: 900,
-
-        showConfirmButton:
-          false,
-      });
     };
 
   /*
@@ -371,16 +347,8 @@ export default function PlanDetailClient({
     async (
       task: PlanTask
     ) => {
-      const supabase =
-        createClient();
-
       const newValue =
         !task.is_completed;
-
-      /*
-       * Optimistic update supaya
-       * checklist terasa instant.
-       */
 
       setTasks(
         (current) =>
@@ -396,6 +364,9 @@ export default function PlanDetailClient({
                 : item
           )
       );
+
+      const supabase =
+        createClient();
 
       const {
         data,
@@ -417,10 +388,6 @@ export default function PlanDetailClient({
           .single();
 
       if (error) {
-        /*
-         * Rollback jika database gagal.
-         */
-
         setTasks(
           (current) =>
             current.map(
@@ -433,7 +400,7 @@ export default function PlanDetailClient({
         );
 
         await showError(
-          "Checklist gagal diperbarui",
+          "Task could not be updated",
           error.message
         );
 
@@ -446,7 +413,9 @@ export default function PlanDetailClient({
             (item) =>
               item.id ===
               task.id
-                ? (data as PlanTask)
+                ? (
+                    data as PlanTask
+                  )
                 : item
           )
       );
@@ -465,9 +434,10 @@ export default function PlanDetailClient({
       const result =
         await Swal.fire({
           title:
-            "Edit Checklist",
+            "Edit Task",
 
-          input: "text",
+          input:
+            "text",
 
           inputValue:
             task.title,
@@ -476,23 +446,26 @@ export default function PlanDetailClient({
             true,
 
           confirmButtonText:
-            "Simpan",
+            "Save",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
 
-          cancelButtonColor:
-            "#78909c",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
 
           inputValidator:
             (value) => {
               if (
                 !value.trim()
               ) {
-                return "Checklist tidak boleh kosong.";
+                return "Task cannot be empty.";
               }
 
               return undefined;
@@ -530,7 +503,7 @@ export default function PlanDetailClient({
 
       if (error) {
         await showError(
-          "Checklist gagal diperbarui",
+          "Task could not be updated",
           error.message
         );
 
@@ -543,22 +516,12 @@ export default function PlanDetailClient({
             (item) =>
               item.id ===
               task.id
-                ? (data as PlanTask)
+                ? (
+                    data as PlanTask
+                  )
                 : item
           )
       );
-
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Checklist diperbarui",
-
-        timer: 900,
-
-        showConfirmButton:
-          false,
-      });
     };
 
   /*
@@ -573,10 +536,8 @@ export default function PlanDetailClient({
     ) => {
       const result =
         await Swal.fire({
-          icon: "warning",
-
           title:
-            "Hapus checklist?",
+            "Delete task?",
 
           text:
             task.title,
@@ -585,16 +546,19 @@ export default function PlanDetailClient({
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
 
-          cancelButtonColor:
-            "#1688b5",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -621,7 +585,7 @@ export default function PlanDetailClient({
 
       if (error) {
         await showError(
-          "Checklist gagal dihapus",
+          "Task could not be deleted",
           error.message
         );
 
@@ -636,23 +600,11 @@ export default function PlanDetailClient({
               task.id
           )
       );
-
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Checklist dihapus",
-
-        timer: 900,
-
-        showConfirmButton:
-          false,
-      });
     };
 
   /*
    * =========================================================
-   * MARK PLAN AS DONE
+   * MARK DONE
    * =========================================================
    */
 
@@ -660,28 +612,26 @@ export default function PlanDetailClient({
     async () => {
       const result =
         await Swal.fire({
-          icon: "question",
-
           title:
-            "Tandai selesai?",
-
-          text:
-            "Plan ini akan dipindahkan ke status Done.",
+            "Mark as done?",
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Mark as Done",
+            "Done",
 
           cancelButtonText:
-            "Belum",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
 
-          cancelButtonColor:
-            "#78909c",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -704,7 +654,8 @@ export default function PlanDetailClient({
               "done",
 
             completed_at:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           })
           .eq(
             "id",
@@ -715,7 +666,7 @@ export default function PlanDetailClient({
 
       if (error) {
         await showError(
-          "Plan gagal diselesaikan",
+          "Plan could not be completed",
           error.message
         );
 
@@ -725,26 +676,11 @@ export default function PlanDetailClient({
       setPlan(
         data as PlanDetail
       );
-
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Plan selesai",
-
-        text:
-          "Sekarang plan ini bisa dijadikan Memory.",
-
-        timer: 1500,
-
-        showConfirmButton:
-          false,
-      });
     };
 
   /*
    * =========================================================
-   * RESTORE PLAN
+   * RESTORE
    * =========================================================
    */
 
@@ -752,15 +688,13 @@ export default function PlanDetailClient({
     async () => {
       const result =
         await Swal.fire({
-          icon: "question",
-
           title:
-            "Kembalikan ke Planned?",
+            "Restore plan?",
 
           text:
             memoryId
-              ? "Memory yang sudah dibuat tidak akan ikut dihapus."
-              : "Status plan akan kembali menjadi Planned.",
+              ? "The existing Memory will stay."
+              : undefined,
 
           showCancelButton:
             true,
@@ -769,13 +703,16 @@ export default function PlanDetailClient({
             "Restore",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
 
-          cancelButtonColor:
-            "#78909c",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -809,7 +746,7 @@ export default function PlanDetailClient({
 
       if (error) {
         await showError(
-          "Status gagal diperbarui",
+          "Plan could not be restored",
           error.message
         );
 
@@ -819,373 +756,222 @@ export default function PlanDetailClient({
       setPlan(
         data as PlanDetail
       );
+    };
+
+  /*
+   * =========================================================
+   * TURN INTO MEMORY
+   * =========================================================
+   */
+
+  const handleTurnIntoMemory =
+    async () => {
+      if (memoryId) {
+        return;
+      }
+
+      if (
+        plan.status !==
+        "done"
+      ) {
+        return;
+      }
+
+      const result =
+        await Swal.fire({
+          title:
+            "Save as Memory",
+
+          input:
+            "textarea",
+
+          inputPlaceholder:
+            "Story (optional)",
+
+          showCancelButton:
+            true,
+
+          confirmButtonText:
+            "Save",
+
+          cancelButtonText:
+            "Cancel",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+      if (
+        !result.isConfirmed
+      ) {
+        return;
+      }
+
+      const supabase =
+        createClient();
+
+      const {
+        data:
+          memory,
+
+        error:
+          memoryError,
+      } =
+        await supabase
+          .from(
+            "memories"
+          )
+          .insert({
+            couple_id:
+              plan.couple_id,
+
+            created_by:
+              user.id,
+
+            source_plan_id:
+              plan.id,
+
+            title:
+              plan.title,
+
+            story:
+              result.value?.trim() ||
+              plan.description ||
+              null,
+
+            memory_date:
+              plan.plan_date,
+
+            memory_time:
+              plan.plan_time,
+
+            location_name:
+              plan.location_name,
+
+            maps_url:
+              plan.maps_url,
+          })
+          .select("id")
+          .single();
+
+      if (memoryError) {
+        if (
+          memoryError.code ===
+          "23505"
+        ) {
+          await Swal.fire({
+            title:
+              "Memory already exists",
+
+            confirmButtonColor:
+              "#083b59",
+
+            background:
+              "#fffdf9",
+
+            color:
+              "#123d59",
+          });
+
+          return;
+        }
+
+        await showError(
+          "Memory could not be created",
+          memoryError.message
+        );
+
+        return;
+      }
+
+      const newMemoryId =
+        memory.id;
+
+      setMemoryId(
+        newMemoryId
+      );
+
+      if (
+        plan.cover_path
+      ) {
+        try {
+          await copyPlanCoverToMemory(
+            {
+              planCoverPath:
+                plan.cover_path,
+
+              coupleId:
+                plan.couple_id,
+
+              memoryId:
+                newMemoryId,
+
+              userId:
+                user.id,
+            }
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "Plan cover copy error:",
+            error
+          );
+
+          await Swal.fire({
+            icon:
+              "warning",
+
+            title:
+              "Memory saved",
+
+            text:
+              "The cover could not be copied.",
+
+            confirmButtonColor:
+              "#083b59",
+
+            background:
+              "#fffdf9",
+
+            color:
+              "#123d59",
+          });
+
+          return;
+        }
+      }
 
       await Swal.fire({
-        icon: "success",
+        icon:
+          "success",
 
         title:
-          "Plan dikembalikan",
+          "Memory saved",
 
-        timer: 1000,
+        timer:
+          1100,
 
         showConfirmButton:
           false,
+
+        background:
+          "#fffdf9",
+
+        color:
+          "#123d59",
       });
     };
 
   /*
    * =========================================================
-   * TURN PLAN INTO MEMORY
-   * =========================================================
-   */
-
-  const handleTurnIntoMemory =
-  async () => {
-    if (memoryId) {
-      await Swal.fire({
-        icon: "info",
-        title:
-          "Sudah menjadi Memory",
-        text:
-          "Plan ini sudah pernah dimasukkan ke Memories.",
-        confirmButtonColor:
-          "#1688b5",
-      });
-
-      return;
-    }
-
-    if (
-      plan.status !==
-      "done"
-    ) {
-      await Swal.fire({
-        icon: "info",
-        title:
-          "Plan belum selesai",
-        text:
-          "Tandai plan sebagai Done terlebih dahulu.",
-        confirmButtonColor:
-          "#1688b5",
-      });
-
-      return;
-    }
-
-    /*
-     * ==========================================
-     * ASK FOR MEMORY STORY
-     * ==========================================
-     */
-
-    const result =
-      await Swal.fire({
-        title:
-          "Turn into Memory",
-
-        width: 620,
-
-        html: `
-          <div
-            style="
-              text-align:left;
-              padding-top:8px;
-            "
-          >
-            <label
-              style="
-                display:block;
-                margin-bottom:8px;
-                font-size:13px;
-                font-weight:700;
-                color:#0b4f71;
-              "
-            >
-              Ceritakan sedikit tentang hari ini
-            </label>
-
-            <textarea
-              id="memory-story"
-              class="swal2-textarea"
-              style="
-                margin:0;
-                width:100%;
-                min-height:130px;
-                box-sizing:border-box;
-              "
-              placeholder="Contoh: Hari ini seru banget..."
-            ></textarea>
-
-            ${
-              plan.cover_path
-                ? `
-                  <div
-                    style="
-                      margin-top:14px;
-                      padding:12px 14px;
-                      background:#e8f8fc;
-                      border-radius:12px;
-                      color:#116b91;
-                      font-size:12px;
-                      line-height:1.6;
-                    "
-                  >
-                    Cover dari plan ini akan
-                    otomatis digunakan sebagai
-                    cover Memory.
-                  </div>
-                `
-                : ""
-            }
-
-            <p
-              style="
-                margin-top:12px;
-                font-size:12px;
-                line-height:1.6;
-                color:#648196;
-              "
-            >
-              Judul, tanggal, waktu, lokasi,
-              dan Maps akan diambil otomatis
-              dari plan.
-            </p>
-          </div>
-        `,
-
-        showCancelButton:
-          true,
-
-        confirmButtonText:
-          "Save Memory",
-
-        cancelButtonText:
-          "Batal",
-
-        confirmButtonColor:
-          "#1688b5",
-
-        cancelButtonColor:
-          "#78909c",
-
-        focusConfirm:
-          false,
-
-        preConfirm: () => {
-          const input =
-            document.getElementById(
-              "memory-story"
-            ) as HTMLTextAreaElement | null;
-
-          return (
-            input?.value.trim() ??
-            ""
-          );
-        },
-      });
-
-    if (
-      !result.isConfirmed
-    ) {
-      return;
-    }
-
-    const supabase =
-      createClient();
-
-    /*
-     * ==========================================
-     * CREATE MEMORY
-     * ==========================================
-     */
-
-    const {
-      data: memory,
-      error:
-        memoryError,
-    } =
-      await supabase
-        .from("memories")
-        .insert({
-          couple_id:
-            plan.couple_id,
-
-          created_by:
-            user.id,
-
-          source_plan_id:
-            plan.id,
-
-          title:
-            plan.title,
-
-          story:
-            result.value ||
-            plan.description ||
-            null,
-
-          memory_date:
-            plan.plan_date,
-
-          memory_time:
-            plan.plan_time,
-
-          location_name:
-            plan.location_name,
-
-          maps_url:
-            plan.maps_url,
-        })
-        .select("id")
-        .single();
-
-    if (memoryError) {
-      /*
-       * Unique constraint:
-       * satu plan hanya boleh
-       * menjadi satu memory.
-       */
-
-      if (
-        memoryError.code ===
-        "23505"
-      ) {
-        await Swal.fire({
-          icon: "info",
-
-          title:
-            "Sudah menjadi Memory",
-
-          text:
-            "Plan ini sudah pernah dimasukkan ke Memories.",
-
-          confirmButtonColor:
-            "#1688b5",
-        });
-
-        return;
-      }
-
-      await showError(
-        "Memory gagal dibuat",
-        memoryError.message
-      );
-
-      return;
-    }
-
-    const newMemoryId =
-      memory.id;
-
-    /*
-     * Set langsung supaya UI tahu
-     * memory sudah berhasil dibuat.
-     */
-
-    setMemoryId(
-      newMemoryId
-    );
-
-    /*
-     * ==========================================
-     * COPY PLAN COVER → MEMORY COVER
-     * ==========================================
-     */
-
-    let coverCopied =
-      false;
-
-    let coverCopyError:
-      string | null =
-      null;
-
-    if (
-      plan.cover_path
-    ) {
-      try {
-        await copyPlanCoverToMemory({
-          planCoverPath:
-            plan.cover_path,
-
-          coupleId:
-            plan.couple_id,
-
-          memoryId:
-            newMemoryId,
-
-          userId:
-            user.id,
-        });
-
-        coverCopied =
-          true;
-      } catch (error) {
-        console.error(
-          "Plan cover copy error:",
-          error
-        );
-
-        coverCopyError =
-          error instanceof
-          Error
-            ? error.message
-            : "Cover gagal disalin.";
-      }
-    }
-
-    /*
-     * ==========================================
-     * RESULT
-     * ==========================================
-     */
-
-    if (
-      plan.cover_path &&
-      !coverCopied
-    ) {
-      await Swal.fire({
-        icon: "warning",
-
-        title:
-          "Memory berhasil dibuat",
-
-        text:
-          coverCopyError
-            ? `Memory tersimpan, tetapi cover gagal disalin: ${coverCopyError}`
-            : "Memory tersimpan, tetapi cover gagal disalin.",
-
-        confirmButtonText:
-          "Oke",
-
-        confirmButtonColor:
-          "#1688b5",
-      });
-
-      return;
-    }
-
-    await Swal.fire({
-      icon: "success",
-
-      title:
-        "Memory berhasil disimpan",
-
-      text:
-        coverCopied
-          ? "Memory dan cover dari Planner berhasil disimpan."
-          : "Plan ini sekarang sudah masuk ke Memories.",
-
-      timer:
-        1700,
-
-      showConfirmButton:
-        false,
-    });
-  };
-
-  /*
-   * =========================================================
-   * COVER UPLOAD
+   * COVER
    * =========================================================
    */
 
@@ -1195,7 +981,8 @@ export default function PlanDetailClient({
         ChangeEvent<HTMLInputElement>
     ) => {
       const file =
-        event.target.files?.[0];
+        event.target
+          .files?.[0];
 
       if (!file) {
         return;
@@ -1206,18 +993,10 @@ export default function PlanDetailClient({
           "image/"
         )
       ) {
-        await Swal.fire({
-          icon: "warning",
-
-          title:
-            "File bukan gambar",
-
-          text:
-            "Pilih file gambar seperti JPG, PNG, atau WEBP.",
-
-          confirmButtonColor:
-            "#1688b5",
-        });
+        await showError(
+          "Invalid file",
+          "Choose an image file."
+        );
 
         event.target.value =
           "";
@@ -1231,18 +1010,10 @@ export default function PlanDetailClient({
           1024 *
           1024
       ) {
-        await Swal.fire({
-          icon: "warning",
-
-          title:
-            "Foto terlalu besar",
-
-          text:
-            "Ukuran maksimal cover adalah 8 MB.",
-
-          confirmButtonColor:
-            "#1688b5",
-        });
+        await showError(
+          "File too large",
+          "Maximum size is 8 MB."
+        );
 
         event.target.value =
           "";
@@ -1265,10 +1036,6 @@ export default function PlanDetailClient({
 
         const filePath =
           `${plan.couple_id}/${plan.id}/cover-${Date.now()}.${extension}`;
-
-        /*
-         * Upload cover baru.
-         */
 
         const {
           error:
@@ -1296,17 +1063,10 @@ export default function PlanDetailClient({
         if (
           uploadError
         ) {
-          await showError(
-            "Upload cover gagal",
+          throw new Error(
             uploadError.message
           );
-
-          return;
         }
-
-        /*
-         * Simpan path ke tabel plans.
-         */
 
         const oldCover =
           plan.cover_path;
@@ -1314,11 +1074,14 @@ export default function PlanDetailClient({
         const {
           data:
             updatedPlan,
+
           error:
             updateError,
         } =
           await supabase
-            .from("plans")
+            .from(
+              "plans"
+            )
             .update({
               cover_path:
                 filePath,
@@ -1333,12 +1096,6 @@ export default function PlanDetailClient({
         if (
           updateError
         ) {
-          /*
-           * Kalau database gagal,
-           * hapus file baru supaya
-           * tidak menjadi orphan file.
-           */
-
           await supabase.storage
             .from(
               "plan-covers"
@@ -1347,22 +1104,15 @@ export default function PlanDetailClient({
               filePath,
             ]);
 
-          await showError(
-            "Cover gagal disimpan",
+          throw new Error(
             updateError.message
           );
-
-          return;
         }
-
-        /*
-         * Buat signed URL karena
-         * bucket plan-covers private.
-         */
 
         const {
           data:
             signedData,
+
           error:
             signedError,
         } =
@@ -1390,13 +1140,8 @@ export default function PlanDetailClient({
 
         setCoverUrl(
           signedData?.signedUrl ??
-            null
+          null
         );
-
-        /*
-         * Hapus cover lama
-         * setelah cover baru berhasil.
-         */
 
         if (
           oldCover &&
@@ -1411,27 +1156,16 @@ export default function PlanDetailClient({
               oldCover,
             ]);
         }
-
-        await Swal.fire({
-          icon: "success",
-
-          title:
-            "Cover diperbarui",
-
-          timer: 1100,
-
-          showConfirmButton:
-            false,
-        });
-      } catch (error) {
-        console.error(
-          "Cover upload error:",
-          error
-        );
-
+      } catch (
+        error
+      ) {
         await showError(
-          "Upload cover gagal",
-          "Terjadi kesalahan saat mengunggah gambar."
+          "Cover could not be uploaded",
+
+          error instanceof
+            Error
+            ? error.message
+            : "Something went wrong."
         );
       } finally {
         setIsUploading(
@@ -1453,7 +1187,7 @@ export default function PlanDetailClient({
     <div
       className="
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
@@ -1467,12 +1201,12 @@ export default function PlanDetailClient({
           min-h-[100svh]
           px-4
           pb-28
-          pt-4
+          pt-6
           sm:px-6
-          sm:pt-6
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+          lg:px-8
+          lg:pb-14
+          lg:pt-9
           xl:px-10
         "
       >
@@ -1480,50 +1214,45 @@ export default function PlanDetailClient({
           className="
             mx-auto
             w-full
-            max-w-[1450px]
+            max-w-[1440px]
           "
         >
-          {/* =====================================
-              BACK
-          ====================================== */}
+          {/* BACK */}
 
           <Link
             href="/planner"
             className="
-              mb-5
               inline-flex
               items-center
               gap-2
               text-sm
-              font-semibold
+              font-medium
               text-ink-soft
               transition
-              hover:text-ocean-700
+              hover:text-ocean-950
             "
           >
             <ArrowLeft
-              size={17}
+              size={15}
             />
 
-            Back to Planner
+            Planner
           </Link>
 
-          {/* =====================================
-              COVER / HERO
-          ====================================== */}
+          {/* =================================================
+              HERO
+          ================================================= */}
 
           <section
             className="
               relative
-              min-h-[360px]
+              mt-5
+              min-h-[390px]
               overflow-hidden
-              rounded-[34px]
-              bg-gradient-to-br
-              from-ocean-900
-              via-ocean-700
-              to-ocean-400
-              shadow-love-lg
-              sm:min-h-[430px]
+              rounded-[32px]
+              bg-ocean-950
+              shadow-[0_24px_65px_rgba(6,42,63,0.12)]
+              sm:min-h-[460px]
             "
           >
             {coverUrl ? (
@@ -1547,73 +1276,55 @@ export default function PlanDetailClient({
                   className="
                     absolute
                     inset-0
-                    bg-gradient-to-t
-                    from-ocean-950/95
-                    via-ocean-950/30
-                    to-black/5
+                    bg-[linear-gradient(to_top,rgba(6,42,63,0.94)_0%,rgba(6,42,63,0.34)_55%,rgba(0,0,0,0.08)_100%)]
                   "
                 />
               </>
             ) : (
-              <>
-                <div
-                  className="
-                    absolute
-                    inset-0
-                    bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,.16),transparent_27%),radial-gradient(circle_at_15%_90%,rgba(158,223,240,.30),transparent_30%)]
-                  "
-                />
-
-                <Heart
-                  size={210}
-                  fill="currentColor"
-                  className="
-                    absolute
-                    -right-10
-                    -top-16
-                    text-white/[0.06]
-                  "
-                />
-              </>
+              <div
+                className="
+                  absolute
+                  inset-0
+                  bg-[linear-gradient(145deg,#062a3f_0%,#0b4f71_55%,#1688b5_100%)]
+                "
+              />
             )}
 
-            {/* COVER BUTTON */}
+            {/* COVER */}
 
             <label
               className="
                 absolute
-                right-4
-                top-4
+                right-5
+                top-5
                 z-20
                 flex
                 cursor-pointer
                 items-center
                 gap-2
-                rounded-[16px]
+                rounded-full
                 border
-                border-white/20
+                border-white/15
                 bg-black/20
                 px-4
-                py-2.5
+                py-2
                 text-xs
-                font-semibold
+                font-medium
                 text-white
                 backdrop-blur-xl
                 transition
-                hover:bg-black/30
-                sm:right-6
-                sm:top-6
+                hover:bg-black/35
+                sm:right-7
+                sm:top-7
               "
             >
               <ImagePlus
-                size={16}
+                size={14}
               />
 
               {isUploading
-                ? "Uploading..."
-                : coverUrl
-                  ? "Change Cover"
-                  : "Add Cover"}
+                ? "Uploading"
+                : "Cover"}
 
               <input
                 type="file"
@@ -1628,7 +1339,7 @@ export default function PlanDetailClient({
               />
             </label>
 
-            {/* HERO CONTENT */}
+            {/* CONTENT */}
 
             <div
               className="
@@ -1638,8 +1349,8 @@ export default function PlanDetailClient({
                 z-10
                 p-6
                 text-white
-                sm:p-8
-                lg:p-10
+                sm:p-9
+                lg:p-11
               "
             >
               <StatusBadge
@@ -1650,14 +1361,15 @@ export default function PlanDetailClient({
 
               <h1
                 className="
-                  mt-4
-                  max-w-4xl
+                  mt-5
+                  max-w-5xl
                   font-display
-                  text-4xl
+                  text-[40px]
                   font-semibold
-                  leading-tight
-                  sm:text-5xl
-                  lg:text-6xl
+                  leading-[1.02]
+                  tracking-[-0.045em]
+                  sm:text-[54px]
+                  lg:text-[64px]
                 "
               >
                 {plan.title}
@@ -1667,239 +1379,103 @@ export default function PlanDetailClient({
                 className="
                   mt-5
                   flex
+                  max-w-4xl
                   flex-wrap
-                  gap-2
+                  items-center
+                  gap-x-2
+                  gap-y-1
+                  text-sm
+                  text-white/55
                 "
               >
-                <HeroPill
-                  icon={
-                    CalendarDays
-                  }
-                >
+                <span>
                   {formatDate(
                     plan.plan_date
                   )}
-                </HeroPill>
+                </span>
 
                 {plan.plan_time && (
-                  <HeroPill
-                    icon={
-                      Clock3
-                    }
-                  >
-                    {formatTime(
-                      plan.plan_time
-                    )}
-                  </HeroPill>
+                  <>
+                    <MetaDot />
+
+                    <span>
+                      {formatTime(
+                        plan.plan_time
+                      )}
+                    </span>
+                  </>
                 )}
 
                 {plan.location_name && (
-                  <HeroPill
-                    icon={
-                      MapPin
-                    }
-                  >
-                    {
-                      plan.location_name
-                    }
-                  </HeroPill>
-                )}
+                  <>
+                    <MetaDot />
 
-                {plan.budget !==
-                  null && (
-                  <HeroPill
-                    icon={
-                      WalletCards
-                    }
-                  >
-                    {formatRupiah(
-                      Number(
-                        plan.budget
-                      )
-                    )}
-                  </HeroPill>
+                    <span>
+                      {
+                        plan.location_name
+                      }
+                    </span>
+                  </>
                 )}
               </div>
             </div>
           </section>
 
-          {/* =====================================
-              CONTENT GRID
-          ====================================== */}
+          {/* =================================================
+              CONTENT
+          ================================================= */}
 
           <section
             className="
               mt-5
               grid
               gap-5
-              xl:grid-cols-[1.35fr_0.65fr]
+              xl:grid-cols-[1.25fr_0.75fr]
             "
           >
-            {/* =====================================
-                LEFT COLUMN
-            ====================================== */}
+            {/* LEFT */}
 
-            <div className="space-y-5">
+            <div
+              className="
+                space-y-5
+              "
+            >
               {/* DESCRIPTION */}
 
-              <article
-                className="
-                  glass-card
-                  rounded-[28px]
-                  p-6
-                "
-              >
+              <Surface>
                 <div
                   className="
-                    flex
-                    items-center
-                    gap-3
+                    p-6
+                    sm:p-8
                   "
                 >
-                  <div
+                  <SectionTitle>
+                    About
+                  </SectionTitle>
+
+                  <p
                     className="
-                      flex
-                      h-11
-                      w-11
-                      items-center
-                      justify-center
-                      rounded-2xl
-                      bg-ocean-100
-                      text-ocean-700
+                      mt-5
+                      whitespace-pre-line
+                      text-sm
+                      leading-7
+                      text-ink-soft
+                      sm:text-[15px]
                     "
                   >
-                    <Heart
-                      size={19}
-                    />
-                  </div>
-
-                  <div>
-                    <p
-                      className="
-                        text-[10px]
-                        font-bold
-                        uppercase
-                        tracking-[0.2em]
-                        text-ocean-500
-                      "
-                    >
-                      Our Plan
-                    </p>
-
-                    <h2
-                      className="
-                        mt-0.5
-                        font-display
-                        text-2xl
-                        font-semibold
-                        text-ocean-950
-                      "
-                    >
-                      About this plan
-                    </h2>
-                  </div>
+                    {plan.description ||
+                      "No description."}
+                  </p>
                 </div>
+              </Surface>
 
-                <p
-                  className="
-                    mt-5
-                    whitespace-pre-line
-                    text-sm
-                    leading-7
-                    text-ink-soft
-                    sm:text-[15px]
-                  "
-                >
-                  {plan.description ||
-                    "Belum ada deskripsi untuk plan ini."}
-                </p>
-              </article>
+              {/* CHECKLIST */}
 
-              {/* =====================================
-                  CHECKLIST
-              ====================================== */}
-
-              <article
-                className="
-                  glass-card
-                  rounded-[28px]
-                  p-5
-                  sm:p-6
-                "
-              >
+              <Surface>
                 <div
                   className="
-                    flex
-                    flex-wrap
-                    items-center
-                    justify-between
-                    gap-4
-                  "
-                >
-                  <div>
-                    <p
-                      className="
-                        text-[10px]
-                        font-bold
-                        uppercase
-                        tracking-[0.2em]
-                        text-ocean-500
-                      "
-                    >
-                      Preparation
-                    </p>
-
-                    <h2
-                      className="
-                        mt-1
-                        font-display
-                        text-2xl
-                        font-semibold
-                        text-ocean-950
-                      "
-                    >
-                      Checklist
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleAddTask
-                    }
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                      rounded-[15px]
-                      bg-ocean-100
-                      px-4
-                      py-2.5
-                      text-xs
-                      font-bold
-                      text-ocean-700
-                      transition
-                      hover:bg-ocean-200
-                    "
-                  >
-                    <Plus
-                      size={16}
-                    />
-
-                    Add Task
-                  </button>
-                </div>
-
-                {/* PROGRESS */}
-
-                <div
-                  className="
-                    mt-6
-                    rounded-[20px]
-                    border
-                    border-ocean-100
-                    bg-ocean-50/70
-                    p-4
+                    p-6
+                    sm:p-8
                   "
                 >
                   <div
@@ -1907,841 +1483,292 @@ export default function PlanDetailClient({
                       flex
                       items-center
                       justify-between
-                      gap-4
+                      gap-5
                     "
                   >
-                    <div>
-                      <p
-                        className="
-                          text-sm
-                          font-semibold
-                          text-ocean-950
-                        "
-                      >
-                        Preparation Progress
-                      </p>
+                    <SectionTitle>
+                      Checklist
+                    </SectionTitle>
 
-                      <p
-                        className="
-                          mt-1
-                          text-xs
-                          text-ink-soft
-                        "
-                      >
-                        {completedTasks} of{" "}
-                        {tasks.length} tasks
-                        completed
-                      </p>
-                    </div>
-
-                    <p
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleAddTask()
+                      }
                       className="
-                        font-display
-                        text-2xl
-                        font-semibold
-                        text-ocean-700
-                      "
-                    >
-                      {progress}%
-                    </p>
-                  </div>
-
-                  <div
-                    className="
-                      mt-4
-                      h-2
-                      overflow-hidden
-                      rounded-full
-                      bg-white
-                    "
-                  >
-                    <div
-                      className="
-                        h-full
-                        rounded-full
-                        bg-gradient-to-r
-                        from-ocean-800
-                        via-ocean-500
-                        to-ocean-300
-                        transition-all
-                        duration-500
-                      "
-                      style={{
-                        width:
-                          `${progress}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* TASKS */}
-
-                <div
-                  className="
-                    mt-5
-                    space-y-2.5
-                  "
-                >
-                  {tasks.length >
-                  0 ? (
-                    tasks.map(
-                      (task) => (
-                        <div
-                          key={
-                            task.id
-                          }
-                          className="
-                            group
-                            flex
-                            items-center
-                            gap-3
-                            rounded-[18px]
-                            border
-                            border-ocean-100
-                            bg-white/60
-                            p-3
-                            transition
-                            hover:border-ocean-200
-                            hover:bg-white
-                          "
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleToggleTask(
-                                task
-                              )
-                            }
-                            aria-label={
-                              task.is_completed
-                                ? "Mark incomplete"
-                                : "Mark completed"
-                            }
-                            className={`
-                              flex
-                              h-9
-                              w-9
-                              shrink-0
-                              items-center
-                              justify-center
-                              rounded-[12px]
-                              border
-                              transition
-                              ${
-                                task.is_completed
-                                  ? "border-ocean-600 bg-ocean-600 text-white"
-                                  : "border-ocean-200 bg-white text-transparent hover:border-ocean-500"
-                              }
-                            `}
-                          >
-                            <Check
-                              size={17}
-                            />
-                          </button>
-
-                          <p
-                            className={`
-                              min-w-0
-                              flex-1
-                              text-sm
-                              font-semibold
-                              ${
-                                task.is_completed
-                                  ? "text-ink-soft line-through"
-                                  : "text-ocean-950"
-                              }
-                            `}
-                          >
-                            {
-                              task.title
-                            }
-                          </p>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleEditTask(
-                                task
-                              )
-                            }
-                            aria-label="Edit checklist"
-                            className="
-                              flex
-                              h-8
-                              w-8
-                              shrink-0
-                              items-center
-                              justify-center
-                              rounded-[10px]
-                              text-ocean-400
-                              transition
-                              hover:bg-ocean-50
-                              hover:text-ocean-700
-                            "
-                          >
-                            <Pencil
-                              size={14}
-                            />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteTask(
-                                task
-                              )
-                            }
-                            aria-label="Delete checklist"
-                            className="
-                              flex
-                              h-8
-                              w-8
-                              shrink-0
-                              items-center
-                              justify-center
-                              rounded-[10px]
-                              text-heart
-                              transition
-                              hover:bg-heart-soft
-                            "
-                          >
-                            <Trash2
-                              size={14}
-                            />
-                          </button>
-                        </div>
-                      )
-                    )
-                  ) : (
-                    <div
-                      className="
-                        rounded-[20px]
-                        border
-                        border-dashed
-                        border-ocean-200
-                        px-5
-                        py-10
-                        text-center
-                      "
-                    >
-                      <CheckCircle2
-                        className="
-                          mx-auto
-                          text-ocean-300
-                        "
-                        size={29}
-                      />
-
-                      <p
-                        className="
-                          mt-3
-                          font-semibold
-                          text-ocean-900
-                        "
-                      >
-                        Belum ada checklist
-                      </p>
-
-                      <p
-                        className="
-                          mt-1
-                          text-xs
-                          text-ink-soft
-                        "
-                      >
-                        Tambahkan hal-hal yang perlu
-                        dipersiapkan.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </article>
-            </div>
-
-            {/* =====================================
-                RIGHT COLUMN
-            ====================================== */}
-
-            <aside className="space-y-5">
-              {/* COUNTDOWN */}
-
-              <article
-                className="
-                  relative
-                  overflow-hidden
-                  rounded-[28px]
-                  bg-gradient-to-br
-                  from-ocean-900
-                  via-ocean-700
-                  to-ocean-500
-                  p-6
-                  text-white
-                  shadow-love
-                "
-              >
-                <div
-                  className="
-                    absolute
-                    -right-12
-                    -top-12
-                    h-32
-                    w-32
-                    rounded-full
-                    bg-white/10
-                    blur-xl
-                  "
-                />
-
-                <div
-                  className="
-                    relative
-                    z-10
-                  "
-                >
-                  <Sparkles
-                    size={19}
-                    className="
-                      text-white/65
-                    "
-                  />
-
-                  <p
-                    className="
-                      mt-5
-                      text-[10px]
-                      font-bold
-                      uppercase
-                      tracking-[0.22em]
-                      text-white/55
-                    "
-                  >
-                    Countdown
-                  </p>
-
-                  {plan.status ===
-                  "done" ? (
-                    <>
-                      <h2
-                        className="
-                          mt-2
-                          font-display
-                          text-3xl
-                          font-semibold
-                        "
-                      >
-                        Completed
-                      </h2>
-
-                      <p
-                        className="
-                          mt-3
-                          text-sm
-                          leading-6
-                          text-white/65
-                        "
-                      >
-                        Plan ini sudah
-                        selesai.
-                      </p>
-                    </>
-                  ) : plan.status ===
-                    "cancelled" ? (
-                    <>
-                      <h2
-                        className="
-                          mt-2
-                          font-display
-                          text-3xl
-                          font-semibold
-                        "
-                      >
-                        Cancelled
-                      </h2>
-
-                      <p
-                        className="
-                          mt-3
-                          text-sm
-                          leading-6
-                          text-white/65
-                        "
-                      >
-                        Plan ini dibatalkan.
-                      </p>
-                    </>
-                  ) : countdown.finished ? (
-                    <>
-                      <h2
-                        className="
-                          mt-2
-                          font-display
-                          text-3xl
-                          font-semibold
-                        "
-                      >
-                        It&apos;s time!
-                      </h2>
-
-                      <p
-                        className="
-                          mt-3
-                          text-sm
-                          text-white/65
-                        "
-                      >
-                        Waktunya menjalankan
-                        plan kalian.
-                      </p>
-                    </>
-                  ) : (
-                    <div
-                      className="
-                        mt-5
-                        grid
-                        grid-cols-2
+                        inline-flex
+                        items-center
                         gap-2
-                      "
-                    >
-                      <CountdownBox
-                        value={
-                          countdown.days
-                        }
-                        label="Days"
-                      />
-
-                      <CountdownBox
-                        value={
-                          countdown.hours
-                        }
-                        label="Hours"
-                      />
-
-                      <CountdownBox
-                        value={
-                          countdown.minutes
-                        }
-                        label="Minutes"
-                      />
-
-                      <CountdownBox
-                        value={
-                          countdown.seconds
-                        }
-                        label="Seconds"
-                      />
-                    </div>
-                  )}
-                </div>
-              </article>
-
-              {/* =====================================
-                  DATE INFORMATION
-              ====================================== */}
-
-              <article
-                className="
-                  glass-card
-                  rounded-[28px]
-                  p-6
-                "
-              >
-                <p
-                  className="
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-[0.2em]
-                    text-ocean-500
-                  "
-                >
-                  Information
-                </p>
-
-                <h2
-                  className="
-                    mt-1
-                    font-display
-                    text-2xl
-                    font-semibold
-                    text-ocean-950
-                  "
-                >
-                  Plan Details
-                </h2>
-
-                <div
-                  className="
-                    mt-5
-                    space-y-4
-                  "
-                >
-                  <DetailRow
-                    icon={
-                      CalendarDays
-                    }
-                    label="Date"
-                    value={formatDate(
-                      plan.plan_date
-                    )}
-                  />
-
-                  <DetailRow
-                    icon={
-                      Clock3
-                    }
-                    label="Time"
-                    value={
-                      plan.plan_time
-                        ? formatTime(
-                            plan.plan_time
-                          )
-                        : "Belum ditentukan"
-                    }
-                  />
-
-                  <DetailRow
-                    icon={
-                      MapPin
-                    }
-                    label="Location"
-                    value={
-                      plan.location_name ||
-                      "Belum ditentukan"
-                    }
-                  />
-
-                  <DetailRow
-                    icon={
-                      WalletCards
-                    }
-                    label="Budget"
-                    value={
-                      plan.budget !==
-                      null
-                        ? formatRupiah(
-                            Number(
-                              plan.budget
-                            )
-                          )
-                        : "Belum ditentukan"
-                    }
-                  />
-                </div>
-
-                {plan.maps_url && (
-                  <a
-                    href={
-                      plan.maps_url
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="
-                      mt-6
-                      flex
-                      w-full
-                      items-center
-                      justify-center
-                      gap-2
-                      rounded-[16px]
-                      bg-ocean-100
-                      px-4
-                      py-3.5
-                      text-sm
-                      font-semibold
-                      text-ocean-700
-                      transition
-                      hover:bg-ocean-200
-                    "
-                  >
-                    <MapPin
-                      size={16}
-                    />
-
-                    Open Google Maps
-
-                    <ExternalLink
-                      size={14}
-                    />
-                  </a>
-                )}
-              </article>
-
-              {/* =====================================
-                  STATUS / MEMORY
-              ====================================== */}
-
-              <article
-                className="
-                  glass-card
-                  rounded-[28px]
-                  p-6
-                "
-              >
-                {plan.status ===
-                "done" ? (
-                  <>
-                    <div
-                      className="
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-[15px]
-                        bg-ocean-100
-                        text-ocean-700
-                      "
-                    >
-                      <CheckCircle2
-                        size={20}
-                      />
-                    </div>
-
-                    <h2
-                      className="
-                        mt-4
-                        font-display
-                        text-2xl
-                        font-semibold
-                        text-ocean-950
-                      "
-                    >
-                      Plan completed
-                    </h2>
-
-                    <p
-                      className="
-                        mt-2
-                        text-sm
-                        leading-6
-                        text-ink-soft
-                      "
-                    >
-                      Rencana ini sudah selesai.
-                      Kamu bisa menyimpannya ke
-                      Memories.
-                    </p>
-
-                    {memoryId ? (
-                      <Link
-                        href={`/memories/${memoryId}`}
-                        className="
-                          mt-5
-                          flex
-                          w-full
-                          items-center
-                          justify-center
-                          gap-2
-                          rounded-[16px]
-                          bg-ocean-700
-                          px-5
-                          py-3.5
-                          text-sm
-                          font-semibold
-                          text-white
-                          shadow-[0_10px_25px_rgba(17,107,145,0.16)]
-                          transition
-                          hover:bg-ocean-800
-                        "
-                      >
-                        View in Memories
-
-                        <ExternalLink
-                          size={15}
-                        />
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={
-                          handleTurnIntoMemory
-                        }
-                        className="
-                          love-button
-                          mt-5
-                          flex
-                          w-full
-                          items-center
-                          justify-center
-                          gap-2
-                          rounded-[16px]
-                          px-5
-                          py-3.5
-                          text-sm
-                          font-semibold
-                        "
-                      >
-                        <Heart
-                          size={16}
-                        />
-
-                        Turn into Memory
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={
-                        handleRestorePlan
-                      }
-                      className="
-                        mt-3
-                        w-full
-                        rounded-[16px]
-                        border
-                        border-ocean-200
-                        bg-white/70
-                        px-5
-                        py-3
-                        text-sm
-                        font-semibold
-                        text-ocean-700
-                        transition
-                        hover:bg-white
-                      "
-                    >
-                      Restore to Planned
-                    </button>
-                  </>
-                ) : plan.status ===
-                  "cancelled" ? (
-                  <>
-                    <div
-                      className="
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-[15px]
-                        bg-heart-soft
-                        text-heart
-                      "
-                    >
-                      <CalendarDays
-                        size={20}
-                      />
-                    </div>
-
-                    <h2
-                      className="
-                        mt-4
-                        font-display
-                        text-2xl
-                        font-semibold
-                        text-ocean-950
-                      "
-                    >
-                      Plan cancelled
-                    </h2>
-
-                    <p
-                      className="
-                        mt-2
-                        text-sm
-                        leading-6
-                        text-ink-soft
-                      "
-                    >
-                      Plan ini sedang berstatus
-                      cancelled.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={
-                        handleRestorePlan
-                      }
-                      className="
-                        mt-5
-                        w-full
-                        rounded-[16px]
-                        bg-ocean-700
-                        px-5
-                        py-3.5
-                        text-sm
+                        rounded-[12px]
+                        bg-ocean-950
+                        px-4
+                        py-2.5
+                        text-xs
                         font-semibold
                         text-white
                         transition
                         hover:bg-ocean-800
                       "
                     >
-                      Restore to Planned
+                      <Plus
+                        size={14}
+                      />
+
+                      Add
                     </button>
-                  </>
-                ) : (
-                  <>
+                  </div>
+
+                  {/* PROGRESS */}
+
+                  <div
+                    className="
+                      mt-7
+                    "
+                  >
                     <div
                       className="
                         flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-[15px]
-                        bg-ocean-100
-                        text-ocean-700
+                        items-end
+                        justify-between
+                        gap-5
                       "
                     >
-                      <CheckCircle2
-                        size={20}
-                      />
+                      <p
+                        className="
+                          text-xs
+                          text-ink-soft
+                        "
+                      >
+                        {
+                          completedTasks
+                        }{" "}
+                        /{" "}
+                        {
+                          tasks.length
+                        }{" "}
+                        completed
+                      </p>
+
+                      <p
+                        className="
+                          font-display
+                          text-2xl
+                          font-semibold
+                          text-ocean-950
+                        "
+                      >
+                        {progress}%
+                      </p>
                     </div>
 
-                    <h2
+                    <div
                       className="
-                        mt-4
-                        font-display
-                        text-2xl
-                        font-semibold
-                        text-ocean-950
+                        mt-3
+                        h-[5px]
+                        overflow-hidden
+                        rounded-full
+                        bg-ocean-50
                       "
                     >
-                      Finish this plan?
-                    </h2>
-
-                    <p
-                      className="
-                        mt-2
-                        text-sm
-                        leading-6
-                        text-ink-soft
-                      "
-                    >
-                      Tandai selesai ketika
-                      rencana ini sudah benar-benar
-                      terlaksana.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={
-                        handleMarkDone
-                      }
-                      className="
-                        love-button
-                        mt-5
-                        flex
-                        w-full
-                        items-center
-                        justify-center
-                        gap-2
-                        rounded-[16px]
-                        px-5
-                        py-3.5
-                        text-sm
-                        font-semibold
-                      "
-                    >
-                      <CheckCircle2
-                        size={17}
+                      <div
+                        className="
+                          h-full
+                          rounded-full
+                          bg-ocean-800
+                          transition-[width]
+                          duration-500
+                        "
+                        style={{
+                          width:
+                            `${progress}%`,
+                        }}
                       />
+                    </div>
+                  </div>
 
-                      Mark as Done
-                    </button>
-                  </>
-                )}
-              </article>
+                  {/* TASKS */}
+
+                  <div
+                    className="
+                      mt-7
+                    "
+                  >
+                    {tasks.length >
+                    0 ? (
+                      <div
+                        className="
+                          divide-y
+                          divide-ocean-100/80
+                        "
+                      >
+                        {tasks.map(
+                          (
+                            task
+                          ) => (
+                            <TaskRow
+                              key={
+                                task.id
+                              }
+                              task={
+                                task
+                              }
+                              onToggle={() =>
+                                void handleToggleTask(
+                                  task
+                                )
+                              }
+                              onEdit={() =>
+                                void handleEditTask(
+                                  task
+                                )
+                              }
+                              onDelete={() =>
+                                void handleDeleteTask(
+                                  task
+                                )
+                              }
+                            />
+                          )
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        className="
+                          py-10
+                          text-center
+                          text-sm
+                          text-ink-soft
+                        "
+                      >
+                        No tasks yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Surface>
+            </div>
+
+            {/* RIGHT */}
+
+            <aside
+              className="
+                space-y-5
+              "
+            >
+              {/* COUNTDOWN */}
+
+              <CountdownCard
+                plan={
+                  plan
+                }
+                countdown={
+                  countdown
+                }
+              />
+
+              {/* DETAILS */}
+
+              <Surface>
+                <div
+                  className="
+                    p-6
+                    sm:p-7
+                  "
+                >
+                  <SectionTitle>
+                    Details
+                  </SectionTitle>
+
+                  <div
+                    className="
+                      mt-6
+                      divide-y
+                      divide-ocean-100/80
+                    "
+                  >
+                    <DetailRow
+                      label="Date"
+                      value={formatDate(
+                        plan.plan_date
+                      )}
+                    />
+
+                    <DetailRow
+                      label="Time"
+                      value={
+                        plan.plan_time
+                          ? formatTime(
+                              plan.plan_time
+                            )
+                          : "—"
+                      }
+                    />
+
+                    <DetailRow
+                      label="Location"
+                      value={
+                        plan.location_name ||
+                        "—"
+                      }
+                    />
+
+                    <DetailRow
+                      label="Budget"
+                      value={
+                        plan.budget !==
+                        null
+                          ? formatRupiah(
+                              Number(
+                                plan.budget
+                              )
+                            )
+                          : "—"
+                      }
+                    />
+                  </div>
+
+                  {plan.maps_url && (
+                    <a
+                      href={
+                        plan.maps_url
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="
+                        mt-6
+                        inline-flex
+                        text-sm
+                        font-semibold
+                        text-ocean-700
+                        transition
+                        hover:text-ocean-950
+                      "
+                    >
+                      Open Maps ↗
+                    </a>
+                  )}
+                </div>
+              </Surface>
+
+              {/* ACTION */}
+
+              <PlanAction
+                plan={
+                  plan
+                }
+                memoryId={
+                  memoryId
+                }
+                onMarkDone={
+                  handleMarkDone
+                }
+                onRestore={
+                  handleRestorePlan
+                }
+                onMemory={
+                  handleTurnIntoMemory
+                }
+              />
             </aside>
           </section>
         </div>
@@ -2752,191 +1779,146 @@ export default function PlanDetailClient({
 
 /*
  * =========================================================
- * COPY PLAN COVER TO MEMORY COVER
+ * COUNTDOWN
  * =========================================================
  */
 
-type CopyPlanCoverParams = {
-  planCoverPath: string;
-  coupleId: string;
-  memoryId: string;
-  userId: string;
-};
-
-async function copyPlanCoverToMemory({
-  planCoverPath,
-  coupleId,
-  memoryId,
-  userId,
-}: CopyPlanCoverParams) {
-  const supabase =
-    createClient();
-
-  /*
-   * Download the private Plan cover.
-   */
-  const {
-    data: coverBlob,
-    error: downloadError,
-  } =
-    await supabase.storage
-      .from("plan-covers")
-      .download(planCoverPath);
-
-  if (
-    downloadError ||
-    !coverBlob
-  ) {
-    throw new Error(
-      downloadError?.message ||
-        "Cover Plan tidak dapat dibaca."
-    );
-  }
-
-  const extension =
-    getExtension(planCoverPath);
-
-  const fileName =
-    `plan-cover-${crypto.randomUUID()}.${extension}`;
-
-  const memoryStoragePath =
-    `${coupleId}/${memoryId}/${fileName}`;
-
-  /*
-   * Upload a separate copy into the private Memory bucket.
-   */
-  const {
-    error: uploadError,
-  } =
-    await supabase.storage
-      .from("memory-photos")
-      .upload(
-        memoryStoragePath,
-        coverBlob,
-        {
-          cacheControl: "3600",
-          upsert: false,
-          contentType:
-            coverBlob.type ||
-            "image/jpeg",
-        }
-      );
-
-  if (uploadError) {
-    throw new Error(
-      uploadError.message
-    );
-  }
-
-  /*
-   * Register the copied image as the Memory cover.
-   */
-  const {
-    error: photoError,
-  } =
-    await supabase
-      .from("memory_photos")
-      .insert({
-        memory_id: memoryId,
-        uploaded_by: userId,
-        storage_path:
-          memoryStoragePath,
-        caption: null,
-        is_cover: true,
-        sort_order: 0,
-      });
-
-  if (photoError) {
-    /*
-     * Avoid leaving an orphan object in Storage.
-     */
-    await supabase.storage
-      .from("memory-photos")
-      .remove([
-        memoryStoragePath,
-      ]);
-
-    throw new Error(
-      photoError.message
-    );
-  }
-
-  return memoryStoragePath;
-}
-
-/*
- * =========================================================
- * HERO PILL
- * =========================================================
- */
-
-function HeroPill({
-  icon: Icon,
-  children,
+function CountdownCard({
+  plan,
+  countdown,
 }: {
-  icon:
-    React.ElementType;
+  plan:
+    PlanDetail;
 
-  children:
-    React.ReactNode;
+  countdown:
+    Countdown;
 }) {
   return (
-    <div
+    <section
       className="
-        flex
-        items-center
-        gap-2
-        rounded-full
-        border
-        border-white/20
-        bg-black/15
-        px-4
-        py-2
-        text-xs
-        font-semibold
-        backdrop-blur-xl
+        overflow-hidden
+        rounded-[28px]
+        bg-ocean-950
+        p-6
+        text-white
+        shadow-[0_18px_45px_rgba(6,42,63,0.10)]
+        sm:p-7
       "
     >
-      <Icon
-        size={14}
-      />
+      <p
+        className="
+          text-xs
+          font-medium
+          text-white/40
+        "
+      >
+        Countdown
+      </p>
 
-      {children}
-    </div>
+      {plan.status ===
+      "done" ? (
+        <h2
+          className="
+            mt-5
+            font-display
+            text-[34px]
+            font-semibold
+            tracking-[-0.035em]
+          "
+        >
+          Completed
+        </h2>
+      ) : plan.status ===
+        "cancelled" ? (
+        <h2
+          className="
+            mt-5
+            font-display
+            text-[34px]
+            font-semibold
+            tracking-[-0.035em]
+          "
+        >
+          Cancelled
+        </h2>
+      ) : countdown.finished ? (
+        <h2
+          className="
+            mt-5
+            font-display
+            text-[34px]
+            font-semibold
+            tracking-[-0.035em]
+          "
+        >
+          Today
+        </h2>
+      ) : (
+        <div
+          className="
+            mt-6
+            grid
+            grid-cols-4
+            divide-x
+            divide-white/10
+          "
+        >
+          <CountdownValue
+            value={
+              countdown.days
+            }
+            label="Days"
+          />
+
+          <CountdownValue
+            value={
+              countdown.hours
+            }
+            label="Hours"
+          />
+
+          <CountdownValue
+            value={
+              countdown.minutes
+            }
+            label="Min"
+          />
+
+          <CountdownValue
+            value={
+              countdown.seconds
+            }
+            label="Sec"
+          />
+        </div>
+      )}
+    </section>
   );
 }
 
-/*
- * =========================================================
- * COUNTDOWN BOX
- * =========================================================
- */
-
-function CountdownBox({
+function CountdownValue({
   value,
   label,
 }: {
-  value: number;
+  value:
+    number;
 
-  label: string;
+  label:
+    string;
 }) {
   return (
     <div
       className="
-        rounded-[18px]
-        border
-        border-white/15
-        bg-white/10
-        p-4
+        px-2
         text-center
-        backdrop-blur-xl
       "
     >
       <p
         className="
           font-display
-          text-3xl
+          text-2xl
           font-semibold
+          tracking-tight
         "
       >
         {String(
@@ -2949,12 +1931,9 @@ function CountdownBox({
 
       <p
         className="
-          mt-1
+          mt-1.5
           text-[9px]
-          font-bold
-          uppercase
-          tracking-[0.15em]
-          text-white/55
+          text-white/35
         "
       >
         {label}
@@ -2965,76 +1944,144 @@ function CountdownBox({
 
 /*
  * =========================================================
- * DETAIL ROW
+ * TASK
  * =========================================================
  */
 
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
+function TaskRow({
+  task,
+  onToggle,
+  onEdit,
+  onDelete,
 }: {
-  icon:
-    React.ElementType;
+  task:
+    PlanTask;
 
-  label: string;
+  onToggle:
+    () => void;
 
-  value: string;
+  onEdit:
+    () => void;
+
+  onDelete:
+    () => void;
 }) {
   return (
     <div
       className="
+        group
         flex
-        items-start
+        items-center
         gap-3
+        py-3.5
       "
     >
-      <div
-        className="
+      <button
+        type="button"
+        onClick={
+          onToggle
+        }
+        aria-label={
+          task.is_completed
+            ? "Mark incomplete"
+            : "Mark complete"
+        }
+        className={`
           flex
-          h-10
-          w-10
+          h-7
+          w-7
           shrink-0
           items-center
           justify-center
-          rounded-[13px]
-          bg-ocean-50
-          text-ocean-600
-        "
+          rounded-[9px]
+          border
+          transition
+
+          ${
+            task.is_completed
+              ? "border-ocean-900 bg-ocean-900 text-white"
+              : "border-ocean-200 bg-white text-transparent hover:border-ocean-500"
+          }
+        `}
       >
-        <Icon
-          size={16}
+        <Check
+          size={14}
         />
-      </div>
+      </button>
+
+      <p
+        className={`
+          min-w-0
+          flex-1
+          text-sm
+          font-medium
+
+          ${
+            task.is_completed
+              ? "text-ink-soft line-through"
+              : "text-ocean-950"
+          }
+        `}
+      >
+        {task.title}
+      </p>
 
       <div
         className="
-          min-w-0
+          flex
+          shrink-0
+          opacity-60
+          transition
+          group-hover:opacity-100
         "
       >
-        <p
+        <button
+          type="button"
+          onClick={
+            onEdit
+          }
+          aria-label="Edit task"
           className="
-            text-[10px]
-            font-medium
-            uppercase
-            tracking-[0.08em]
+            flex
+            h-8
+            w-8
+            items-center
+            justify-center
+            rounded-full
             text-ink-soft
+            transition
+            hover:bg-ocean-50
+            hover:text-ocean-900
           "
         >
-          {label}
-        </p>
+          <Pencil
+            size={13}
+          />
+        </button>
 
-        <p
+        <button
+          type="button"
+          onClick={
+            onDelete
+          }
+          aria-label="Delete task"
           className="
-            mt-1
-            break-words
-            text-sm
-            font-semibold
-            text-ocean-950
+            flex
+            h-8
+            w-8
+            items-center
+            justify-center
+            rounded-full
+            text-ink-soft
+            transition
+            hover:bg-heart-soft
+            hover:text-heart
           "
         >
-          {value}
-        </p>
+          <Trash2
+            size={13}
+          />
+        </button>
       </div>
     </div>
   );
@@ -3042,7 +2089,178 @@ function DetailRow({
 
 /*
  * =========================================================
- * STATUS BADGE
+ * DETAILS
+ * =========================================================
+ */
+
+function DetailRow({
+  label,
+  value,
+}: {
+  label:
+    string;
+
+  value:
+    string;
+}) {
+  return (
+    <div
+      className="
+        grid
+        grid-cols-[95px_1fr]
+        gap-4
+        py-3.5
+        first:pt-0
+        last:pb-0
+      "
+    >
+      <p
+        className="
+          text-xs
+          text-ink-soft
+        "
+      >
+        {label}
+      </p>
+
+      <p
+        className="
+          text-right
+          text-sm
+          font-medium
+          text-ocean-950
+        "
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * PLAN ACTION
+ * =========================================================
+ */
+
+function PlanAction({
+  plan,
+  memoryId,
+  onMarkDone,
+  onRestore,
+  onMemory,
+}: {
+  plan:
+    PlanDetail;
+
+  memoryId:
+    string | null;
+
+  onMarkDone:
+    () => void;
+
+  onRestore:
+    () => void;
+
+  onMemory:
+    () => void;
+}) {
+  return (
+    <Surface>
+      <div
+        className="
+          p-6
+          sm:p-7
+        "
+      >
+        {plan.status ===
+        "done" ? (
+          <>
+            <SectionTitle>
+              Completed
+            </SectionTitle>
+
+            <div
+              className="
+                mt-6
+                space-y-3
+              "
+            >
+              {memoryId ? (
+                <PrimaryLink
+                  href={`/memories/${memoryId}`}
+                >
+                  View Memory
+                </PrimaryLink>
+              ) : (
+                <PrimaryButton
+                  onClick={
+                    onMemory
+                  }
+                >
+                  Save as Memory
+                </PrimaryButton>
+              )}
+
+              <SecondaryButton
+                onClick={
+                  onRestore
+                }
+              >
+                Restore
+              </SecondaryButton>
+            </div>
+          </>
+        ) : plan.status ===
+          "cancelled" ? (
+          <>
+            <SectionTitle>
+              Cancelled
+            </SectionTitle>
+
+            <div
+              className="
+                mt-6
+              "
+            >
+              <PrimaryButton
+                onClick={
+                  onRestore
+                }
+              >
+                Restore
+              </PrimaryButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <SectionTitle>
+              Status
+            </SectionTitle>
+
+            <div
+              className="
+                mt-6
+              "
+            >
+              <PrimaryButton
+                onClick={
+                  onMarkDone
+                }
+              >
+                Mark as Done
+              </PrimaryButton>
+            </div>
+          </>
+        )}
+      </div>
+    </Surface>
+  );
+}
+
+/*
+ * =========================================================
+ * STATUS
  * =========================================================
  */
 
@@ -3052,33 +2270,39 @@ function StatusBadge({
   status:
     PlanStatus;
 }) {
-  const config = {
+  const config: Record<
+    PlanStatus,
+    {
+      label: string;
+      className: string;
+    }
+  > = {
     planned: {
-      text:
+      label:
         "Planned",
 
       className:
-        "bg-white/15 text-white",
+        "border-white/15 bg-white/10 text-white/75",
     },
 
     done: {
-      text:
+      label:
         "Done",
 
       className:
-        "bg-emerald-400/25 text-white",
+        "border-emerald-200/20 bg-emerald-300/15 text-emerald-50",
     },
 
     cancelled: {
-      text:
+      label:
         "Cancelled",
 
       className:
-        "bg-rose-400/25 text-white",
+        "border-rose-200/20 bg-rose-300/15 text-rose-50",
     },
   };
 
-  const current =
+  const item =
     config[status];
 
   return (
@@ -3087,25 +2311,354 @@ function StatusBadge({
         inline-flex
         rounded-full
         border
-        border-white/20
-        px-4
-        py-2
+        px-3
+        py-1.5
         text-[10px]
-        font-bold
-        uppercase
-        tracking-[0.16em]
-        backdrop-blur-xl
-        ${current.className}
+        font-semibold
+        backdrop-blur-md
+        ${item.className}
       `}
     >
-      {current.text}
+      {item.label}
     </span>
   );
 }
 
 /*
  * =========================================================
- * CALCULATE COUNTDOWN
+ * SURFACE
+ * =========================================================
+ */
+
+function Surface({
+  children,
+}: {
+  children:
+    ReactNode;
+}) {
+  return (
+    <article
+      className="
+        overflow-hidden
+        rounded-[28px]
+        border
+        border-ocean-100/70
+        bg-white/80
+        shadow-[0_14px_45px_rgba(8,59,89,0.04)]
+        backdrop-blur-xl
+      "
+    >
+      {children}
+    </article>
+  );
+}
+
+function SectionTitle({
+  children,
+}: {
+  children:
+    ReactNode;
+}) {
+  return (
+    <h2
+      className="
+        font-display
+        text-[25px]
+        font-semibold
+        leading-tight
+        tracking-[-0.025em]
+        text-ocean-950
+      "
+    >
+      {children}
+    </h2>
+  );
+}
+
+function MetaDot() {
+  return (
+    <span
+      className="
+        h-[3px]
+        w-[3px]
+        rounded-full
+        bg-white/35
+      "
+    />
+  );
+}
+
+/*
+ * =========================================================
+ * BUTTONS
+ * =========================================================
+ */
+
+function PrimaryLink({
+  href,
+  children,
+}: {
+  href:
+    string;
+
+  children:
+    ReactNode;
+}) {
+  return (
+    <Link
+      href={
+        href
+      }
+      style={{
+        color:
+          "#ffffff",
+      }}
+      className="
+        group
+        flex
+        w-full
+        items-center
+        justify-between
+        rounded-[13px]
+        bg-ocean-900
+        px-5
+        py-3
+        text-sm
+        font-semibold
+        transition
+        hover:bg-ocean-800
+      "
+    >
+      {children}
+
+      <ArrowRight
+        size={14}
+        className="
+          transition-transform
+          group-hover:translate-x-0.5
+        "
+      />
+    </Link>
+  );
+}
+
+function PrimaryButton({
+  children,
+  onClick,
+}: {
+  children:
+    ReactNode;
+
+  onClick:
+    () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className="
+        w-full
+        rounded-[13px]
+        bg-ocean-900
+        px-5
+        py-3
+        text-sm
+        font-semibold
+        text-white
+        transition
+        hover:bg-ocean-800
+      "
+    >
+      {children}
+    </button>
+  );
+}
+
+function SecondaryButton({
+  children,
+  onClick,
+}: {
+  children:
+    ReactNode;
+
+  onClick:
+    () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className="
+        w-full
+        rounded-[13px]
+        border
+        border-ocean-100
+        bg-white
+        px-5
+        py-3
+        text-sm
+        font-semibold
+        text-ocean-800
+        transition
+        hover:bg-ocean-50
+      "
+    >
+      {children}
+    </button>
+  );
+}
+
+/*
+ * =========================================================
+ * COPY COVER TO MEMORY
+ * =========================================================
+ */
+
+type CopyPlanCoverParams = {
+  planCoverPath:
+    string;
+
+  coupleId:
+    string;
+
+  memoryId:
+    string;
+
+  userId:
+    string;
+};
+
+async function copyPlanCoverToMemory({
+  planCoverPath,
+  coupleId,
+  memoryId,
+  userId,
+}: CopyPlanCoverParams) {
+  const supabase =
+    createClient();
+
+  const {
+    data:
+      coverBlob,
+
+    error:
+      downloadError,
+  } =
+    await supabase.storage
+      .from(
+        "plan-covers"
+      )
+      .download(
+        planCoverPath
+      );
+
+  if (
+    downloadError ||
+    !coverBlob
+  ) {
+    throw new Error(
+      downloadError?.message ||
+      "Plan cover could not be read."
+    );
+  }
+
+  const extension =
+    getExtension(
+      planCoverPath
+    );
+
+  const fileName =
+    `plan-cover-${crypto.randomUUID()}.${extension}`;
+
+  const storagePath =
+    `${coupleId}/${memoryId}/${fileName}`;
+
+  const {
+    error:
+      uploadError,
+  } =
+    await supabase.storage
+      .from(
+        "memory-photos"
+      )
+      .upload(
+        storagePath,
+        coverBlob,
+        {
+          cacheControl:
+            "3600",
+
+          upsert:
+            false,
+
+          contentType:
+            coverBlob.type ||
+            "image/jpeg",
+        }
+      );
+
+  if (
+    uploadError
+  ) {
+    throw new Error(
+      uploadError.message
+    );
+  }
+
+  const {
+    error:
+      photoError,
+  } =
+    await supabase
+      .from(
+        "memory_photos"
+      )
+      .insert({
+        memory_id:
+          memoryId,
+
+        uploaded_by:
+          userId,
+
+        storage_path:
+          storagePath,
+
+        caption:
+          null,
+
+        is_cover:
+          true,
+
+        sort_order:
+          0,
+      });
+
+  if (
+    photoError
+  ) {
+    await supabase.storage
+      .from(
+        "memory-photos"
+      )
+      .remove([
+        storagePath,
+      ]);
+
+    throw new Error(
+      photoError.message
+    );
+  }
+
+  return storagePath;
+}
+
+/*
+ * =========================================================
+ * COUNTDOWN
  * =========================================================
  */
 
@@ -3126,90 +2679,82 @@ function calculateCountdown(
       `${plan.plan_date}T${time}:00`
     );
 
-  const now =
-    new Date();
-
   const difference =
     target.getTime() -
-    now.getTime();
+    Date.now();
 
   if (
     difference <= 0
   ) {
     return {
-      days: 0,
+      days:
+        0,
 
-      hours: 0,
+      hours:
+        0,
 
-      minutes: 0,
+      minutes:
+        0,
 
-      seconds: 0,
+      seconds:
+        0,
 
-      finished: true,
+      finished:
+        true,
     };
   }
 
-  const days =
-    Math.floor(
-      difference /
-        (
-          1000 *
-          60 *
-          60 *
-          24
-        )
-    );
-
-  const hours =
-    Math.floor(
-      (
-        difference /
-        (
-          1000 *
-          60 *
-          60
-        )
-      ) %
-        24
-    );
-
-  const minutes =
-    Math.floor(
-      (
-        difference /
-        (
-          1000 *
-          60
-        )
-      ) %
-        60
-    );
-
-  const seconds =
-    Math.floor(
-      (
-        difference /
-        1000
-      ) %
-        60
-    );
-
   return {
-    days,
+    days:
+      Math.floor(
+        difference /
+          (
+            1000 *
+            60 *
+            60 *
+            24
+          )
+      ),
 
-    hours,
+    hours:
+      Math.floor(
+        (
+          difference /
+          (
+            1000 *
+            60 *
+            60
+          )
+        ) % 24
+      ),
 
-    minutes,
+    minutes:
+      Math.floor(
+        (
+          difference /
+          (
+            1000 *
+            60
+          )
+        ) % 60
+      ),
 
-    seconds,
+    seconds:
+      Math.floor(
+        (
+          difference /
+          1000
+        ) % 60
+      ),
 
-    finished: false,
+    finished:
+      false,
   };
 }
 
 /*
  * =========================================================
- * FORMAT DATE
+ * FORMAT
  * =========================================================
  */
 
@@ -3219,11 +2764,14 @@ function formatDate(
   return new Intl.DateTimeFormat(
     "id-ID",
     {
-      day: "numeric",
+      day:
+        "numeric",
 
-      month: "long",
+      month:
+        "long",
 
-      year: "numeric",
+      year:
+        "numeric",
     }
   ).format(
     new Date(
@@ -3231,12 +2779,6 @@ function formatDate(
     )
   );
 }
-
-/*
- * =========================================================
- * FORMAT TIME
- * =========================================================
- */
 
 function formatTime(
   value: string
@@ -3246,12 +2788,6 @@ function formatTime(
     5
   );
 }
-
-/*
- * =========================================================
- * FORMAT RUPIAH
- * =========================================================
- */
 
 function formatRupiah(
   value: number
@@ -3273,41 +2809,28 @@ function formatRupiah(
   );
 }
 
-/*
- * =========================================================
- * FILE EXTENSION
- * =========================================================
- */
-
 function getExtension(
   fileName: string
 ) {
-  const parts =
-    fileName.split(
-      "."
-    );
-
-  if (
-    parts.length <
-    2
-  ) {
-    return "jpg";
-  }
+  const extension =
+    fileName
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(
+        /[^a-z0-9]/g,
+        ""
+      );
 
   return (
-    parts.pop() ||
+    extension ||
     "jpg"
-  )
-    .toLowerCase()
-    .replace(
-      /[^a-z0-9]/g,
-      ""
-    );
+  );
 }
 
 /*
  * =========================================================
- * ERROR ALERT
+ * ERROR
  * =========================================================
  */
 
@@ -3316,7 +2839,8 @@ async function showError(
   message: string
 ) {
   await Swal.fire({
-    icon: "error",
+    icon:
+      "error",
 
     title,
 
@@ -3324,9 +2848,15 @@ async function showError(
       message,
 
     confirmButtonText:
-      "Oke",
+      "OK",
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }

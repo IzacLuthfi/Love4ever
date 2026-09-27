@@ -1,113 +1,229 @@
 // src/components/memories/MemoryDetailClient.tsx
 
+
+
 "use client";
 
+
+
 import Image from "next/image";
+
 import Link from "next/link";
 
-import {
-  type ChangeEvent,
-  useMemo,
-  useState,
-} from "react";
+
 
 import {
+
+  type ChangeEvent,
+
+  type ReactNode,
+
+  useMemo,
+
+  useState,
+
+} from "react";
+
+
+
+import {
+
   ArrowLeft,
-  CalendarDays,
-  Camera,
-  Check,
-  Clock3,
-  ExternalLink,
-  Heart,
+
+  ChevronLeft,
+
+  ChevronRight,
+
   ImagePlus,
-  Images,
-  MapPin,
+
+  Pencil,
+
   Star,
+
   Trash2,
+
+  X,
+
 } from "lucide-react";
+
+
 
 import Swal from "sweetalert2";
 
+
+
 import AppSidebar from "@/components/layout/AppSidebar";
+
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+
+
 
 import { createClient } from "@/lib/supabase/client";
 
+import {
+
+  IMAGE_ACCEPT,
+
+  normalizeImageFiles,
+
+} from "@/utils/image";
+
 /*
+
  * =========================================================
+
  * TYPES
+
  * =========================================================
+
  */
 
+
+
 type MemoryDetail = {
+
   id: string;
+
+
 
   couple_id: string;
 
   created_by: string;
 
+
+
   source_plan_id:
+
     | string
+
     | null;
+
+
 
   title: string;
 
+
+
   story:
+
     | string
+
     | null;
+
+
 
   memory_date: string;
 
+
+
   memory_time:
+
     | string
+
     | null;
+
+
 
   location_name:
+
     | string
+
     | null;
+
+
 
   maps_url:
+
     | string
+
     | null;
+
+
 
   latitude:
+
     | number
+
     | null;
 
+
+
   longitude:
+
     | number
+
     | null;
+
+
 
   created_at: string;
 
   updated_at: string;
+
 };
 
+
+
 type MemoryPhoto = {
+
   id: string;
+
+
 
   memory_id: string;
 
-  uploaded_by: string;
 
-  storage_path: string;
+
+  uploaded_by:
+
+    string;
+
+
+
+  storage_path:
+
+    string;
+
+
 
   caption:
+
     | string
+
     | null;
 
-  is_cover: boolean;
 
-  sort_order: number;
 
-  created_at: string;
+  is_cover:
+
+    boolean;
+
+
+
+  sort_order:
+
+    number;
+
+
+
+  created_at:
+
+    string;
+
+
 
   signed_url:
+
     | string
+
     | null;
+
 };
 
+
+
 type MemoryUser = {
+
   id: string;
 
   email: string;
@@ -116,86 +232,297 @@ type MemoryUser = {
 
   nickname: string;
 
+
+
   avatarUrl:
+
     | string
+
     | null;
+
 };
+
+
 
 type MemoryDetailClientProps = {
+
   user:
+
     MemoryUser;
 
+
+
   initialMemory:
+
     MemoryDetail;
 
+
+
   initialPhotos:
+
     MemoryPhoto[];
+
 };
 
+
+
 /*
+
  * =========================================================
+
  * COMPONENT
+
  * =========================================================
+
  */
 
+
+
 export default function MemoryDetailClient({
+
   user,
+
   initialMemory,
+
   initialPhotos,
+
 }: MemoryDetailClientProps) {
+
   const [
+
     memory,
+
   ] =
+
     useState<MemoryDetail>(
+
       initialMemory
+
     );
 
+
+
   const [
+
     photos,
+
     setPhotos,
+
   ] =
-    useState<
-      MemoryPhoto[]
-    >(
+
+    useState<MemoryPhoto[]>(
+
       initialPhotos
+
     );
 
+
+
   const [
+
     isUploading,
+
     setIsUploading,
+
   ] =
+
     useState(false);
 
+
+
+  const [
+
+    selectedPhotoId,
+
+    setSelectedPhotoId,
+
+  ] =
+
+    useState<
+
+      string | null
+
+    >(null);
+
+
+
   /*
+
+   * =========================================================
+
    * COVER
+
+   * =========================================================
+
    */
+
+
 
   const coverPhoto =
+
     useMemo(() => {
+
       return (
+
         photos.find(
+
           (photo) =>
+
             photo.is_cover
+
         ) ??
+
         photos[0] ??
+
         null
+
       );
+
     }, [photos]);
 
+
+
   /*
+
    * =========================================================
-   * UPLOAD
+
+   * LIGHTBOX
+
    * =========================================================
+
    */
+
+
+
+  const selectedIndex =
+
+    photos.findIndex(
+
+      (photo) =>
+
+        photo.id ===
+
+        selectedPhotoId
+
+    );
+
+
+
+  const selectedPhoto =
+
+    selectedIndex >= 0
+
+      ? photos[
+
+          selectedIndex
+
+        ]
+
+      : null;
+
+
+
+  const showPrevious =
+
+    () => {
+
+      if (
+
+        photos.length ===
+
+        0
+
+      ) {
+
+        return;
+
+      }
+
+
+
+      const index =
+
+        selectedIndex <= 0
+
+          ? photos.length - 1
+
+          : selectedIndex - 1;
+
+
+
+      setSelectedPhotoId(
+
+        photos[index].id
+
+      );
+
+    };
+
+
+
+  const showNext =
+
+    () => {
+
+      if (
+
+        photos.length ===
+
+        0
+
+      ) {
+
+        return;
+
+      }
+
+
+
+      const index =
+
+        selectedIndex >=
+
+        photos.length - 1
+
+          ? 0
+
+          : selectedIndex + 1;
+
+
+
+      setSelectedPhotoId(
+
+        photos[index].id
+
+      );
+
+    };
+
+
+
+  /*
+
+   * =========================================================
+
+   * UPLOAD
+
+   * =========================================================
+
+   */
+
+
 
   const handleUpload =
     async (
       event:
         ChangeEvent<HTMLInputElement>
     ) => {
+      const input =
+        event.currentTarget;
+
       const selectedFiles =
         Array.from(
-          event.target.files ??
+          input.files ??
             []
         );
 
@@ -206,89 +533,59 @@ export default function MemoryDetailClient({
         return;
       }
 
-      /*
-       * VALIDATION
-       */
-
-      const invalidFile =
-        selectedFiles.find(
-          (file) =>
-            !file.type.startsWith(
-              "image/"
-            )
-        );
-
-      if (invalidFile) {
-        await Swal.fire({
-          icon:
-            "warning",
-
-          title:
-            "File tidak valid",
-
-          text:
-            "Semua file harus berupa gambar.",
-
-          confirmButtonColor:
-            "#1688b5",
-        });
-
-        event.target.value =
-          "";
-
-        return;
-      }
-
-      const oversized =
-        selectedFiles.find(
-          (file) =>
-            file.size >
-            8 *
-              1024 *
-              1024
-        );
-
-      if (oversized) {
-        await Swal.fire({
-          icon:
-            "warning",
-
-          title:
-            "Foto terlalu besar",
-
-          text:
-            "Maksimal ukuran setiap foto adalah 8 MB.",
-
-          confirmButtonColor:
-            "#1688b5",
-        });
-
-        event.target.value =
-          "";
-
-        return;
-      }
-
       setIsUploading(
         true
       );
+
+      let files:
+        File[];
+
+      try {
+        files =
+          await normalizeImageFiles(
+            selectedFiles,
+            {
+              maxSizeMB:
+                8,
+
+              heicQuality:
+                0.88,
+            }
+          );
+      } catch (error) {
+        await showError(
+          "Photo could not be used",
+
+          error instanceof Error
+            ? error.message
+            : "One of the selected photos is invalid."
+        );
+
+        setIsUploading(
+          false
+        );
+
+        input.value =
+          "";
+
+        return;
+      }
 
       const supabase =
         createClient();
 
       const uploaded:
-        MemoryPhoto[] =
-        [];
+        MemoryPhoto[] = [];
 
       try {
         for (
           let index = 0;
           index <
-          selectedFiles.length;
+          files.length;
           index++
         ) {
           const file =
-            selectedFiles[index];
+            files[index];
 
           const extension =
             getExtension(
@@ -302,7 +599,7 @@ export default function MemoryDetailClient({
             `${memory.couple_id}/${memory.id}/${fileName}`;
 
           /*
-           * STORAGE UPLOAD
+           * STORAGE
            */
 
           const {
@@ -337,8 +634,7 @@ export default function MemoryDetailClient({
           }
 
           /*
-           * First ever photo
-           * becomes cover automatically.
+           * FIRST PHOTO = COVER
            */
 
           const shouldBeCover =
@@ -348,12 +644,13 @@ export default function MemoryDetailClient({
               0;
 
           /*
-           * DATABASE ROW
+           * DATABASE
            */
 
           const {
             data:
               photoRow,
+
             error:
               databaseError,
           } =
@@ -407,6 +704,9 @@ export default function MemoryDetailClient({
           const {
             data:
               signedData,
+
+            error:
+              signedError,
           } =
             await supabase.storage
               .from(
@@ -417,6 +717,15 @@ export default function MemoryDetailClient({
                 60 * 60
               );
 
+          if (
+            signedError
+          ) {
+            console.error(
+              "Signed URL:",
+              signedError
+            );
+          }
+
           uploaded.push({
             ...(photoRow as Omit<
               MemoryPhoto,
@@ -424,7 +733,8 @@ export default function MemoryDetailClient({
             >),
 
             signed_url:
-              signedData?.signedUrl ??
+              signedData
+                ?.signedUrl ??
               null,
           });
         }
@@ -436,1513 +746,3282 @@ export default function MemoryDetailClient({
           ]
         );
 
-        await Swal.fire({
-          icon:
-            "success",
-
-          title:
-            selectedFiles.length >
+        await showSuccess(
+          files.length >
             1
-              ? `${selectedFiles.length} foto ditambahkan`
-              : "Foto ditambahkan",
-
-          timer:
-            1200,
-
-          showConfirmButton:
-            false,
-        });
+            ? `${files.length} photos added`
+            : "Photo added"
+        );
       } catch (error) {
         await showError(
-          "Upload gagal",
+          "Upload failed",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan saat upload."
+            : "Something went wrong."
         );
       } finally {
         setIsUploading(
           false
         );
 
-        event.target.value =
+        input.value =
           "";
       }
     };
 
+
   /*
+
    * =========================================================
-   * SET COVER
+
+   * COVER
+
    * =========================================================
+
    */
+
+
 
   const handleSetCover =
+
     async (
+
       photo:
+
         MemoryPhoto
+
     ) => {
+
       if (
+
         photo.is_cover
+
       ) {
+
         return;
+
       }
+
+
 
       const result =
+
         await Swal.fire({
-          icon:
-            "question",
 
           title:
-            "Jadikan cover?",
 
-          text:
-            "Foto ini akan menjadi cover Memory.",
+            "Set as cover?",
+
+
 
           showCancelButton:
+
             true,
 
+
+
           confirmButtonText:
-            "Set as Cover",
+
+            "Set Cover",
+
+
 
           cancelButtonText:
-            "Batal",
+
+            "Cancel",
+
+
 
           confirmButtonColor:
-            "#1688b5",
+
+            "#083b59",
+
+
+
+          background:
+
+            "#fffdf9",
+
+
+
+          color:
+
+            "#123d59",
+
         });
 
+
+
       if (
+
         !result.isConfirmed
+
       ) {
+
         return;
+
       }
+
+
 
       const supabase =
+
         createClient();
 
+
+
       /*
-       * Remove previous cover.
+
+       * RESET OLD COVER
+
        */
 
+
+
       const {
+
         error:
+
           resetError,
+
       } =
+
         await supabase
+
           .from(
+
             "memory_photos"
+
           )
+
           .update({
+
             is_cover:
+
               false,
+
           })
+
           .eq(
+
             "memory_id",
+
             memory.id
+
           )
+
           .eq(
+
             "is_cover",
+
             true
+
           );
+
+
 
       if (
+
         resetError
+
       ) {
+
         await showError(
-          "Cover gagal diubah",
+
+          "Cover could not be changed",
+
           resetError.message
+
         );
 
+
+
         return;
+
       }
+
+
 
       /*
-       * New cover.
+
+       * SET NEW
+
        */
 
+
+
       const {
+
         error,
+
       } =
+
         await supabase
+
           .from(
+
             "memory_photos"
+
           )
+
           .update({
+
             is_cover:
+
               true,
+
           })
+
           .eq(
+
             "id",
+
             photo.id
+
           );
 
+
+
       if (error) {
+
         await showError(
-          "Cover gagal diubah",
+
+          "Cover could not be changed",
+
           error.message
+
         );
 
+
+
         return;
+
       }
 
+
+
       setPhotos(
+
         (current) =>
+
           current.map(
+
             (item) => ({
+
               ...item,
 
+
+
               is_cover:
+
                 item.id ===
+
                 photo.id,
+
             })
+
           )
+
       );
 
-      await Swal.fire({
-        icon:
-          "success",
 
-        title:
-          "Cover diperbarui",
 
-        timer:
-          900,
+      await showSuccess(
 
-        showConfirmButton:
-          false,
-      });
+        "Cover updated"
+
+      );
+
     };
 
+
+
   /*
+
    * =========================================================
-   * EDIT CAPTION
+
+   * CAPTION
+
    * =========================================================
+
    */
+
+
 
   const handleEditCaption =
+
     async (
+
       photo:
+
         MemoryPhoto
+
     ) => {
+
       const result =
+
         await Swal.fire({
+
           title:
-            "Photo Caption",
+
+            "Caption",
+
+
 
           input:
+
             "text",
 
+
+
           inputValue:
+
             photo.caption ??
+
             "",
 
+
+
           inputPlaceholder:
-            "Tulis caption...",
+
+            "Optional",
+
+
 
           showCancelButton:
+
             true,
 
+
+
           confirmButtonText:
-            "Simpan",
+
+            "Save",
+
+
 
           cancelButtonText:
-            "Batal",
+
+            "Cancel",
+
+
 
           confirmButtonColor:
-            "#1688b5",
+
+            "#083b59",
+
+
+
+          background:
+
+            "#fffdf9",
+
+
+
+          color:
+
+            "#123d59",
+
         });
 
+
+
       if (
+
         !result.isConfirmed
+
       ) {
+
         return;
+
       }
+
+
 
       const caption =
+
         String(
+
           result.value ??
-            ""
+
+          ""
+
         ).trim();
 
+
+
       const supabase =
+
         createClient();
 
+
+
       const {
+
         error,
+
       } =
+
         await supabase
+
           .from(
+
             "memory_photos"
+
           )
+
           .update({
+
             caption:
+
               caption ||
+
               null,
+
           })
+
           .eq(
+
             "id",
+
             photo.id
+
           );
+
+
 
       if (error) {
+
         await showError(
-          "Caption gagal disimpan",
+
+          "Caption could not be saved",
+
           error.message
+
         );
 
+
+
         return;
+
       }
 
+
+
       setPhotos(
+
         (current) =>
+
           current.map(
+
             (item) =>
+
               item.id ===
+
               photo.id
+
                 ? {
+
                     ...item,
 
+
+
                     caption:
+
                       caption ||
+
                       null,
+
                   }
+
                 : item
+
           )
+
       );
 
-      await Swal.fire({
-        icon:
-          "success",
-
-        title:
-          "Caption disimpan",
-
-        timer:
-          800,
-
-        showConfirmButton:
-          false,
-      });
     };
 
+
+
   /*
+
    * =========================================================
+
    * DELETE PHOTO
+
    * =========================================================
+
    */
+
+
 
   const handleDeletePhoto =
+
     async (
+
       photo:
+
         MemoryPhoto
+
     ) => {
+
       const result =
+
         await Swal.fire({
-          icon:
-            "warning",
 
           title:
-            "Hapus foto?",
 
-          text:
-            "Foto akan dihapus permanen.",
+            "Delete photo?",
+
+
 
           showCancelButton:
+
             true,
 
+
+
           confirmButtonText:
-            "Hapus",
+
+            "Delete",
+
+
 
           cancelButtonText:
-            "Batal",
+
+            "Cancel",
+
+
 
           confirmButtonColor:
-            "#dc5f72",
 
-          cancelButtonColor:
-            "#1688b5",
+            "#d85f72",
+
+
+
+          background:
+
+            "#fffdf9",
+
+
+
+          color:
+
+            "#123d59",
+
         });
 
+
+
       if (
+
         !result.isConfirmed
+
       ) {
+
         return;
+
       }
+
+
 
       const supabase =
+
         createClient();
 
-      /*
-       * Delete database first.
-       */
+
 
       const {
+
         error:
+
           databaseError,
+
       } =
+
         await supabase
+
           .from(
+
             "memory_photos"
+
           )
+
           .delete()
+
           .eq(
+
             "id",
+
             photo.id
+
           );
 
+
+
       if (
+
         databaseError
+
       ) {
+
         await showError(
-          "Foto gagal dihapus",
+
+          "Photo could not be deleted",
+
           databaseError.message
+
         );
+
+
 
         return;
+
       }
 
-      /*
-       * Delete object.
-       */
 
-      await supabase.storage
-        .from(
-          "memory-photos"
-        )
-        .remove([
-          photo.storage_path,
-        ]);
 
-      const remaining =
-        photos.filter(
-          (item) =>
-            item.id !==
-            photo.id
-        );
+      const {
 
-      /*
-       * If cover deleted,
-       * assign first remaining photo.
-       */
+        error:
+
+          storageError,
+
+      } =
+
+        await supabase.storage
+
+          .from(
+
+            "memory-photos"
+
+          )
+
+          .remove([
+
+            photo.storage_path,
+
+          ]);
+
+
 
       if (
-        photo.is_cover &&
-        remaining.length >
-          0
+
+        storageError
+
       ) {
-        const nextCover =
-          remaining[0];
 
-        const {
-          error:
-            coverError,
-        } =
-          await supabase
-            .from(
-              "memory_photos"
-            )
-            .update({
-              is_cover:
-                true,
-            })
-            .eq(
-              "id",
-              nextCover.id
-            );
+        console.error(
 
-        if (
-          !coverError
-        ) {
-          nextCover.is_cover =
-            true;
-        }
+          "Photo storage cleanup:",
+
+          storageError
+
+        );
+
       }
 
-      setPhotos(
-        [...remaining]
-      );
 
-      await Swal.fire({
-        icon:
-          "success",
 
-        title:
-          "Foto dihapus",
+      const remaining =
 
-        timer:
-          800,
+        photos.filter(
 
-        showConfirmButton:
-          false,
-      });
+          (item) =>
+
+            item.id !==
+
+            photo.id
+
+        );
+
+
+
+      /*
+
+       * REPLACE COVER
+
+       */
+
+
+
+      if (
+
+        photo.is_cover &&
+
+        remaining.length >
+
+          0
+
+      ) {
+
+        const nextCover =
+
+          remaining[0];
+
+
+
+        const {
+
+          error:
+
+            coverError,
+
+        } =
+
+          await supabase
+
+            .from(
+
+              "memory_photos"
+
+            )
+
+            .update({
+
+              is_cover:
+
+                true,
+
+            })
+
+            .eq(
+
+              "id",
+
+              nextCover.id
+
+            );
+
+
+
+        if (
+
+          !coverError
+
+        ) {
+
+          nextCover.is_cover =
+
+            true;
+
+        }
+
+      }
+
+
+
+      setPhotos([
+
+        ...remaining,
+
+      ]);
+
+
+
+      if (
+
+        selectedPhotoId ===
+
+        photo.id
+
+      ) {
+
+        setSelectedPhotoId(
+
+          null
+
+        );
+
+      }
+
     };
 
+
+
   /*
+
    * =========================================================
+
    * UI
+
    * =========================================================
+
    */
 
+
+
   return (
+
     <div
+
       className="
+
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
+
       "
+
     >
+
       <AppSidebar
-        user={
-          user
-        }
+
+        user={user}
+
       />
+
+
 
       <MobileBottomNav />
 
+
+
       <main
+
         className="
+
           min-h-[100svh]
+
           px-4
+
           pb-28
-          pt-4
+
+          pt-6
+
           sm:px-6
-          sm:pt-6
+
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+
+          lg:px-8
+
+          lg:pb-14
+
+          lg:pt-9
+
           xl:px-10
+
         "
+
       >
+
         <div
+
           className="
+
             mx-auto
+
             w-full
-            max-w-[1450px]
+
+            max-w-[1440px]
+
           "
+
         >
+
           {/* BACK */}
 
+
+
           <Link
+
             href="/memories"
+
             className="
-              mb-5
+
               inline-flex
+
               items-center
+
               gap-2
+
               text-sm
-              font-semibold
+
+              font-medium
+
               text-ink-soft
+
               transition
-              hover:text-ocean-700
+
+              hover:text-ocean-950
+
             "
+
           >
+
             <ArrowLeft
-              size={17}
+
+              size={15}
+
             />
 
-            Back to Memories
+
+
+            Memories
+
           </Link>
 
-          {/* =====================================
-              HERO
-          ====================================== */}
+
+
+          {/* HERO */}
+
+
 
           <section
+
             className="
+
               relative
-              min-h-[380px]
+
+              mt-5
+
+              min-h-[400px]
+
               overflow-hidden
+
               rounded-[32px]
-              bg-gradient-to-br
-              from-ocean-900
-              via-ocean-700
-              to-ocean-500
-              shadow-love-lg
-              sm:min-h-[470px]
+
+              bg-ocean-950
+
+              shadow-[0_24px_65px_rgba(6,42,63,0.12)]
+
+              sm:min-h-[500px]
+
             "
+
           >
-            {coverPhoto?.signed_url ? (
+
+            {coverPhoto
+
+              ?.signed_url ? (
+
               <>
+
                 <Image
+
                   src={
+
                     coverPhoto.signed_url
+
                   }
+
                   alt={
+
                     memory.title
+
                   }
+
                   fill
+
                   priority
+
                   unoptimized
+
                   className="
+
                     object-cover
+
                   "
+
                 />
 
+
+
                 <div
+
                   className="
+
                     absolute
+
                     inset-0
-                    bg-gradient-to-t
-                    from-ocean-950/95
-                    via-ocean-950/35
-                    to-black/5
+
+                    bg-[linear-gradient(to_top,rgba(6,42,63,0.94)_0%,rgba(6,42,63,0.24)_58%,rgba(0,0,0,0.05)_100%)]
+
                   "
+
                 />
+
               </>
+
             ) : (
-              <>
-                <div
-                  className="
-                    absolute
-                    inset-0
-                    bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,.15),transparent_28%),radial-gradient(circle_at_10%_90%,rgba(158,223,240,.28),transparent_35%)]
-                  "
-                />
 
-                <Images
-                  size={200}
-                  className="
-                    absolute
-                    -right-8
-                    -top-10
-                    text-white/[0.05]
-                  "
-                />
-              </>
+              <div
+
+                className="
+
+                  absolute
+
+                  inset-0
+
+                  bg-[linear-gradient(145deg,#062a3f,#0b4f71_55%,#1688b5)]
+
+                "
+
+              />
+
             )}
 
-            {/* UPLOAD */}
+
+
+            {/* ADD PHOTO */}
+
+
 
             <label
+
               className="
+
                 absolute
-                right-4
-                top-4
+
+                right-5
+
+                top-5
+
                 z-20
-                flex
+
                 cursor-pointer
-                items-center
-                gap-2
-                rounded-[15px]
+
+                rounded-full
+
                 border
-                border-white/20
+
+                border-white/15
+
                 bg-black/20
+
                 px-4
-                py-2.5
+
+                py-2
+
                 text-xs
-                font-semibold
+
+                font-medium
+
                 text-white
+
                 backdrop-blur-xl
+
                 transition
-                hover:bg-black/30
-                sm:right-6
-                sm:top-6
+
+                hover:bg-black/35
+
+                sm:right-7
+
+                sm:top-7
+
               "
+
             >
-              <ImagePlus
-                size={16}
-              />
 
               {isUploading
+
                 ? "Uploading..."
+
                 : "Add Photos"}
 
+
+
               <input
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={
-                  isUploading
-                }
-                onChange={
-                  handleUpload
-                }
-                className="hidden"
-              />
+
+  type="file"
+
+  accept={
+
+    IMAGE_ACCEPT
+
+  }
+
+  multiple
+
+  disabled={
+
+    isUploading
+
+  }
+
+  onChange={
+
+    handleUpload
+
+  }
+
+  className="hidden"
+
+/>
+
             </label>
+
+
 
             {/* CONTENT */}
 
+
+
             <div
+
               className="
+
                 absolute
+
                 inset-x-0
+
                 bottom-0
+
                 z-10
+
                 p-6
+
                 text-white
-                sm:p-8
-                lg:p-10
+
+                sm:p-9
+
+                lg:p-11
+
               "
+
             >
+
               {memory.source_plan_id && (
-                <span
+
+                <p
+
                   className="
-                    inline-flex
-                    rounded-full
-                    border
-                    border-white/20
-                    bg-white/10
-                    px-3
-                    py-1.5
-                    text-[9px]
-                    font-bold
-                    uppercase
-                    tracking-[0.15em]
-                    backdrop-blur-xl
+
+                    text-[10px]
+
+                    font-medium
+
+                    text-white/45
+
                   "
+
                 >
+
                   From Planner
-                </span>
+
+                </p>
+
               )}
+
+
 
               <h1
+
                 className="
-                  mt-3
-                  max-w-4xl
+
+                  mt-2
+
+                  max-w-5xl
+
                   font-display
-                  text-4xl
+
+                  text-[40px]
+
                   font-semibold
-                  sm:text-5xl
-                  lg:text-6xl
+
+                  leading-[1.02]
+
+                  tracking-[-0.045em]
+
+                  sm:text-[56px]
+
+                  lg:text-[66px]
+
                 "
+
               >
+
                 {memory.title}
+
               </h1>
 
+
+
               <div
+
                 className="
+
                   mt-5
+
                   flex
+
                   flex-wrap
-                  gap-2
+
+                  items-center
+
+                  gap-x-2
+
+                  gap-y-1
+
+                  text-sm
+
+                  text-white/55
+
                 "
+
               >
-                <HeroPill
-                  icon={
-                    CalendarDays
-                  }
-                >
+
+                <span>
+
                   {formatDate(
+
                     memory.memory_date
+
                   )}
-                </HeroPill>
+
+                </span>
+
+
 
                 {memory.memory_time && (
-                  <HeroPill
-                    icon={
-                      Clock3
-                    }
-                  >
-                    {formatTime(
-                      memory.memory_time
-                    )}
-                  </HeroPill>
+
+                  <>
+
+                    <MetaDot />
+
+
+
+                    <span>
+
+                      {formatTime(
+
+                        memory.memory_time
+
+                      )}
+
+                    </span>
+
+                  </>
+
                 )}
+
+
 
                 {memory.location_name && (
-                  <HeroPill
-                    icon={
-                      MapPin
-                    }
-                  >
-                    {
-                      memory.location_name
-                    }
-                  </HeroPill>
+
+                  <>
+
+                    <MetaDot />
+
+
+
+                    <span>
+
+                      {
+
+                        memory.location_name
+
+                      }
+
+                    </span>
+
+                  </>
+
                 )}
+
               </div>
+
             </div>
+
           </section>
 
-          {/* =====================================
-              CONTENT
-          ====================================== */}
+
+
+          {/* CONTENT */}
+
+
 
           <section
+
             className="
+
               mt-5
+
               grid
+
               gap-5
+
               xl:grid-cols-[0.72fr_1.28fr]
+
             "
+
           >
-            {/* STORY */}
+
+            {/* STORY + DETAILS */}
+
+
 
             <div
+
               className="
+
                 space-y-5
+
               "
+
             >
-              <article
-                className="
-                  glass-card
-                  rounded-[28px]
-                  p-6
-                "
-              >
-                <p
-                  className="
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-[0.2em]
-                    text-ocean-500
-                  "
-                >
-                  Story
-                </p>
 
-                <h2
-                  className="
-                    mt-1
-                    font-display
-                    text-2xl
-                    font-semibold
-                    text-ocean-950
-                  "
-                >
-                  About this memory
-                </h2>
-
-                <p
-                  className="
-                    mt-5
-                    whitespace-pre-line
-                    text-sm
-                    leading-7
-                    text-ink-soft
-                  "
-                >
-                  {memory.story ||
-                    "Belum ada cerita untuk memory ini."}
-                </p>
-              </article>
-
-              {/* INFO */}
-
-              <article
-                className="
-                  glass-card
-                  rounded-[28px]
-                  p-6
-                "
-              >
-                <h2
-                  className="
-                    font-display
-                    text-xl
-                    font-semibold
-                    text-ocean-950
-                  "
-                >
-                  Memory Details
-                </h2>
+              <Surface>
 
                 <div
+
                   className="
-                    mt-5
-                    space-y-4
+
+                    p-6
+
+                    sm:p-8
+
                   "
+
                 >
-                  <DetailRow
-                    icon={
-                      CalendarDays
-                    }
-                    label="Date"
-                    value={formatDate(
-                      memory.memory_date
-                    )}
-                  />
 
-                  <DetailRow
-                    icon={
-                      Clock3
-                    }
-                    label="Time"
-                    value={
-                      memory.memory_time
-                        ? formatTime(
-                            memory.memory_time
-                          )
-                        : "Not specified"
-                    }
-                  />
+                  <SectionTitle>
 
-                  <DetailRow
-                    icon={
-                      MapPin
-                    }
-                    label="Location"
-                    value={
-                      memory.location_name ||
-                      "Not specified"
-                    }
-                  />
+                    Story
+
+                  </SectionTitle>
+
+
+
+                  <p
+
+                    className="
+
+                      mt-5
+
+                      whitespace-pre-line
+
+                      text-sm
+
+                      leading-7
+
+                      text-ink-soft
+
+                      sm:text-[15px]
+
+                    "
+
+                  >
+
+                    {memory.story ||
+
+                      "No story yet."}
+
+                  </p>
+
                 </div>
 
-                {memory.maps_url && (
-                  <a
-                    href={
-                      memory.maps_url
-                    }
-                    target="_blank"
-                    rel="noreferrer"
+              </Surface>
+
+
+
+              <Surface>
+
+                <div
+
+                  className="
+
+                    p-6
+
+                    sm:p-7
+
+                  "
+
+                >
+
+                  <SectionTitle>
+
+                    Details
+
+                  </SectionTitle>
+
+
+
+                  <div
+
                     className="
+
                       mt-6
-                      flex
-                      items-center
-                      justify-center
-                      gap-2
-                      rounded-[15px]
-                      bg-ocean-100
-                      px-4
-                      py-3
-                      text-sm
-                      font-semibold
-                      text-ocean-700
-                      transition
-                      hover:bg-ocean-200
+
+                      divide-y
+
+                      divide-ocean-100/80
+
                     "
+
                   >
-                    Open Google Maps
 
-                    <ExternalLink
-                      size={14}
+                    <DetailRow
+
+                      label="Date"
+
+                      value={formatDate(
+
+                        memory.memory_date
+
+                      )}
+
                     />
-                  </a>
-                )}
 
-                {memory.source_plan_id && (
-                  <Link
-                    href={`/planner/${memory.source_plan_id}`}
+
+
+                    <DetailRow
+
+                      label="Time"
+
+                      value={
+
+                        memory.memory_time
+
+                          ? formatTime(
+
+                              memory.memory_time
+
+                            )
+
+                          : "—"
+
+                      }
+
+                    />
+
+
+
+                    <DetailRow
+
+                      label="Location"
+
+                      value={
+
+                        memory.location_name ||
+
+                        "—"
+
+                      }
+
+                    />
+
+                  </div>
+
+
+
+                  <div
+
                     className="
-                      mt-2
-                      flex
-                      items-center
-                      justify-center
-                      gap-2
-                      rounded-[15px]
-                      border
-                      border-ocean-100
-                      bg-white/70
-                      px-4
-                      py-3
-                      text-sm
-                      font-semibold
-                      text-ocean-700
-                    "
-                  >
-                    Original Plan
 
-                    <ExternalLink
-                      size={14}
-                    />
-                  </Link>
-                )}
-              </article>
+                      mt-6
+
+                      flex
+
+                      flex-wrap
+
+                      gap-4
+
+                    "
+
+                  >
+
+                    {memory.maps_url && (
+
+                      <a
+
+                        href={
+
+                          memory.maps_url
+
+                        }
+
+                        target="_blank"
+
+                        rel="noreferrer"
+
+                        className="
+
+                          text-sm
+
+                          font-semibold
+
+                          text-ocean-700
+
+                          transition
+
+                          hover:text-ocean-950
+
+                        "
+
+                      >
+
+                        Maps ↗
+
+                      </a>
+
+                    )}
+
+
+
+                    {memory.source_plan_id && (
+
+                      <Link
+
+                        href={`/planner/${memory.source_plan_id}`}
+
+                        className="
+
+                          text-sm
+
+                          font-semibold
+
+                          text-ocean-700
+
+                          transition
+
+                          hover:text-ocean-950
+
+                        "
+
+                      >
+
+                        Original Plan ↗
+
+                      </Link>
+
+                    )}
+
+                  </div>
+
+                </div>
+
+              </Surface>
+
             </div>
 
-            {/* =====================================
-                PHOTO GALLERY
-            ====================================== */}
 
-            <article
-              className="
-                glass-card
-                rounded-[28px]
-                p-5
-                sm:p-6
-              "
-            >
+
+            {/* PHOTOS */}
+
+
+
+            <Surface>
+
               <div
+
                 className="
-                  flex
-                  flex-col
-                  gap-4
-                  sm:flex-row
-                  sm:items-center
-                  sm:justify-between
+
+                  p-5
+
+                  sm:p-7
+
                 "
+
               >
-                <div>
-                  <p
-                    className="
-                      text-[10px]
-                      font-bold
-                      uppercase
-                      tracking-[0.2em]
-                      text-ocean-500
-                    "
-                  >
-                    Photos
-                  </p>
 
-                  <h2
-                    className="
-                      mt-1
-                      font-display
-                      text-2xl
-                      font-semibold
-                      text-ocean-950
-                    "
-                  >
-                    Memory Gallery
-                  </h2>
+                <div
 
-                  <p
+                  className="
+
+                    flex
+
+                    items-center
+
+                    justify-between
+
+                    gap-5
+
+                  "
+
+                >
+
+                  <div>
+
+                    <SectionTitle>
+
+                      Photos
+
+                    </SectionTitle>
+
+
+
+                    <p
+
+                      className="
+
+                        mt-1
+
+                        text-xs
+
+                        text-ink-soft
+
+                      "
+
+                    >
+
+                      {photos.length}{" "}
+
+                      {photos.length ===
+
+                      1
+
+                        ? "photo"
+
+                        : "photos"}
+
+                    </p>
+
+                  </div>
+
+
+
+                  <label
+
                     className="
-                      mt-1
+
+                      inline-flex
+
+                      cursor-pointer
+
+                      items-center
+
+                      gap-2
+
+                      rounded-[13px]
+
+                      bg-ocean-950
+
+                      px-4
+
+                      py-2.5
+
                       text-xs
-                      text-ink-soft
+
+                      font-semibold
+
+                      text-white
+
+                      transition
+
+                      hover:bg-ocean-800
+
                     "
+
                   >
-                    {photos.length} photo
-                    {photos.length ===
-                    1
-                      ? ""
-                      : "s"}
-                  </p>
+
+                    <ImagePlus
+
+                      size={14}
+
+                    />
+
+
+
+                    Add
+
+
+
+                    <input
+
+  type="file"
+
+  accept={
+
+    IMAGE_ACCEPT
+
+  }
+
+  multiple
+
+  disabled={
+
+    isUploading
+
+  }
+
+  onChange={
+
+    handleUpload
+
+  }
+
+  className="hidden"
+
+/>
+
+                  </label>
+
                 </div>
 
-                <label
-                  className="
-                    flex
-                    cursor-pointer
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-[15px]
-                    bg-ocean-700
-                    px-4
-                    py-2.5
-                    text-xs
-                    font-semibold
-                    text-white
-                    transition
-                    hover:bg-ocean-800
-                  "
-                >
-                  <Camera
-                    size={15}
-                  />
 
-                  Add Photos
 
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    disabled={
-                      isUploading
-                    }
-                    onChange={
-                      handleUpload
-                    }
-                    className="hidden"
-                  />
-                </label>
+                {photos.length >
+
+                0 ? (
+
+                  <div
+
+                    className="
+
+                      mt-6
+
+                      grid
+
+                      grid-cols-2
+
+                      gap-3
+
+                      lg:grid-cols-3
+
+                    "
+
+                  >
+
+                    {photos.map(
+
+                      (photo) => (
+
+                        <PhotoCard
+
+                          key={
+
+                            photo.id
+
+                          }
+
+                          photo={
+
+                            photo
+
+                          }
+
+                          onOpen={() =>
+
+                            setSelectedPhotoId(
+
+                              photo.id
+
+                            )
+
+                          }
+
+                          onSetCover={() =>
+
+                            void handleSetCover(
+
+                              photo
+
+                            )
+
+                          }
+
+                          onEditCaption={() =>
+
+                            void handleEditCaption(
+
+                              photo
+
+                            )
+
+                          }
+
+                          onDelete={() =>
+
+                            void handleDeletePhoto(
+
+                              photo
+
+                            )
+
+                          }
+
+                        />
+
+                      )
+
+                    )}
+
+                  </div>
+
+                ) : (
+
+                  <div
+
+                    className="
+
+                      flex
+
+                      min-h-[330px]
+
+                      items-center
+
+                      justify-center
+
+                      text-sm
+
+                      text-ink-soft
+
+                    "
+
+                  >
+
+                    No photos yet.
+
+                  </div>
+
+                )}
+
               </div>
 
-              {photos.length >
-              0 ? (
-                <div
-                  className="
-                    mt-6
-                    grid
-                    grid-cols-2
-                    gap-3
-                    lg:grid-cols-3
-                  "
-                >
-                  {photos.map(
-                    (photo) => (
-                      <PhotoCard
-                        key={
-                          photo.id
-                        }
-                        photo={
-                          photo
-                        }
-                        onSetCover={() =>
-                          handleSetCover(
-                            photo
-                          )
-                        }
-                        onEditCaption={() =>
-                          handleEditCaption(
-                            photo
-                          )
-                        }
-                        onDelete={() =>
-                          handleDeletePhoto(
-                            photo
-                          )
-                        }
-                      />
-                    )
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="
-                    mt-6
-                    rounded-[24px]
-                    border
-                    border-dashed
-                    border-ocean-200
-                    px-5
-                    py-16
-                    text-center
-                  "
-                >
-                  <Images
-                    size={34}
-                    className="
-                      mx-auto
-                      text-ocean-300
-                    "
-                  />
+            </Surface>
 
-                  <p
-                    className="
-                      mt-4
-                      font-semibold
-                      text-ocean-950
-                    "
-                  >
-                    Belum ada foto
-                  </p>
-
-                  <p
-                    className="
-                      mt-1
-                      text-xs
-                      text-ink-soft
-                    "
-                  >
-                    Upload foto untuk
-                    mengisi memory ini.
-                  </p>
-                </div>
-              )}
-            </article>
           </section>
+
         </div>
+
       </main>
+
+
+
+      {/* LIGHTBOX */}
+
+
+
+      {selectedPhoto && (
+
+        <PhotoLightbox
+
+          photo={
+
+            selectedPhoto
+
+          }
+
+          index={
+
+            selectedIndex
+
+          }
+
+          total={
+
+            photos.length
+
+          }
+
+          onClose={() =>
+
+            setSelectedPhotoId(
+
+              null
+
+            )
+
+          }
+
+          onPrevious={
+
+            showPrevious
+
+          }
+
+          onNext={
+
+            showNext
+
+          }
+
+        />
+
+      )}
+
     </div>
+
   );
+
 }
 
+
+
 /*
+
  * =========================================================
+
  * PHOTO CARD
+
  * =========================================================
+
  */
+
+
 
 function PhotoCard({
+
   photo,
+
+  onOpen,
+
   onSetCover,
+
   onEditCaption,
+
   onDelete,
+
 }: {
+
   photo:
+
     MemoryPhoto;
 
-  onSetCover:
+
+
+  onOpen:
+
     () => void;
+
+
+
+  onSetCover:
+
+    () => void;
+
+
 
   onEditCaption:
+
     () => void;
+
+
 
   onDelete:
+
     () => void;
+
 }) {
+
   return (
-    <div
+
+    <article
+
       className="
+
         group
+
         relative
+
         aspect-[4/5]
+
         overflow-hidden
-        rounded-[20px]
+
+        rounded-[18px]
+
         bg-ocean-50
+
       "
+
     >
-      {photo.signed_url ? (
-        <Image
-          src={
-            photo.signed_url
-          }
-          alt={
-            photo.caption ||
-            "Memory photo"
-          }
-          fill
-          unoptimized
-          className="
-            object-cover
-            transition
-            duration-500
-            group-hover:scale-[1.03]
-          "
-        />
-      ) : (
-        <div
-          className="
-            flex
-            h-full
-            items-center
-            justify-center
-            text-ocean-300
-          "
-        >
-          <Images
-            size={30}
-          />
-        </div>
-      )}
 
-      <div
+      <button
+
+        type="button"
+
+        onClick={
+
+          onOpen
+
+        }
+
         className="
+
           absolute
+
           inset-0
-          bg-gradient-to-t
-          from-ocean-950/85
-          via-transparent
-          to-black/10
-        "
-      />
 
-      {photo.is_cover && (
-        <div
-          className="
-            absolute
-            left-3
-            top-3
-            flex
-            items-center
-            gap-1.5
-            rounded-full
-            bg-white/90
-            px-2.5
-            py-1.5
-            text-[9px]
-            font-bold
-            uppercase
-            tracking-[0.08em]
-            text-ocean-800
-            backdrop-blur
-          "
-        >
-          <Star
-            size={11}
-            fill="currentColor"
+          z-0
+
+        "
+
+        aria-label="Open photo"
+
+      >
+
+        {photo.signed_url ? (
+
+          <Image
+
+            src={
+
+              photo.signed_url
+
+            }
+
+            alt={
+
+              photo.caption ||
+
+              "Memory photo"
+
+            }
+
+            fill
+
+            unoptimized
+
+            className="
+
+              object-cover
+
+              transition
+
+              duration-700
+
+              group-hover:scale-[1.025]
+
+            "
+
           />
 
-          Cover
-        </div>
-      )}
+        ) : (
 
-      <div
-        className="
-          absolute
-          inset-x-0
-          bottom-0
-          p-3
-        "
-      >
-        {photo.caption && (
-          <p
+          <div
+
             className="
-              mb-3
-              line-clamp-2
-              text-xs
-              leading-5
-              text-white/90
+
+              h-full
+
+              w-full
+
+              bg-ocean-100
+
             "
-          >
-            {photo.caption}
-          </p>
+
+          />
+
         )}
 
-        <div
-          className="
-            flex
-            gap-1.5
-          "
-        >
-          {!photo.is_cover && (
-            <button
-              type="button"
-              onClick={
-                onSetCover
-              }
-              title="Set as cover"
-              className="
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-[10px]
-                bg-white/90
-                text-ocean-700
-                transition
-                hover:bg-white
-              "
-            >
-              <Star
-                size={13}
-              />
-            </button>
-          )}
+      </button>
 
-          <button
-            type="button"
-            onClick={
-              onEditCaption
-            }
-            title="Edit caption"
-            className="
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-[10px]
-              bg-white/90
-              text-ocean-700
-            "
-          >
-            <Heart
-              size={13}
-            />
-          </button>
 
-          <button
-            type="button"
-            onClick={
-              onDelete
-            }
-            title="Delete photo"
-            className="
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-[10px]
-              bg-white/90
-              text-heart
-            "
-          >
-            <Trash2
-              size={13}
-            />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-/*
- * =========================================================
- * HERO PILL
- * =========================================================
- */
+      <div
 
-function HeroPill({
-  icon: Icon,
-  children,
-}: {
-  icon:
-    React.ElementType;
+        className="
 
-  children:
-    React.ReactNode;
-}) {
-  return (
-    <div
-      className="
-        flex
-        items-center
-        gap-2
-        rounded-full
-        border
-        border-white/20
-        bg-black/15
-        px-4
-        py-2
-        text-xs
-        font-semibold
-        backdrop-blur-xl
-      "
-    >
-      <Icon
-        size={14}
+          pointer-events-none
+
+          absolute
+
+          inset-0
+
+          bg-gradient-to-t
+
+          from-ocean-950/70
+
+          via-transparent
+
+          to-black/5
+
+        "
+
       />
 
-      {children}
-    </div>
+
+
+      {photo.is_cover && (
+
+        <span
+
+          className="
+
+            absolute
+
+            left-3
+
+            top-3
+
+            z-10
+
+            rounded-full
+
+            bg-white/90
+
+            px-2.5
+
+            py-1
+
+            text-[9px]
+
+            font-semibold
+
+            text-ocean-900
+
+            backdrop-blur-md
+
+          "
+
+        >
+
+          Cover
+
+        </span>
+
+      )}
+
+
+
+      <div
+
+        className="
+
+          absolute
+
+          inset-x-0
+
+          bottom-0
+
+          z-10
+
+          p-3
+
+        "
+
+      >
+
+        {photo.caption && (
+
+          <p
+
+            className="
+
+              mb-3
+
+              line-clamp-2
+
+              text-xs
+
+              leading-5
+
+              text-white/90
+
+            "
+
+          >
+
+            {photo.caption}
+
+          </p>
+
+        )}
+
+
+
+        <div
+
+          className="
+
+            flex
+
+            gap-1.5
+
+            opacity-100
+
+            transition
+
+            sm:opacity-0
+
+            sm:group-hover:opacity-100
+
+          "
+
+        >
+
+          {!photo.is_cover && (
+
+            <PhotoAction
+
+              title="Set cover"
+
+              onClick={
+
+                onSetCover
+
+              }
+
+            >
+
+              <Star
+
+                size={13}
+
+              />
+
+            </PhotoAction>
+
+          )}
+
+
+
+          <PhotoAction
+
+            title="Edit caption"
+
+            onClick={
+
+              onEditCaption
+
+            }
+
+          >
+
+            <Pencil
+
+              size={13}
+
+            />
+
+          </PhotoAction>
+
+
+
+          <PhotoAction
+
+            title="Delete photo"
+
+            destructive
+
+            onClick={
+
+              onDelete
+
+            }
+
+          >
+
+            <Trash2
+
+              size={13}
+
+            />
+
+          </PhotoAction>
+
+        </div>
+
+      </div>
+
+    </article>
+
   );
+
 }
 
+
+
+function PhotoAction({
+
+  title,
+
+  destructive = false,
+
+  onClick,
+
+  children,
+
+}: {
+
+  title: string;
+
+  destructive?: boolean;
+
+
+
+  onClick:
+
+    () => void;
+
+
+
+  children:
+
+    ReactNode;
+
+}) {
+
+  return (
+
+    <button
+
+      type="button"
+
+      title={
+
+        title
+
+      }
+
+      onClick={
+
+        onClick
+
+      }
+
+      className={`
+
+        flex
+
+        h-8
+
+        w-8
+
+        items-center
+
+        justify-center
+
+        rounded-full
+
+        bg-white/90
+
+        backdrop-blur-md
+
+        transition
+
+        hover:bg-white
+
+
+
+        ${
+
+          destructive
+
+            ? "text-heart"
+
+            : "text-ocean-800"
+
+        }
+
+      `}
+
+    >
+
+      {children}
+
+    </button>
+
+  );
+
+}
+
+
+
 /*
+
  * =========================================================
- * DETAIL ROW
+
+ * LIGHTBOX
+
  * =========================================================
+
  */
+
+
+
+function PhotoLightbox({
+
+  photo,
+
+  index,
+
+  total,
+
+  onClose,
+
+  onPrevious,
+
+  onNext,
+
+}: {
+
+  photo:
+
+    MemoryPhoto;
+
+
+
+  index:
+
+    number;
+
+
+
+  total:
+
+    number;
+
+
+
+  onClose:
+
+    () => void;
+
+
+
+  onPrevious:
+
+    () => void;
+
+
+
+  onNext:
+
+    () => void;
+
+}) {
+
+  return (
+
+    <div
+
+      className="
+
+        fixed
+
+        inset-0
+
+        z-[1600]
+
+        flex
+
+        items-center
+
+        justify-center
+
+        bg-[#04141f]/95
+
+        p-4
+
+        backdrop-blur-sm
+
+      "
+
+    >
+
+      <div
+
+        className="
+
+          relative
+
+          h-full
+
+          w-full
+
+          max-w-[1300px]
+
+        "
+
+      >
+
+        <div
+
+          className="
+
+            absolute
+
+            left-5
+
+            top-5
+
+            z-30
+
+            rounded-full
+
+            bg-black/25
+
+            px-3
+
+            py-1.5
+
+            text-[10px]
+
+            text-white/65
+
+            backdrop-blur-md
+
+          "
+
+        >
+
+          {index + 1} /{" "}
+
+          {total}
+
+        </div>
+
+
+
+        <button
+
+          type="button"
+
+          onClick={
+
+            onClose
+
+          }
+
+          aria-label="Close"
+
+          className="
+
+            absolute
+
+            right-5
+
+            top-5
+
+            z-30
+
+            flex
+
+            h-10
+
+            w-10
+
+            items-center
+
+            justify-center
+
+            rounded-full
+
+            bg-black/25
+
+            text-white
+
+            backdrop-blur-md
+
+          "
+
+        >
+
+          <X
+
+            size={18}
+
+          />
+
+        </button>
+
+
+
+        {total > 1 && (
+
+          <>
+
+            <button
+
+              type="button"
+
+              onClick={
+
+                onPrevious
+
+              }
+
+              aria-label="Previous"
+
+              className="
+
+                absolute
+
+                left-3
+
+                top-1/2
+
+                z-30
+
+                flex
+
+                h-11
+
+                w-11
+
+                -translate-y-1/2
+
+                items-center
+
+                justify-center
+
+                rounded-full
+
+                bg-black/25
+
+                text-white
+
+                backdrop-blur-md
+
+                sm:left-6
+
+              "
+
+            >
+
+              <ChevronLeft
+
+                size={22}
+
+              />
+
+            </button>
+
+
+
+            <button
+
+              type="button"
+
+              onClick={
+
+                onNext
+
+              }
+
+              aria-label="Next"
+
+              className="
+
+                absolute
+
+                right-3
+
+                top-1/2
+
+                z-30
+
+                flex
+
+                h-11
+
+                w-11
+
+                -translate-y-1/2
+
+                items-center
+
+                justify-center
+
+                rounded-full
+
+                bg-black/25
+
+                text-white
+
+                backdrop-blur-md
+
+                sm:right-6
+
+              "
+
+            >
+
+              <ChevronRight
+
+                size={22}
+
+              />
+
+            </button>
+
+          </>
+
+        )}
+
+
+
+        <div
+
+          className="
+
+            absolute
+
+            inset-8
+
+            sm:inset-12
+
+          "
+
+        >
+
+          {photo.signed_url && (
+
+            <Image
+
+              src={
+
+                photo.signed_url
+
+              }
+
+              alt={
+
+                photo.caption ||
+
+                "Memory photo"
+
+              }
+
+              fill
+
+              unoptimized
+
+              priority
+
+              className="
+
+                object-contain
+
+              "
+
+            />
+
+          )}
+
+        </div>
+
+
+
+        {photo.caption && (
+
+          <p
+
+            className="
+
+              absolute
+
+              bottom-5
+
+              left-1/2
+
+              z-30
+
+              max-w-xl
+
+              -translate-x-1/2
+
+              rounded-full
+
+              bg-black/30
+
+              px-5
+
+              py-2.5
+
+              text-center
+
+              text-xs
+
+              text-white/80
+
+              backdrop-blur-md
+
+            "
+
+          >
+
+            {photo.caption}
+
+          </p>
+
+        )}
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * SURFACE
+
+ * =========================================================
+
+ */
+
+
+
+function Surface({
+
+  children,
+
+}: {
+
+  children:
+
+    ReactNode;
+
+}) {
+
+  return (
+
+    <article
+
+      className="
+
+        overflow-hidden
+
+        rounded-[28px]
+
+        border
+
+        border-ocean-100/70
+
+        bg-white/80
+
+        shadow-[0_14px_45px_rgba(8,59,89,0.04)]
+
+        backdrop-blur-xl
+
+      "
+
+    >
+
+      {children}
+
+    </article>
+
+  );
+
+}
+
+
+
+function SectionTitle({
+
+  children,
+
+}: {
+
+  children:
+
+    ReactNode;
+
+}) {
+
+  return (
+
+    <h2
+
+      className="
+
+        font-display
+
+        text-[25px]
+
+        font-semibold
+
+        tracking-[-0.025em]
+
+        text-ocean-950
+
+      "
+
+    >
+
+      {children}
+
+    </h2>
+
+  );
+
+}
+
+
+
+/*
+
+ * =========================================================
+
+ * DETAILS
+
+ * =========================================================
+
+ */
+
+
 
 function DetailRow({
-  icon: Icon,
+
   label,
+
   value,
+
 }: {
-  icon:
-    React.ElementType;
 
-  label:
-    string;
+  label: string;
 
-  value:
-    string;
+  value: string;
+
 }) {
+
   return (
+
     <div
+
       className="
-        flex
-        items-start
-        gap-3
+
+        grid
+
+        grid-cols-[90px_1fr]
+
+        gap-4
+
+        py-3.5
+
+        first:pt-0
+
+        last:pb-0
+
       "
+
     >
-      <div
+
+      <p
+
         className="
-          flex
-          h-10
-          w-10
-          shrink-0
-          items-center
-          justify-center
-          rounded-[13px]
-          bg-ocean-50
-          text-ocean-600
+
+          text-xs
+
+          text-ink-soft
+
         "
+
       >
-        <Icon
-          size={16}
-        />
-      </div>
 
-      <div>
-        <p
-          className="
-            text-[10px]
-            uppercase
-            tracking-[0.08em]
-            text-ink-soft
-          "
-        >
-          {label}
-        </p>
+        {label}
 
-        <p
-          className="
-            mt-1
-            text-sm
-            font-semibold
-            text-ocean-950
-          "
-        >
-          {value}
-        </p>
-      </div>
+      </p>
+
+
+
+      <p
+
+        className="
+
+          text-right
+
+          text-sm
+
+          font-medium
+
+          text-ocean-950
+
+        "
+
+      >
+
+        {value}
+
+      </p>
+
     </div>
+
   );
+
 }
 
+
+
+function MetaDot() {
+
+  return (
+
+    <span
+
+      className="
+
+        h-[3px]
+
+        w-[3px]
+
+        rounded-full
+
+        bg-white/35
+
+      "
+
+    />
+
+  );
+
+}
+
+
+
 /*
+
  * =========================================================
- * FORMATTERS
+
+ * FORMAT
+
  * =========================================================
+
  */
+
+
 
 function formatDate(
-  value:
-    string
+
+  value: string
+
 ) {
+
   return new Intl.DateTimeFormat(
+
     "id-ID",
+
     {
+
       day:
+
         "numeric",
+
+
 
       month:
+
         "long",
 
+
+
       year:
+
         "numeric",
+
     }
+
   ).format(
+
     new Date(
+
       `${value}T00:00:00`
+
     )
+
   );
+
 }
+
+
 
 function formatTime(
-  value:
-    string
+
+  value: string
+
 ) {
+
   return value.slice(
+
     0,
+
     5
+
   );
+
 }
+
+
 
 function getExtension(
-  fileName:
-    string
+
+  fileName: string
+
 ) {
+
   const extension =
+
     fileName
+
       .split(".")
+
       .pop()
+
       ?.toLowerCase()
+
       .replace(
+
         /[^a-z0-9]/g,
+
         ""
+
       );
 
+
+
   return (
+
     extension ||
+
     "jpg"
+
   );
+
 }
 
+
+
 /*
+
  * =========================================================
- * ERROR
+
+ * ALERTS
+
  * =========================================================
+
  */
 
-async function showError(
-  title:
-    string,
 
-  message:
-    string
+
+async function showSuccess(
+
+  title: string
+
 ) {
+
   await Swal.fire({
+
     icon:
-      "error",
+
+      "success",
+
+
 
     title,
 
+
+
+    timer:
+
+      950,
+
+
+
+    showConfirmButton:
+
+      false,
+
+
+
+    background:
+
+      "#fffdf9",
+
+
+
+    color:
+
+      "#123d59",
+
+  });
+
+}
+
+
+
+async function showWarning(
+
+  title: string,
+
+  message: string
+
+) {
+
+  await Swal.fire({
+
+    icon:
+
+      "warning",
+
+
+
+    title,
+
+
+
     text:
+
       message,
 
+
+
     confirmButtonColor:
-      "#1688b5",
+
+      "#083b59",
+
+
+
+    background:
+
+      "#fffdf9",
+
+
+
+    color:
+
+      "#123d59",
+
   });
+
+}
+
+
+
+async function showError(
+
+  title: string,
+
+  message: string
+
+) {
+
+  await Swal.fire({
+
+    icon:
+
+      "error",
+
+
+
+    title,
+
+
+
+    text:
+
+      message,
+
+
+
+    confirmButtonColor:
+
+      "#083b59",
+
+
+
+    background:
+
+      "#fffdf9",
+
+
+
+    color:
+
+      "#123d59",
+
+  });
+
 }

@@ -3,30 +3,28 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 
 import {
   type ChangeEvent,
-  type ElementType,
+  type Dispatch,
   type FormEvent,
   type ReactNode,
+  type SetStateAction,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
-  ChevronLeft,
-  Disc3,
   ExternalLink,
-  FileAudio,
-  Heart,
-  Link2,
+  MoreHorizontal,
   Music2,
-  Pencil,
+  Pause,
+  Play,
   Plus,
   Search,
   Star,
-  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -35,8 +33,12 @@ import Swal from "sweetalert2";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
-import { createClient } from "@/lib/supabase/client";
 
+import { createClient } from "@/lib/supabase/client";
+import {
+  IMAGE_ACCEPT,
+  normalizeImageFile,
+} from "@/utils/image";
 /*
  * =========================================================
  * TYPES
@@ -53,11 +55,9 @@ type MusicTrack = {
   id: string;
 
   couple_id: string;
-
   added_by: string;
 
   title: string;
-
   artist: string;
 
   album:
@@ -83,7 +83,6 @@ type MusicTrack = {
     boolean;
 
   created_at: string;
-
   updated_at: string;
 
   audio_url:
@@ -97,11 +96,9 @@ type MusicTrack = {
 
 type MusicUser = {
   id: string;
-
   email: string;
 
   fullName: string;
-
   nickname: string;
 
   avatarUrl:
@@ -120,16 +117,65 @@ type MusicClientProps = {
 
 type MusicFormState = {
   title: string;
-
   artist: string;
-
   album: string;
 
   sourceType:
     MusicSource;
 
-  externalUrl: string;
+  externalUrl:
+    string;
 };
+
+type MusicFilter =
+  | "all"
+  | MusicSource;
+
+/*
+ * =========================================================
+ * STYLE
+ * =========================================================
+ */
+
+const inputClass = `
+  w-full
+  rounded-[13px]
+  border
+  border-ocean-100
+  bg-white/75
+  px-4
+  py-3
+  text-sm
+  text-ocean-950
+  outline-none
+  transition
+  placeholder:text-ink-soft/45
+  focus:border-ocean-300
+  focus:bg-white
+  focus:ring-4
+  focus:ring-ocean-100/45
+`;
+
+const primaryButtonClass = `
+  inline-flex
+  items-center
+  justify-center
+  gap-2
+  rounded-[13px]
+  bg-ocean-950
+  px-5
+  py-2.5
+  text-sm
+  font-semibold
+  text-white
+  shadow-[0_8px_22px_rgba(6,42,63,0.12)]
+  transition
+  duration-200
+  hover:bg-ocean-800
+  active:scale-[0.98]
+  disabled:pointer-events-none
+  disabled:opacity-45
+`;
 
 /*
  * =========================================================
@@ -146,10 +192,10 @@ export default function MusicClient({
     tracks,
     setTracks,
   ] =
-    useState<
-      MusicTrack[]
-    >(
-      initialTracks
+    useState<MusicTrack[]>(
+      sortTracks(
+        initialTracks
+      )
     );
 
   const [
@@ -162,9 +208,7 @@ export default function MusicClient({
     sourceFilter,
     setSourceFilter,
   ] =
-    useState<
-      "all" | MusicSource
-    >(
+    useState<MusicFilter>(
       "all"
     );
 
@@ -186,17 +230,13 @@ export default function MusicClient({
   ] =
     useState<
       MusicTrack | null
-    >(
-      null
-    );
+    >(null);
 
   const [
     form,
     setForm,
   ] =
-    useState<
-      MusicFormState
-    >(
+    useState<MusicFormState>(
       createEmptyForm()
     );
 
@@ -206,9 +246,7 @@ export default function MusicClient({
   ] =
     useState<
       File | null
-    >(
-      null
-    );
+    >(null);
 
   const [
     coverFile,
@@ -216,15 +254,122 @@ export default function MusicClient({
   ] =
     useState<
       File | null
-    >(
-      null
-    );
+    >(null);
 
   const [
     isSaving,
     setIsSaving,
   ] =
     useState(false);
+
+  /*
+   * =========================================================
+   * PLAYER
+   * =========================================================
+   */
+
+  const [
+    activeTrackId,
+    setActiveTrackId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    isPlaying,
+    setIsPlaying,
+  ] =
+    useState(false);
+
+  const [
+    currentTime,
+    setCurrentTime,
+  ] =
+    useState(0);
+
+  const [
+    duration,
+    setDuration,
+  ] =
+    useState(0);
+
+  const audioRef =
+    useRef<HTMLAudioElement | null>(
+      null
+    );
+
+  const activeTrack =
+    tracks.find(
+      (track) =>
+        track.id ===
+        activeTrackId
+    ) ?? null;
+
+  /*
+   * =========================================================
+   * ACTIVE AUDIO SOURCE
+   * =========================================================
+   */
+
+  useEffect(() => {
+    const audio =
+      audioRef.current;
+
+    if (
+      !audio ||
+      !activeTrack?.audio_url
+    ) {
+      return;
+    }
+
+    audio.pause();
+
+    audio.src =
+      activeTrack.audio_url;
+
+    audio.load();
+
+    setCurrentTime(
+      0
+    );
+
+    setDuration(
+      0
+    );
+
+    if (
+      isPlaying
+    ) {
+      void audio
+        .play()
+        .catch(() => {
+          setIsPlaying(
+            false
+          );
+        });
+    }
+  }, [
+    activeTrack?.audio_url,
+    activeTrack?.id,
+  ]);
+
+  /*
+   * =========================================================
+   * UNMOUNT
+   * =========================================================
+   */
+
+  useEffect(() => {
+    return () => {
+      const audio =
+        audioRef.current;
+
+      if (audio) {
+        audio.pause();
+      }
+    };
+  }, []);
 
   /*
    * =========================================================
@@ -310,7 +455,7 @@ export default function MusicClient({
 
   /*
    * =========================================================
-   * OPEN CREATE
+   * CREATE
    * =========================================================
    */
 
@@ -339,7 +484,7 @@ export default function MusicClient({
 
   /*
    * =========================================================
-   * OPEN EDIT
+   * EDIT
    * =========================================================
    */
 
@@ -386,7 +531,7 @@ export default function MusicClient({
 
   /*
    * =========================================================
-   * CLOSE
+   * CLOSE FORM
    * =========================================================
    */
 
@@ -431,16 +576,13 @@ export default function MusicClient({
       const title =
         form.title.trim();
 
-      const artist =
-        form.artist.trim();
-
       const externalUrl =
         form.externalUrl.trim();
 
       if (!title) {
         await showWarning(
-          "Judul belum diisi",
-          "Judul lagu wajib diisi."
+          "Title required",
+          "Add a title first."
         );
 
         return;
@@ -453,8 +595,8 @@ export default function MusicClient({
         )
       ) {
         await showWarning(
-          "Link tidak valid",
-          "Masukkan URL Spotify, YouTube, atau link lain yang valid."
+          "Invalid link",
+          "Enter a valid Spotify, YouTube, or external URL."
         );
 
         return;
@@ -467,8 +609,8 @@ export default function MusicClient({
         )
       ) {
         await showWarning(
-          "File audio tidak valid",
-          "Pilih file audio yang valid."
+          "Invalid audio",
+          "Choose a valid audio file."
         );
 
         return;
@@ -482,41 +624,43 @@ export default function MusicClient({
             1024
       ) {
         await showWarning(
-          "File terlalu besar",
-          "Maksimal file audio 25 MB."
+          "Audio too large",
+          "Maximum audio size is 25 MB."
         );
 
         return;
       }
 
-      if (
-        coverFile &&
-        !coverFile.type.startsWith(
-          "image/"
-        )
-      ) {
-        await showWarning(
-          "Cover tidak valid",
-          "Cover harus berupa gambar."
-        );
+      let preparedCoverFile =
+  coverFile;
 
-        return;
-      }
+if (
+  coverFile
+) {
+  try {
+    preparedCoverFile =
+      await normalizeImageFile(
+        coverFile,
+        {
+          maxSizeMB:
+            8,
 
-      if (
-        coverFile &&
-        coverFile.size >
-          8 *
-            1024 *
-            1024
-      ) {
-        await showWarning(
-          "Cover terlalu besar",
-          "Maksimal ukuran cover 8 MB."
-        );
+          heicQuality:
+            0.88,
+        }
+      );
+  } catch (error) {
+    await showError(
+      "Cover could not be used",
 
-        return;
-      }
+      error instanceof Error
+        ? error.message
+        : "Invalid cover image."
+    );
+
+    return;
+  }
+}
 
       setIsSaving(
         true
@@ -527,31 +671,30 @@ export default function MusicClient({
           editingTrack
         ) {
           await updateTrack({
-            editingTrack,
+  editingTrack,
+  form,
+  audioFile,
 
-            form,
+  coverFile:
+    preparedCoverFile,
 
-            audioFile,
-
-            coverFile,
-
-            setTracks,
-          });
+  setTracks,
+});
         } else {
           await createTrack({
-            coupleId,
+  coupleId,
 
-            userId:
-              user.id,
+  userId:
+    user.id,
 
-            form,
+  form,
+  audioFile,
 
-            audioFile,
+  coverFile:
+    preparedCoverFile,
 
-            coverFile,
-
-            setTracks,
-          });
+  setTracks,
+});
         }
 
         setModalOpen(
@@ -570,28 +713,19 @@ export default function MusicClient({
           null
         );
 
-        await Swal.fire({
-          icon:
-            "success",
-
-          title:
-            editingTrack
-              ? "Track diperbarui"
-              : "Track ditambahkan",
-
-          timer:
-            1000,
-
-          showConfirmButton:
-            false,
-        });
+        await showSuccess(
+          editingTrack
+            ? "Track updated"
+            : "Track added"
+        );
       } catch (error) {
         await showError(
-          "Gagal menyimpan track",
+          "Track could not be saved",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan."
+            : "Something went wrong."
         );
       } finally {
         setIsSaving(
@@ -613,6 +747,10 @@ export default function MusicClient({
     ) => {
       const value =
         !track.is_favorite;
+
+      /*
+       * Optimistic update.
+       */
 
       setTracks(
         (current) =>
@@ -669,7 +807,7 @@ export default function MusicClient({
         );
 
         await showError(
-          "Favorite gagal diperbarui",
+          "Favorite could not be updated",
           error.message
         );
 
@@ -706,29 +844,29 @@ export default function MusicClient({
     ) => {
       const result =
         await Swal.fire({
-          icon:
-            "warning",
-
           title:
-            "Hapus track?",
+            "Delete track?",
 
           text:
-            `"${track.title}" akan dihapus dari playlist.`,
+            track.title,
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
 
-          cancelButtonColor:
-            "#1688b5",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -755,7 +893,7 @@ export default function MusicClient({
 
       if (error) {
         await showError(
-          "Track gagal dihapus",
+          "Track could not be deleted",
           error.message
         );
 
@@ -763,32 +901,58 @@ export default function MusicClient({
       }
 
       /*
-       * Database sudah berhasil dihapus.
-       * Storage cleanup dijalankan sesudahnya.
+       * DB is deleted first.
+       * Storage cleanup follows.
        */
 
       if (
         track.audio_path
       ) {
-        await supabase.storage
-          .from(
-            "music-audio"
-          )
-          .remove([
-            track.audio_path,
-          ]);
+        const {
+          error:
+            audioCleanupError,
+        } =
+          await supabase.storage
+            .from(
+              "music-audio"
+            )
+            .remove([
+              track.audio_path,
+            ]);
+
+        if (
+          audioCleanupError
+        ) {
+          console.error(
+            "Audio cleanup:",
+            audioCleanupError
+          );
+        }
       }
 
       if (
         track.cover_path
       ) {
-        await supabase.storage
-          .from(
-            "music-covers"
-          )
-          .remove([
-            track.cover_path,
-          ]);
+        const {
+          error:
+            coverCleanupError,
+        } =
+          await supabase.storage
+            .from(
+              "music-covers"
+            )
+            .remove([
+              track.cover_path,
+            ]);
+
+        if (
+          coverCleanupError
+        ) {
+          console.error(
+            "Cover cleanup:",
+            coverCleanupError
+          );
+        }
       }
 
       setTracks(
@@ -800,19 +964,254 @@ export default function MusicClient({
           )
       );
 
-      await Swal.fire({
-        icon:
-          "success",
+      if (
+        activeTrackId ===
+        track.id
+      ) {
+        handleClosePlayer();
+      }
 
-        title:
-          "Track dihapus",
+      await showSuccess(
+        "Track deleted"
+      );
+    };
 
-        timer:
-          800,
+  /*
+   * =========================================================
+   * OPTIONS
+   * =========================================================
+   */
 
-        showConfirmButton:
-          false,
-      });
+  const handleTrackOptions =
+    async (
+      track:
+        MusicTrack
+    ) => {
+      const result =
+        await Swal.fire({
+          title:
+            track.title,
+
+          showCancelButton:
+            true,
+
+          showDenyButton:
+            true,
+
+          confirmButtonText:
+            "Edit",
+
+          denyButtonText:
+            "Delete",
+
+          cancelButtonText:
+            "Close",
+
+          confirmButtonColor:
+            "#083b59",
+
+          denyButtonColor:
+            "#d85f72",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+      if (
+        result.isConfirmed
+      ) {
+        handleOpenEdit(
+          track
+        );
+      }
+
+      if (
+        result.isDenied
+      ) {
+        await handleDelete(
+          track
+        );
+      }
+    };
+
+  /*
+   * =========================================================
+   * PLAY
+   * =========================================================
+   */
+
+  const handlePlayTrack =
+    async (
+      track:
+        MusicTrack
+    ) => {
+      if (
+        !track.audio_url
+      ) {
+        return;
+      }
+
+      const audio =
+        audioRef.current;
+
+      if (!audio) {
+        return;
+      }
+
+      /*
+       * Same track = pause / resume.
+       */
+
+      if (
+        activeTrackId ===
+        track.id
+      ) {
+        if (
+          audio.paused
+        ) {
+          try {
+            await audio.play();
+
+            setIsPlaying(
+              true
+            );
+          } catch {
+            setIsPlaying(
+              false
+            );
+          }
+        } else {
+          audio.pause();
+
+          setIsPlaying(
+            false
+          );
+        }
+
+        return;
+      }
+
+      /*
+       * New track.
+       */
+
+      setActiveTrackId(
+        track.id
+      );
+
+      setIsPlaying(
+        true
+      );
+    };
+
+  /*
+   * =========================================================
+   * PLAYER TOGGLE
+   * =========================================================
+   */
+
+  const handlePlayerToggle =
+    async () => {
+      const audio =
+        audioRef.current;
+
+      if (
+        !audio ||
+        !activeTrack
+      ) {
+        return;
+      }
+
+      if (
+        audio.paused
+      ) {
+        try {
+          await audio.play();
+
+          setIsPlaying(
+            true
+          );
+        } catch {
+          setIsPlaying(
+            false
+          );
+        }
+
+        return;
+      }
+
+      audio.pause();
+
+      setIsPlaying(
+        false
+      );
+    };
+
+  /*
+   * =========================================================
+   * SEEK
+   * =========================================================
+   */
+
+  const handleSeek =
+    (
+      value:
+        number
+    ) => {
+      const audio =
+        audioRef.current;
+
+      if (!audio) {
+        return;
+      }
+
+      audio.currentTime =
+        value;
+
+      setCurrentTime(
+        value
+      );
+    };
+
+  /*
+   * =========================================================
+   * CLOSE PLAYER
+   * =========================================================
+   */
+
+  const handleClosePlayer =
+    () => {
+      const audio =
+        audioRef.current;
+
+      if (audio) {
+        audio.pause();
+
+        audio.removeAttribute(
+          "src"
+        );
+
+        audio.load();
+      }
+
+      setActiveTrackId(
+        null
+      );
+
+      setIsPlaying(
+        false
+      );
+
+      setCurrentTime(
+        0
+      );
+
+      setDuration(
+        0
+      );
     };
 
   /*
@@ -825,7 +1224,7 @@ export default function MusicClient({
     <div
       className="
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
@@ -834,81 +1233,104 @@ export default function MusicClient({
 
       <MobileBottomNav />
 
+      {/* REAL AUDIO */}
+
+      <audio
+        ref={
+          audioRef
+        }
+        preload="metadata"
+        onLoadedMetadata={(
+          event
+        ) => {
+          const value =
+            event.currentTarget
+              .duration;
+
+          setDuration(
+            Number.isFinite(
+              value
+            )
+              ? value
+              : 0
+          );
+        }}
+        onTimeUpdate={(
+          event
+        ) => {
+          setCurrentTime(
+            event.currentTarget
+              .currentTime
+          );
+        }}
+        onPlay={() =>
+          setIsPlaying(
+            true
+          )
+        }
+        onPause={() =>
+          setIsPlaying(
+            false
+          )
+        }
+        onEnded={() => {
+          setIsPlaying(
+            false
+          );
+
+          setCurrentTime(
+            0
+          );
+        }}
+      />
+
       <main
-        className="
+        className={`
           min-h-[100svh]
           px-4
-          pb-28
-          pt-4
+          pt-6
           sm:px-6
-          sm:pt-6
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+          lg:px-8
+          lg:pt-9
           xl:px-10
-        "
+
+          ${
+            activeTrack
+              ? "pb-48 lg:pb-36"
+              : "pb-28 lg:pb-14"
+          }
+        `}
       >
         <div
           className="
             mx-auto
             w-full
-            max-w-[1500px]
+            max-w-[1440px]
           "
         >
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <header
             className="
               flex
-              flex-col
+              items-end
+              justify-between
               gap-5
-              sm:flex-row
-              sm:items-end
-              sm:justify-between
             "
           >
             <div>
-              <Link
-                href="/dashboard"
-                className="
-                  mb-3
-                  inline-flex
-                  items-center
-                  gap-2
-                  text-sm
-                  font-semibold
-                  text-ink-soft
-                  transition
-                  hover:text-ocean-700
-                "
-              >
-                <ChevronLeft
-                  size={17}
-                />
-
-                Dashboard
-              </Link>
-
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.23em]
-                  text-ocean-500
-                "
-              >
-                Shared Playlist
-              </p>
-
               <h1
                 className="
-                  mt-1
                   font-display
-                  text-3xl
+                  text-[34px]
                   font-semibold
+                  leading-none
+                  tracking-[-0.035em]
                   text-ocean-950
-                  sm:text-4xl
+                  sm:text-[40px]
                 "
               >
                 Music
@@ -916,16 +1338,40 @@ export default function MusicClient({
 
               <p
                 className="
-                  mt-2
-                  max-w-xl
-                  text-sm
-                  leading-6
+                  mt-3
+                  text-xs
                   text-ink-soft
                 "
               >
-                Simpan lagu, playlist link,
-                dan audio yang ingin kalian
-                dengarkan bersama.
+                {tracks.length}{" "}
+                {tracks.length ===
+                1
+                  ? "track"
+                  : "tracks"}
+
+                <span
+                  className="
+                    mx-2
+                    text-ocean-200
+                  "
+                >
+                  ·
+                </span>
+
+                {favoriteCount}{" "}
+                favorites
+
+                <span
+                  className="
+                    mx-2
+                    text-ocean-200
+                  "
+                >
+                  ·
+                </span>
+
+                {uploadedCount}{" "}
+                uploaded
               </p>
             </div>
 
@@ -934,286 +1380,309 @@ export default function MusicClient({
               onClick={
                 handleOpenCreate
               }
-              className="
-                love-button
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-[15px]
-                px-5
-                py-3.5
-                text-sm
-                font-semibold
-              "
+              className={
+                primaryButtonClass
+              }
             >
               <Plus
-                size={18}
+                size={15}
               />
 
               Add Track
             </button>
           </header>
 
-          {/* STATS */}
+          {/* =================================================
+              FILTER
+          ================================================= */}
 
           <section
             className="
-              mt-7
+              mt-8
               grid
               gap-3
-              sm:grid-cols-3
+              border-b
+              border-ocean-100/80
+              pb-5
+              lg:grid-cols-[minmax(0,1fr)_190px_auto]
             "
           >
-            <SummaryCard
-              icon={
-                Music2
-              }
-              value={
-                tracks.length
-              }
-              label="Total Tracks"
-            />
+            {/* SEARCH */}
 
-            <SummaryCard
-              icon={
-                Star
-              }
-              value={
-                favoriteCount
-              }
-              label="Favorites"
-            />
-
-            <SummaryCard
-              icon={
-                FileAudio
-              }
-              value={
-                uploadedCount
-              }
-              label="Uploaded Audio"
-            />
-          </section>
-
-          {/* FILTER */}
-
-          <section
-            className="
-              glass-card
-              mt-5
-              rounded-[25px]
-              p-4
-              sm:p-5
-            "
-          >
             <div
               className="
-                grid
-                gap-3
-                xl:grid-cols-[1fr_230px_auto]
+                relative
               "
             >
-              <div
+              <Search
+                size={16}
                 className="
-                  relative
+                  absolute
+                  left-4
+                  top-1/2
+                  -translate-y-1/2
+                  text-ink-soft/55
                 "
-              >
-                <Search
-                  size={17}
-                  className="
-                    absolute
-                    left-4
-                    top-1/2
-                    -translate-y-1/2
-                    text-ink-soft
-                  "
-                />
+              />
 
-                <input
-                  type="search"
-                  value={
-                    search
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search title, artist, album..."
-                  className="
-                    love-input
-                    w-full
-                    rounded-[15px]
-                    py-3
-                    pl-11
-                    pr-4
-                    text-sm
-                  "
-                />
-              </div>
-
-              <select
+              <input
+                type="search"
                 value={
-                  sourceFilter
+                  search
                 }
                 onChange={(
                   event
                 ) =>
-                  setSourceFilter(
-                    event.target.value as
-                      | "all"
-                      | MusicSource
+                  setSearch(
+                    event.target
+                      .value
                   )
                 }
+                placeholder="Search music"
                 className="
-                  love-input
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                  text-ocean-900
-                "
-              >
-                <option value="all">
-                  All Sources
-                </option>
-
-                <option value="upload">
-                  Uploaded Audio
-                </option>
-
-                <option value="spotify">
-                  Spotify
-                </option>
-
-                <option value="youtube">
-                  YouTube
-                </option>
-
-                <option value="other">
-                  Other
-                </option>
-              </select>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setOnlyFavorites(
-                    (current) =>
-                      !current
-                  )
-                }
-                className={`
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
+                  w-full
+                  rounded-[14px]
                   border
-                  px-4
+                  border-ocean-100
+                  bg-white/75
                   py-3
+                  pl-11
+                  pr-4
                   text-sm
-                  font-semibold
+                  text-ocean-950
+                  outline-none
                   transition
-                  ${
-                    onlyFavorites
-                      ? "border-ocean-700 bg-ocean-700 text-white"
-                      : "border-ocean-100 bg-white/70 text-ocean-700 hover:bg-white"
-                  }
-                `}
-              >
-                <Star
-                  size={15}
-                  fill={
-                    onlyFavorites
-                      ? "currentColor"
-                      : "none"
-                  }
-                />
-
-                Favorites
-              </button>
-            </div>
-          </section>
-
-          {/* TRACKS */}
-
-          <section
-            className="
-              mt-6
-            "
-          >
-            {filteredTracks.length >
-            0 ? (
-              <div
-                className="
-                  grid
-                  gap-4
-                  xl:grid-cols-2
+                  placeholder:text-ink-soft/45
+                  focus:border-ocean-200
+                  focus:bg-white
                 "
-              >
-                {filteredTracks.map(
-                  (
-                    track
-                  ) => (
-                    <TrackCard
-                      key={
-                        track.id
-                      }
-                      track={
-                        track
-                      }
-                      onEdit={() =>
-                        handleOpenEdit(
-                          track
-                        )
-                      }
-                      onFavorite={() =>
-                        handleToggleFavorite(
-                          track
-                        )
-                      }
-                      onDelete={() =>
-                        handleDelete(
-                          track
-                        )
-                      }
-                    />
-                  )
-                )}
-              </div>
-            ) : (
-              <EmptyMusic
-                filtered={
-                  Boolean(
-                    search.trim()
-                  ) ||
-                  sourceFilter !==
-                    "all" ||
-                  onlyFavorites
-                }
-                onAdd={
-                  handleOpenCreate
-                }
-                onClear={() => {
-                  setSearch("");
-
-                  setSourceFilter(
-                    "all"
-                  );
-
-                  setOnlyFavorites(
-                    false
-                  );
-                }}
               />
-            )}
+            </div>
+
+            {/* SOURCE */}
+
+            <select
+              value={
+                sourceFilter
+              }
+              onChange={(
+                event
+              ) =>
+                setSourceFilter(
+                  event.target
+                    .value as MusicFilter
+                )
+              }
+              className="
+                rounded-[14px]
+                border
+                border-ocean-100
+                bg-white/75
+                px-4
+                py-3
+                text-sm
+                text-ocean-900
+                outline-none
+                transition
+                focus:border-ocean-200
+                focus:bg-white
+              "
+            >
+              <option value="all">
+                All Sources
+              </option>
+
+              <option value="upload">
+                Uploaded
+              </option>
+
+              <option value="spotify">
+                Spotify
+              </option>
+
+              <option value="youtube">
+                YouTube
+              </option>
+
+              <option value="other">
+                Other
+              </option>
+            </select>
+
+            {/* FAVORITE */}
+
+            <button
+              type="button"
+              onClick={() =>
+                setOnlyFavorites(
+                  (current) =>
+                    !current
+                )
+              }
+              className={`
+                inline-flex
+                items-center
+                justify-center
+                gap-2
+                rounded-[14px]
+                border
+                px-4
+                py-3
+                text-sm
+                font-medium
+                transition
+
+                ${
+                  onlyFavorites
+                    ? "border-ocean-950 bg-ocean-950 text-white"
+                    : "border-ocean-100 bg-white/75 text-ink-soft hover:bg-white hover:text-ocean-900"
+                }
+              `}
+            >
+              <Star
+                size={14}
+                fill={
+                  onlyFavorites
+                    ? "currentColor"
+                    : "none"
+                }
+              />
+
+              Favorites
+            </button>
           </section>
+
+          {/* =================================================
+              LIBRARY
+          ================================================= */}
+
+          {filteredTracks.length >
+          0 ? (
+            <section
+              className="
+                mt-6
+                overflow-hidden
+                rounded-[28px]
+                border
+                border-ocean-100/70
+                bg-white/78
+                shadow-[0_14px_45px_rgba(8,59,89,0.035)]
+                backdrop-blur-xl
+              "
+            >
+              {filteredTracks.map(
+                (
+                  track,
+                  index
+                ) => (
+                  <TrackRow
+                    key={
+                      track.id
+                    }
+                    track={
+                      track
+                    }
+                    active={
+                      activeTrackId ===
+                      track.id
+                    }
+                    playing={
+                      activeTrackId ===
+                        track.id &&
+                      isPlaying
+                    }
+                    last={
+                      index ===
+                      filteredTracks.length -
+                        1
+                    }
+                    onPlay={() =>
+                      void handlePlayTrack(
+                        track
+                      )
+                    }
+                    onFavorite={() =>
+                      void handleToggleFavorite(
+                        track
+                      )
+                    }
+                    onOptions={() =>
+                      void handleTrackOptions(
+                        track
+                      )
+                    }
+                  />
+                )
+              )}
+            </section>
+          ) : (
+            <EmptyMusic
+              filtered={
+                Boolean(
+                  search.trim()
+                ) ||
+                sourceFilter !==
+                  "all" ||
+                onlyFavorites
+              }
+              onAdd={
+                handleOpenCreate
+              }
+              onClear={() => {
+                setSearch("");
+
+                setSourceFilter(
+                  "all"
+                );
+
+                setOnlyFavorites(
+                  false
+                );
+              }}
+            />
+          )}
         </div>
       </main>
+
+      {/* =====================================================
+          PLAYER
+      ====================================================== */}
+
+      {activeTrack &&
+        activeTrack.audio_url && (
+        <NowPlaying
+          track={
+            activeTrack
+          }
+          playing={
+            isPlaying
+          }
+          currentTime={
+            currentTime
+          }
+          duration={
+            duration
+          }
+          onToggle={() =>
+            void handlePlayerToggle()
+          }
+          onSeek={
+            handleSeek
+          }
+          onFavorite={() =>
+            void handleToggleFavorite(
+              activeTrack
+            )
+          }
+          onClose={
+            handleClosePlayer
+          }
+        />
+      )}
+
+      {/* =====================================================
+          FORM
+      ====================================================== */}
 
       {modalOpen && (
         <MusicFormModal
@@ -1255,59 +1724,532 @@ export default function MusicClient({
 
 /*
  * =========================================================
- * TRACK CARD
+ * TRACK ROW
  * =========================================================
  */
 
-function TrackCard({
+function TrackRow({
   track,
-  onEdit,
+  active,
+  playing,
+  last,
+  onPlay,
   onFavorite,
-  onDelete,
+  onOptions,
 }: {
   track:
     MusicTrack;
 
-  onEdit:
+  active:
+    boolean;
+
+  playing:
+    boolean;
+
+  last:
+    boolean;
+
+  onPlay:
     () => void;
 
   onFavorite:
     () => void;
 
-  onDelete:
+  onOptions:
     () => void;
 }) {
   return (
     <article
+      className={`
+        group
+        grid
+        grid-cols-[58px_minmax(0,1fr)_auto]
+        items-center
+        gap-3
+        px-3
+        py-3
+        transition
+        duration-200
+        sm:grid-cols-[68px_minmax(0,1fr)_120px_auto]
+        sm:gap-4
+        sm:px-5
+
+        ${
+          !last
+            ? "border-b border-ocean-100/65"
+            : ""
+        }
+
+        ${
+          active
+            ? "bg-ocean-50/65"
+            : "hover:bg-white/75"
+        }
+      `}
+    >
+      {/* COVER */}
+
+      <div
+        className="
+          relative
+          h-[58px]
+          w-[58px]
+          overflow-hidden
+          rounded-[13px]
+          bg-ocean-950
+          sm:h-[68px]
+          sm:w-[68px]
+        "
+      >
+        {track.cover_url ? (
+          <Image
+            src={
+              track.cover_url
+            }
+            alt={
+              track.title
+            }
+            fill
+            unoptimized
+            className="
+              object-cover
+            "
+          />
+        ) : (
+          <div
+            className="
+              flex
+              h-full
+              w-full
+              items-center
+              justify-center
+              bg-[linear-gradient(145deg,#062a3f,#1688b5)]
+              text-white/65
+            "
+          >
+            <Music2
+              size={19}
+              strokeWidth={1.7}
+            />
+          </div>
+        )}
+
+        {track.audio_url && (
+          <button
+            type="button"
+            onClick={
+              onPlay
+            }
+            aria-label={
+              playing
+                ? "Pause"
+                : "Play"
+            }
+            className="
+              absolute
+              inset-0
+              flex
+              items-center
+              justify-center
+              bg-ocean-950/35
+              text-white
+              opacity-0
+              backdrop-blur-[1px]
+              transition
+              duration-200
+              group-hover:opacity-100
+              focus:opacity-100
+            "
+          >
+            {playing ? (
+              <Pause
+                size={18}
+                fill="currentColor"
+              />
+            ) : (
+              <Play
+                size={18}
+                fill="currentColor"
+              />
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* INFO */}
+
+      <div
+        className="
+          min-w-0
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+          <h2
+            className={`
+              truncate
+              text-sm
+              font-semibold
+
+              ${
+                active
+                  ? "text-ocean-700"
+                  : "text-ocean-950"
+              }
+            `}
+          >
+            {track.title}
+          </h2>
+
+          {track.is_favorite && (
+            <Star
+              size={11}
+              fill="currentColor"
+              className="
+                shrink-0
+                text-heart
+              "
+            />
+          )}
+        </div>
+
+        <p
+          className="
+            mt-1
+            truncate
+            text-xs
+            text-ink-soft
+          "
+        >
+          {track.artist ||
+            "Unknown Artist"}
+
+          {track.album && (
+            <>
+              <span
+                className="
+                  mx-1.5
+                  text-ocean-200
+                "
+              >
+                ·
+              </span>
+
+              {track.album}
+            </>
+          )}
+        </p>
+
+        <p
+          className="
+            mt-1
+            text-[9px]
+            font-medium
+            text-ink-soft/55
+          "
+        >
+          {getSourceLabel(
+            track.source_type
+          )}
+        </p>
+      </div>
+
+      {/* SOURCE - DESKTOP */}
+
+      <div
+        className="
+          hidden
+          min-w-0
+          sm:block
+        "
+      >
+        <p
+          className="
+            truncate
+            text-xs
+            text-ink-soft
+          "
+        >
+          {track.audio_url
+            ? "Audio"
+            : track.external_url
+              ? "External"
+              : "Saved"}
+        </p>
+      </div>
+
+      {/* ACTIONS */}
+
+      <div
+        className="
+          flex
+          items-center
+          justify-end
+          gap-1
+        "
+      >
+        <button
+          type="button"
+          onClick={
+            onFavorite
+          }
+          aria-label="Toggle favorite"
+          className={`
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-full
+            transition
+
+            ${
+              track.is_favorite
+                ? "text-heart hover:bg-heart-soft"
+                : "text-ink-soft/55 hover:bg-ocean-50 hover:text-ocean-900"
+            }
+          `}
+        >
+          <Star
+            size={15}
+            fill={
+              track.is_favorite
+                ? "currentColor"
+                : "none"
+            }
+          />
+        </button>
+
+        {track.audio_url && (
+          <button
+            type="button"
+            onClick={
+              onPlay
+            }
+            aria-label={
+              playing
+                ? "Pause"
+                : "Play"
+            }
+            className="
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-full
+              bg-ocean-950
+              text-white
+              transition
+              hover:bg-ocean-800
+            "
+          >
+            {playing ? (
+              <Pause
+                size={14}
+                fill="currentColor"
+              />
+            ) : (
+              <Play
+                size={14}
+                fill="currentColor"
+              />
+            )}
+          </button>
+        )}
+
+        {track.external_url && (
+          <a
+            href={
+              track.external_url
+            }
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open external link"
+            className="
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-full
+              text-ink-soft/60
+              transition
+              hover:bg-ocean-50
+              hover:text-ocean-900
+            "
+          >
+            <ExternalLink
+              size={14}
+            />
+          </a>
+        )}
+
+        <button
+          type="button"
+          onClick={
+            onOptions
+          }
+          aria-label="Track options"
+          className="
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-full
+            text-ink-soft/60
+            transition
+            hover:bg-ocean-50
+            hover:text-ocean-900
+          "
+        >
+          <MoreHorizontal
+            size={16}
+          />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+/*
+ * =========================================================
+ * NOW PLAYING
+ * =========================================================
+ */
+
+function NowPlaying({
+  track,
+  playing,
+  currentTime,
+  duration,
+  onToggle,
+  onSeek,
+  onFavorite,
+  onClose,
+}: {
+  track:
+    MusicTrack;
+
+  playing:
+    boolean;
+
+  currentTime:
+    number;
+
+  duration:
+    number;
+
+  onToggle:
+    () => void;
+
+  onSeek: (
+    value:
+      number
+  ) => void;
+
+  onFavorite:
+    () => void;
+
+  onClose:
+    () => void;
+}) {
+  return (
+    <div
       className="
-        glass-card
-        overflow-hidden
-        rounded-[28px]
+        fixed
+        bottom-[92px]
+        left-3
+        right-3
+        z-[900]
+        lg:bottom-5
+        lg:left-[308px]
+        lg:right-5
       "
     >
       <div
         className="
-          grid
-          sm:grid-cols-[190px_1fr]
+          mx-auto
+          max-w-[1100px]
+          overflow-hidden
+          rounded-[24px]
+          border
+          border-white/15
+          bg-ocean-950/95
+          text-white
+          shadow-[0_22px_65px_rgba(6,42,63,0.24)]
+          backdrop-blur-[24px]
         "
       >
-        {/* COVER */}
+        {/* PROGRESS */}
+
+        <input
+          type="range"
+          min={0}
+          max={
+            duration > 0
+              ? duration
+              : 0
+          }
+          step={0.1}
+          value={
+            Math.min(
+              currentTime,
+              duration || 0
+            )
+          }
+          onChange={(
+            event
+          ) =>
+            onSeek(
+              Number(
+                event.target
+                  .value
+              )
+            )
+          }
+          className="
+            block
+            h-[3px]
+            w-full
+            cursor-pointer
+            accent-sky
+          "
+        />
 
         <div
           className="
-            relative
-            aspect-square
-            overflow-hidden
-            bg-gradient-to-br
-            from-ocean-900
-            via-ocean-700
-            to-ocean-400
-            sm:aspect-auto
-            sm:min-h-[260px]
+            flex
+            items-center
+            gap-3
+            px-4
+            py-3.5
+            sm:gap-4
+            sm:px-5
           "
         >
-          {track.cover_url ? (
-            <>
+          {/* COVER */}
+
+          <div
+            className="
+              relative
+              h-12
+              w-12
+              shrink-0
+              overflow-hidden
+              rounded-[11px]
+              bg-ocean-800
+              sm:h-14
+              sm:w-14
+            "
+          >
+            {track.cover_url ? (
               <Image
                 src={
                   track.cover_url
@@ -1321,336 +2263,217 @@ function TrackCard({
                   object-cover
                 "
               />
-
+            ) : (
               <div
                 className="
-                  absolute
-                  inset-0
-                  bg-gradient-to-t
-                  from-ocean-950/70
-                  via-transparent
-                  to-transparent
-                "
-              />
-            </>
-          ) : (
-            <>
-              <Disc3
-                size={140}
-                className="
-                  absolute
-                  left-1/2
-                  top-1/2
-                  -translate-x-1/2
-                  -translate-y-1/2
-                  text-white/[0.10]
-                "
-              />
-
-              <Music2
-                size={36}
-                className="
-                  absolute
-                  left-1/2
-                  top-1/2
-                  -translate-x-1/2
-                  -translate-y-1/2
-                  text-white/80
-                "
-              />
-            </>
-          )}
-
-          <SourceBadge
-            source={
-              track.source_type
-            }
-          />
-        </div>
-
-        {/* CONTENT */}
-
-        <div
-          className="
-            flex
-            min-w-0
-            flex-col
-            p-5
-            sm:p-6
-          "
-        >
-          <div
-            className="
-              flex
-              items-start
-              justify-between
-              gap-4
-            "
-          >
-            <div
-              className="
-                min-w-0
-              "
-            >
-              <h2
-                className="
-                  truncate
-                  font-display
-                  text-2xl
-                  font-semibold
-                  text-ocean-950
+                  flex
+                  h-full
+                  w-full
+                  items-center
+                  justify-center
+                  text-white/55
                 "
               >
-                {track.title}
-              </h2>
+                <Music2
+                  size={17}
+                />
+              </div>
+            )}
+          </div>
 
+          {/* INFO */}
+
+          <div
+            className="
+              min-w-0
+              flex-1
+            "
+          >
+            <p
+              className="
+                truncate
+                text-sm
+                font-semibold
+                text-white
+              "
+            >
+              {track.title}
+            </p>
+
+            <div
+              className="
+                mt-1
+                flex
+                items-center
+                gap-2
+              "
+            >
               <p
                 className="
-                  mt-1
                   truncate
-                  text-sm
-                  font-semibold
-                  text-ocean-600
+                  text-[10px]
+                  text-white/45
                 "
               >
                 {track.artist ||
                   "Unknown Artist"}
               </p>
 
-              {track.album && (
-                <p
-                  className="
-                    mt-1
-                    truncate
-                    text-xs
-                    text-ink-soft
-                  "
-                >
-                  {
-                    track.album
-                  }
-                </p>
-              )}
+              <span
+                className="
+                  hidden
+                  text-[9px]
+                  text-white/25
+                  sm:inline
+                "
+              >
+                {formatSeconds(
+                  currentTime
+                )}{" "}
+                /{" "}
+                {formatSeconds(
+                  duration
+                )}
+              </span>
             </div>
+          </div>
 
-            <button
-              type="button"
-              onClick={
-                onFavorite
+          {/* FAVORITE */}
+
+          <button
+            type="button"
+            onClick={
+              onFavorite
+            }
+            aria-label="Favorite"
+            className={`
+              hidden
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              transition
+              sm:flex
+
+              ${
+                track.is_favorite
+                  ? "text-heart"
+                  : "text-white/45 hover:text-white"
               }
-              aria-label="Toggle favorite"
-              className={`
-                flex
-                h-10
-                w-10
+            `}
+          >
+            <Star
+              size={15}
+              fill={
+                track.is_favorite
+                  ? "currentColor"
+                  : "none"
+              }
+            />
+          </button>
+
+          {/* PLAY */}
+
+          <button
+            type="button"
+            onClick={
+              onToggle
+            }
+            aria-label={
+              playing
+                ? "Pause"
+                : "Play"
+            }
+            className="
+              flex
+              h-11
+              w-11
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-white
+              text-ocean-950
+              transition
+              hover:scale-[1.03]
+              active:scale-[0.97]
+            "
+          >
+            {playing ? (
+              <Pause
+                size={16}
+                fill="currentColor"
+              />
+            ) : (
+              <Play
+                size={16}
+                fill="currentColor"
+              />
+            )}
+          </button>
+
+          {/* EXTERNAL */}
+
+          {track.external_url && (
+            <a
+              href={
+                track.external_url
+              }
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open source"
+              className="
+                hidden
+                h-9
+                w-9
                 shrink-0
                 items-center
                 justify-center
-                rounded-[13px]
+                rounded-full
+                text-white/45
                 transition
-                ${
-                  track.is_favorite
-                    ? "bg-heart-soft text-heart"
-                    : "bg-ocean-50 text-ocean-400 hover:bg-ocean-100"
-                }
-              `}
-            >
-              <Heart
-                size={17}
-                fill={
-                  track.is_favorite
-                    ? "currentColor"
-                    : "none"
-                }
-              />
-            </button>
-          </div>
-
-          {/* PLAYER */}
-
-          {track.audio_url && (
-            <div
-              className="
-                mt-5
-                rounded-[16px]
-                border
-                border-ocean-100
-                bg-ocean-50/55
-                p-3
+                hover:bg-white/10
+                hover:text-white
+                sm:flex
               "
             >
-              <audio
-                controls
-                preload="metadata"
-                src={
-                  track.audio_url
-                }
-                className="
-                  h-10
-                  w-full
-                "
-              >
-                Browser tidak mendukung audio player.
-              </audio>
-            </div>
+              <ExternalLink
+                size={14}
+              />
+            </a>
           )}
 
-          {/* ACTIONS */}
+          {/* CLOSE */}
 
-          <div
+          <button
+            type="button"
+            onClick={
+              onClose
+            }
+            aria-label="Close player"
             className="
-              mt-auto
               flex
-              flex-wrap
-              gap-2
-              pt-5
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              text-white/40
+              transition
+              hover:bg-white/10
+              hover:text-white
             "
           >
-            {track.external_url && (
-              <a
-                href={
-                  track.external_url
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="
-                  flex
-                  items-center
-                  gap-2
-                  rounded-[13px]
-                  bg-ocean-700
-                  px-3.5
-                  py-2.5
-                  text-xs
-                  font-semibold
-                  text-white
-                  transition
-                  hover:bg-ocean-800
-                "
-              >
-                <ExternalLink
-                  size={13}
-                />
-
-                Open Link
-              </a>
-            )}
-
-            <button
-              type="button"
-              onClick={
-                onEdit
-              }
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-[13px]
-                border
-                border-ocean-100
-                bg-white/70
-                px-3.5
-                py-2.5
-                text-xs
-                font-semibold
-                text-ocean-700
-                transition
-                hover:bg-white
-              "
-            >
-              <Pencil
-                size={13}
-              />
-
-              Edit
-            </button>
-
-            <button
-              type="button"
-              onClick={
-                onDelete
-              }
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-[13px]
-                border
-                border-heart-soft
-                bg-white/70
-                px-3.5
-                py-2.5
-                text-xs
-                font-semibold
-                text-heart
-                transition
-                hover:bg-heart-soft
-              "
-            >
-              <Trash2
-                size={13}
-              />
-
-              Delete
-            </button>
-          </div>
+            <X
+              size={15}
+            />
+          </button>
         </div>
       </div>
-    </article>
-  );
-}
-
-/*
- * =========================================================
- * SOURCE BADGE
- * =========================================================
- */
-
-function SourceBadge({
-  source,
-}: {
-  source:
-    MusicSource;
-}) {
-  const label: Record<
-    MusicSource,
-    string
-  > = {
-    upload:
-      "Uploaded",
-
-    spotify:
-      "Spotify",
-
-    youtube:
-      "YouTube",
-
-    other:
-      "External",
-  };
-
-  return (
-    <span
-      className="
-        absolute
-        left-4
-        top-4
-        rounded-full
-        border
-        border-white/20
-        bg-black/20
-        px-3
-        py-1.5
-        text-[9px]
-        font-bold
-        uppercase
-        tracking-[0.1em]
-        text-white
-        backdrop-blur-xl
-      "
-    >
-      {label[source]}
-    </span>
+    </div>
   );
 }
 
@@ -1676,8 +2499,8 @@ function MusicFormModal({
     MusicFormState;
 
   setForm:
-    React.Dispatch<
-      React.SetStateAction<
+    Dispatch<
+      SetStateAction<
         MusicFormState
       >
     >;
@@ -1692,15 +2515,15 @@ function MusicFormModal({
     File | null;
 
   setAudioFile:
-    React.Dispatch<
-      React.SetStateAction<
+    Dispatch<
+      SetStateAction<
         File | null
       >
     >;
 
   setCoverFile:
-    React.Dispatch<
-      React.SetStateAction<
+    Dispatch<
+      SetStateAction<
         File | null
       >
     >;
@@ -1711,32 +2534,32 @@ function MusicFormModal({
   onClose:
     () => void;
 
-  onSubmit:
-    (
-      event:
-        FormEvent<HTMLFormElement>
-    ) => void;
+  onSubmit: (
+    event:
+      FormEvent<HTMLFormElement>
+  ) => void;
 }) {
   return (
     <div
       className="
         fixed
         inset-0
-        z-[1200]
+        z-[1500]
         flex
         items-center
         justify-center
-        bg-ocean-950/35
+        bg-ocean-950/45
         p-3
-        backdrop-blur-sm
+        backdrop-blur-[6px]
         sm:p-5
       "
       onMouseDown={(
         event
       ) => {
         if (
+          !isSaving &&
           event.target ===
-          event.currentTarget
+            event.currentTarget
         ) {
           onClose();
         }
@@ -1746,15 +2569,17 @@ function MusicFormModal({
         className="
           max-h-[94svh]
           w-full
-          max-w-[720px]
+          max-w-[700px]
           overflow-y-auto
           rounded-[28px]
           border
-          border-white/80
-          bg-[#fbfdfe]
-          shadow-[0_30px_100px_rgba(6,42,63,0.25)]
+          border-white/60
+          bg-[#fffdf9]
+          shadow-[0_30px_100px_rgba(6,42,63,0.24)]
         "
       >
+        {/* HEADER */}
+
         <div
           className="
             sticky
@@ -1764,41 +2589,27 @@ function MusicFormModal({
             items-center
             justify-between
             border-b
-            border-ocean-100
-            bg-[#fbfdfe]/95
+            border-ocean-100/80
+            bg-[#fffdf9]/95
             px-5
             py-4
             backdrop-blur-xl
             sm:px-6
           "
         >
-          <div>
-            <p
-              className="
-                text-[9px]
-                font-bold
-                uppercase
-                tracking-[0.2em]
-                text-ocean-500
-              "
-            >
-              Shared Playlist
-            </p>
-
-            <h2
-              className="
-                mt-0.5
-                font-display
-                text-2xl
-                font-semibold
-                text-ocean-950
-              "
-            >
-              {editingTrack
-                ? "Edit Track"
-                : "Add Track"}
-            </h2>
-          </div>
+          <h2
+            className="
+              font-display
+              text-[25px]
+              font-semibold
+              tracking-[-0.025em]
+              text-ocean-950
+            "
+          >
+            {editingTrack
+              ? "Edit Track"
+              : "New Track"}
+          </h2>
 
           <button
             type="button"
@@ -1808,22 +2619,28 @@ function MusicFormModal({
             disabled={
               isSaving
             }
+            aria-label="Close"
             className="
               flex
-              h-10
-              w-10
+              h-9
+              w-9
               items-center
               justify-center
-              rounded-[13px]
-              bg-ocean-50
+              rounded-full
               text-ink-soft
+              transition
+              hover:bg-ocean-50
+              hover:text-ocean-950
+              disabled:opacity-40
             "
           >
             <X
-              size={18}
+              size={16}
             />
           </button>
         </div>
+
+        {/* FORM */}
 
         <form
           onSubmit={
@@ -1859,19 +2676,14 @@ function MusicFormModal({
                       ...current,
 
                       title:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
-                placeholder="Judul lagu"
-                className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                className={
+                  inputClass
+                }
               />
             </FormField>
 
@@ -1900,19 +2712,14 @@ function MusicFormModal({
                         ...current,
 
                         artist:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
-                  placeholder="Artist"
-                  className="
-                    love-input
-                    w-full
-                    rounded-[15px]
-                    px-4
-                    py-3
-                    text-sm
-                  "
+                  className={
+                    inputClass
+                  }
                 />
               </FormField>
 
@@ -1934,106 +2741,101 @@ function MusicFormModal({
                         ...current,
 
                         album:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
-                  placeholder="Album"
-                  className="
-                    love-input
-                    w-full
-                    rounded-[15px]
-                    px-4
-                    py-3
-                    text-sm
-                  "
+                  className={
+                    inputClass
+                  }
                 />
               </FormField>
             </div>
 
-            <FormField
-              label="Source"
+            <div
+              className="
+                grid
+                gap-4
+                sm:grid-cols-[180px_1fr]
+              "
             >
-              <select
-                value={
-                  form.sourceType
-                }
-                onChange={(
-                  event
-                ) =>
-                  setForm(
-                    (
-                      current
-                    ) => ({
-                      ...current,
-
-                      sourceType:
-                        event.target.value as
-                          MusicSource,
-                    })
-                  )
-                }
-                className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                  text-ocean-900
-                "
+              <FormField
+                label="Source"
               >
-                <option value="upload">
-                  Upload
-                </option>
+                <select
+                  value={
+                    form.sourceType
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
 
-                <option value="spotify">
-                  Spotify
-                </option>
+                        sourceType:
+                          event.target
+                            .value as MusicSource,
+                      })
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                >
+                  <option value="upload">
+                    Upload
+                  </option>
 
-                <option value="youtube">
-                  YouTube
-                </option>
+                  <option value="spotify">
+                    Spotify
+                  </option>
 
-                <option value="other">
-                  Other
-                </option>
-              </select>
-            </FormField>
+                  <option value="youtube">
+                    YouTube
+                  </option>
 
-            <FormField
-              label="External Link"
-            >
-              <input
-                type="url"
-                value={
-                  form.externalUrl
-                }
-                onChange={(
-                  event
-                ) =>
-                  setForm(
-                    (
-                      current
-                    ) => ({
-                      ...current,
+                  <option value="other">
+                    Other
+                  </option>
+                </select>
+              </FormField>
 
-                      externalUrl:
-                        event.target.value,
-                    })
-                  )
-                }
-                placeholder="https://..."
-                className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
-              />
-            </FormField>
+              <FormField
+                label="External Link"
+              >
+                <input
+                  type="url"
+                  value={
+                    form.externalUrl
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
+
+                        externalUrl:
+                          event.target
+                            .value,
+                      })
+                    )
+                  }
+                  placeholder="https://..."
+                  className={
+                    inputClass
+                  }
+                />
+              </FormField>
+            </div>
+
+            {/* FILES */}
 
             <div
               className="
@@ -2043,10 +2845,7 @@ function MusicFormModal({
               "
             >
               <UploadField
-                label="Audio File"
-                icon={
-                  FileAudio
-                }
+                label="Audio"
                 accept="audio/*"
                 file={
                   audioFile
@@ -2062,34 +2861,33 @@ function MusicFormModal({
               />
 
               <UploadField
-                label="Cover Image"
-                icon={
-                  Upload
-                }
-                accept="image/*"
-                file={
-                  coverFile
-                }
-                existing={
-                  Boolean(
-                    editingTrack?.cover_path
-                  )
-                }
-                onChange={
-                  setCoverFile
-                }
-              />
+  label="Cover"
+  accept={
+    IMAGE_ACCEPT
+  }
+  file={
+    coverFile
+  }
+  existing={
+    Boolean(
+      editingTrack?.cover_path
+    )
+  }
+  onChange={
+    setCoverFile
+  }
+/>
             </div>
           </div>
+
+          {/* ACTIONS */}
 
           <div
             className="
               mt-7
               flex
-              flex-col-reverse
+              justify-end
               gap-2
-              sm:flex-row
-              sm:justify-end
             "
           >
             <button
@@ -2101,15 +2899,18 @@ function MusicFormModal({
                 isSaving
               }
               className="
-                rounded-[15px]
+                rounded-[13px]
                 border
                 border-ocean-100
                 bg-white
                 px-5
-                py-3
+                py-2.5
                 text-sm
                 font-semibold
                 text-ink-soft
+                transition
+                hover:bg-ocean-50
+                disabled:opacity-40
               "
             >
               Cancel
@@ -2120,25 +2921,13 @@ function MusicFormModal({
               disabled={
                 isSaving
               }
-              className="
-                love-button
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-[15px]
-                px-5
-                py-3
-                text-sm
-                font-semibold
-                disabled:opacity-60
-              "
+              className={
+                primaryButtonClass
+              }
             >
               {isSaving
                 ? "Saving..."
-                : editingTrack
-                  ? "Save Changes"
-                  : "Add Track"}
+                : "Save"}
             </button>
           </div>
         </form>
@@ -2155,7 +2944,6 @@ function MusicFormModal({
 
 function UploadField({
   label,
-  icon: Icon,
   accept,
   file,
   existing,
@@ -2163,9 +2951,6 @@ function UploadField({
 }: {
   label:
     string;
-
-  icon:
-    ElementType;
 
   accept:
     string;
@@ -2176,11 +2961,10 @@ function UploadField({
   existing:
     boolean;
 
-  onChange:
-    (
-      file:
-        File | null
-    ) => void;
+  onChange: (
+    file:
+      File | null
+  ) => void;
 }) {
   const handleChange =
     (
@@ -2188,7 +2972,8 @@ function UploadField({
         ChangeEvent<HTMLInputElement>
     ) => {
       onChange(
-        event.target.files?.[0] ??
+        event.target
+          .files?.[0] ??
           null
       );
     };
@@ -2199,8 +2984,8 @@ function UploadField({
         className="
           mb-2
           text-xs
-          font-bold
-          text-ocean-800
+          font-medium
+          text-ocean-900
         "
       >
         {label}
@@ -2209,7 +2994,7 @@ function UploadField({
       <label
         className="
           flex
-          min-h-[110px]
+          min-h-[112px]
           cursor-pointer
           flex-col
           items-center
@@ -2218,35 +3003,37 @@ function UploadField({
           border
           border-dashed
           border-ocean-200
-          bg-ocean-50/50
+          bg-ocean-50/35
           px-4
           py-4
           text-center
           transition
+          hover:border-ocean-300
           hover:bg-ocean-50
         "
       >
-        <Icon
-          size={21}
+        <Upload
+          size={18}
+          strokeWidth={1.7}
           className="
-            text-ocean-500
+            text-ocean-600
           "
         />
 
         <p
           className="
-            mt-2
+            mt-3
             max-w-full
             truncate
             text-xs
-            font-semibold
-            text-ocean-800
+            font-medium
+            text-ocean-900
           "
         >
           {file
             ? file.name
             : existing
-              ? "Current file saved — choose to replace"
+              ? "Replace file"
               : "Choose file"}
         </p>
 
@@ -2295,8 +3082,8 @@ async function createTrack({
     File | null;
 
   setTracks:
-    React.Dispatch<
-      React.SetStateAction<
+    Dispatch<
+      SetStateAction<
         MusicTrack[]
       >
     >;
@@ -2305,8 +3092,11 @@ async function createTrack({
     createClient();
 
   const {
-    data: inserted,
-    error: insertError,
+    data:
+      inserted,
+
+    error:
+      insertError,
   } =
     await supabase
       .from(
@@ -2342,7 +3132,9 @@ async function createTrack({
       .select()
       .single();
 
-  if (insertError) {
+  if (
+    insertError
+  ) {
     throw new Error(
       insertError.message
     );
@@ -2353,14 +3145,22 @@ async function createTrack({
 
   let audioPath:
     | string
-    | null = null;
+    | null =
+    null;
 
   let coverPath:
     | string
-    | null = null;
+    | null =
+    null;
 
   try {
-    if (audioFile) {
+    /*
+     * AUDIO
+     */
+
+    if (
+      audioFile
+    ) {
       audioPath =
         `${coupleId}/${trackId}/audio-${crypto.randomUUID()}.${getExtension(
           audioFile.name,
@@ -2393,7 +3193,13 @@ async function createTrack({
       }
     }
 
-    if (coverFile) {
+    /*
+     * COVER
+     */
+
+    if (
+      coverFile
+    ) {
       coverPath =
         `${coupleId}/${trackId}/cover-${crypto.randomUUID()}.${getExtension(
           coverFile.name,
@@ -2426,9 +3232,16 @@ async function createTrack({
       }
     }
 
+    /*
+     * SAVE PATHS
+     */
+
     const {
-      data: updated,
-      error: updateError,
+      data:
+        updated,
+
+      error:
+        updateError,
     } =
       await supabase
         .from(
@@ -2448,7 +3261,9 @@ async function createTrack({
         .select()
         .single();
 
-    if (updateError) {
+    if (
+      updateError
+    ) {
       throw new Error(
         updateError.message
       );
@@ -2479,7 +3294,13 @@ async function createTrack({
         ])
     );
   } catch (error) {
-    if (audioPath) {
+    /*
+     * ROLLBACK STORAGE
+     */
+
+    if (
+      audioPath
+    ) {
       await supabase.storage
         .from(
           "music-audio"
@@ -2489,7 +3310,9 @@ async function createTrack({
         ]);
     }
 
-    if (coverPath) {
+    if (
+      coverPath
+    ) {
       await supabase.storage
         .from(
           "music-covers"
@@ -2498,6 +3321,10 @@ async function createTrack({
           coverPath,
         ]);
     }
+
+    /*
+     * ROLLBACK ROW
+     */
 
     await supabase
       .from(
@@ -2539,8 +3366,8 @@ async function updateTrack({
     File | null;
 
   setTracks:
-    React.Dispatch<
-      React.SetStateAction<
+    Dispatch<
+      SetStateAction<
         MusicTrack[]
       >
     >;
@@ -2556,14 +3383,22 @@ async function updateTrack({
 
   let uploadedAudioPath:
     | string
-    | null = null;
+    | null =
+    null;
 
   let uploadedCoverPath:
     | string
-    | null = null;
+    | null =
+    null;
 
   try {
-    if (audioFile) {
+    /*
+     * REPLACE AUDIO
+     */
+
+    if (
+      audioFile
+    ) {
       uploadedAudioPath =
         `${editingTrack.couple_id}/${editingTrack.id}/audio-${crypto.randomUUID()}.${getExtension(
           audioFile.name,
@@ -2599,7 +3434,13 @@ async function updateTrack({
         uploadedAudioPath;
     }
 
-    if (coverFile) {
+    /*
+     * REPLACE COVER
+     */
+
+    if (
+      coverFile
+    ) {
       uploadedCoverPath =
         `${editingTrack.couple_id}/${editingTrack.id}/cover-${crypto.randomUUID()}.${getExtension(
           coverFile.name,
@@ -2634,6 +3475,10 @@ async function updateTrack({
       newCoverPath =
         uploadedCoverPath;
     }
+
+    /*
+     * UPDATE DATABASE
+     */
 
     const {
       data,
@@ -2681,7 +3526,7 @@ async function updateTrack({
     }
 
     /*
-     * Hapus file lama setelah DB berhasil.
+     * OLD FILE CLEANUP
      */
 
     if (
@@ -2690,13 +3535,26 @@ async function updateTrack({
       editingTrack.audio_path !==
         newAudioPath
     ) {
-      await supabase.storage
-        .from(
-          "music-audio"
-        )
-        .remove([
-          editingTrack.audio_path,
-        ]);
+      const {
+        error:
+          removeAudioError,
+      } =
+        await supabase.storage
+          .from(
+            "music-audio"
+          )
+          .remove([
+            editingTrack.audio_path,
+          ]);
+
+      if (
+        removeAudioError
+      ) {
+        console.error(
+          "Old audio cleanup:",
+          removeAudioError
+        );
+      }
     }
 
     if (
@@ -2705,14 +3563,31 @@ async function updateTrack({
       editingTrack.cover_path !==
         newCoverPath
     ) {
-      await supabase.storage
-        .from(
-          "music-covers"
-        )
-        .remove([
-          editingTrack.cover_path,
-        ]);
+      const {
+        error:
+          removeCoverError,
+      } =
+        await supabase.storage
+          .from(
+            "music-covers"
+          )
+          .remove([
+            editingTrack.cover_path,
+          ]);
+
+      if (
+        removeCoverError
+      ) {
+        console.error(
+          "Old cover cleanup:",
+          removeCoverError
+        );
+      }
     }
+
+    /*
+     * NEW SIGNED URL
+     */
 
     const urls =
       await createTrackSignedUrls(
@@ -2744,7 +3619,13 @@ async function updateTrack({
         )
     );
   } catch (error) {
-    if (uploadedAudioPath) {
+    /*
+     * REMOVE NEW FILES IF DB UPDATE FAILED
+     */
+
+    if (
+      uploadedAudioPath
+    ) {
       await supabase.storage
         .from(
           "music-audio"
@@ -2754,7 +3635,9 @@ async function updateTrack({
         ]);
     }
 
-    if (uploadedCoverPath) {
+    if (
+      uploadedCoverPath
+    ) {
       await supabase.storage
         .from(
           "music-covers"
@@ -2788,15 +3671,20 @@ async function createTrackSignedUrls(
 
   let audioUrl:
     | string
-    | null = null;
+    | null =
+    null;
 
   let coverUrl:
     | string
-    | null = null;
+    | null =
+    null;
 
-  if (audioPath) {
+  if (
+    audioPath
+  ) {
     const {
       data,
+      error,
     } =
       await supabase.storage
         .from(
@@ -2807,14 +3695,24 @@ async function createTrackSignedUrls(
           60 * 60
         );
 
+    if (error) {
+      console.error(
+        "Audio signed URL:",
+        error
+      );
+    }
+
     audioUrl =
       data?.signedUrl ??
       null;
   }
 
-  if (coverPath) {
+  if (
+    coverPath
+  ) {
     const {
       data,
+      error,
     } =
       await supabase.storage
         .from(
@@ -2825,6 +3723,13 @@ async function createTrackSignedUrls(
           60 * 60
         );
 
+    if (error) {
+      console.error(
+        "Cover signed URL:",
+        error
+      );
+    }
+
     coverUrl =
       data?.signedUrl ??
       null;
@@ -2834,83 +3739,6 @@ async function createTrackSignedUrls(
     audioUrl,
     coverUrl,
   };
-}
-
-/*
- * =========================================================
- * SUMMARY
- * =========================================================
- */
-
-function SummaryCard({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon:
-    ElementType;
-
-  value:
-    number;
-
-  label:
-    string;
-}) {
-  return (
-    <div
-      className="
-        glass-card
-        flex
-        items-center
-        gap-4
-        rounded-[24px]
-        p-4
-        sm:p-5
-      "
-    >
-      <div
-        className="
-          flex
-          h-11
-          w-11
-          shrink-0
-          items-center
-          justify-center
-          rounded-[15px]
-          bg-ocean-100
-          text-ocean-700
-        "
-      >
-        <Icon
-          size={19}
-        />
-      </div>
-
-      <div>
-        <p
-          className="
-            font-display
-            text-2xl
-            font-semibold
-            leading-none
-            text-ocean-950
-          "
-        >
-          {value}
-        </p>
-
-        <p
-          className="
-            mt-1.5
-            text-[11px]
-            text-ink-soft
-          "
-        >
-          {label}
-        </p>
-      </div>
-    </div>
-  );
 }
 
 /*
@@ -2940,22 +3768,15 @@ function FormField({
           mb-2
           block
           text-xs
-          font-bold
-          text-ocean-800
+          font-medium
+          text-ocean-900
         "
       >
         {label}
 
-        {required && (
-          <span
-            className="
-              ml-1
-              text-heart
-            "
-          >
-            *
-          </span>
-        )}
+        {required
+          ? " *"
+          : ""}
       </label>
 
       {children}
@@ -2984,61 +3805,29 @@ function EmptyMusic({
     () => void;
 }) {
   return (
-    <div
+    <section
       className="
-        glass-card
-        rounded-[30px]
-        px-6
-        py-16
+        flex
+        min-h-[430px]
+        flex-col
+        items-center
+        justify-center
         text-center
       "
     >
-      <div
-        className="
-          mx-auto
-          flex
-          h-16
-          w-16
-          items-center
-          justify-center
-          rounded-[22px]
-          bg-ocean-100
-          text-ocean-600
-        "
-      >
-        <Music2
-          size={28}
-        />
-      </div>
-
       <h2
         className="
-          mt-5
           font-display
-          text-3xl
+          text-[30px]
           font-semibold
+          tracking-[-0.03em]
           text-ocean-950
         "
       >
         {filtered
-          ? "Track tidak ditemukan"
-          : "Belum ada track"}
+          ? "No tracks found."
+          : "No music yet."}
       </h2>
-
-      <p
-        className="
-          mx-auto
-          mt-2
-          max-w-md
-          text-sm
-          leading-7
-          text-ink-soft
-        "
-      >
-        {filtered
-          ? "Coba ubah search atau filter."
-          : "Tambahkan lagu pertama ke shared playlist."}
-      </p>
 
       {filtered ? (
         <button
@@ -3048,15 +3837,11 @@ function EmptyMusic({
           }
           className="
             mt-6
-            rounded-[15px]
-            border
-            border-ocean-100
-            bg-white
-            px-5
-            py-3
             text-sm
             font-semibold
             text-ocean-700
+            transition
+            hover:text-ocean-950
           "
         >
           Clear Filters
@@ -3067,27 +3852,15 @@ function EmptyMusic({
           onClick={
             onAdd
           }
-          className="
-            love-button
+          className={`
+            ${primaryButtonClass}
             mt-6
-            inline-flex
-            items-center
-            gap-2
-            rounded-[15px]
-            px-5
-            py-3
-            text-sm
-            font-semibold
-          "
+          `}
         >
-          <Plus
-            size={16}
-          />
-
           Add Track
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -3128,6 +3901,10 @@ function sortTracks(
       a,
       b
     ) => {
+      /*
+       * Favorites first.
+       */
+
       if (
         a.is_favorite !==
         b.is_favorite
@@ -3136,6 +3913,10 @@ function sortTracks(
           ? -1
           : 1;
       }
+
+      /*
+       * Newest next.
+       */
 
       return (
         new Date(
@@ -3147,6 +3928,33 @@ function sortTracks(
       );
     }
   );
+}
+
+function getSourceLabel(
+  source:
+    MusicSource
+) {
+  const labels:
+    Record<
+      MusicSource,
+      string
+    > = {
+    upload:
+      "Uploaded",
+
+    spotify:
+      "Spotify",
+
+    youtube:
+      "YouTube",
+
+    other:
+      "External",
+  };
+
+  return labels[
+    source
+  ];
 }
 
 function getExtension(
@@ -3193,6 +4001,67 @@ function isValidUrl(
   }
 }
 
+function formatSeconds(
+  value:
+    number
+) {
+  if (
+    !Number.isFinite(
+      value
+    ) ||
+    value < 0
+  ) {
+    return "0:00";
+  }
+
+  const minutes =
+    Math.floor(
+      value / 60
+    );
+
+  const seconds =
+    Math.floor(
+      value % 60
+    );
+
+  return `${minutes}:${String(
+    seconds
+  ).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+/*
+ * =========================================================
+ * ALERTS
+ * =========================================================
+ */
+
+async function showSuccess(
+  title:
+    string
+) {
+  await Swal.fire({
+    icon:
+      "success",
+
+    title,
+
+    timer:
+      900,
+
+    showConfirmButton:
+      false,
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
+}
+
 async function showWarning(
   title:
     string,
@@ -3210,7 +4079,13 @@ async function showWarning(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }
 
@@ -3231,6 +4106,12 @@ async function showError(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }

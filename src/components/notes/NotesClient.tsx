@@ -2,31 +2,21 @@
 
 "use client";
 
-import Link from "next/link";
-
 import {
-  type ElementType,
+  type Dispatch,
   type FormEvent,
   type ReactNode,
+  type SetStateAction,
   useMemo,
   useState,
 } from "react";
 
 import {
   Check,
-  CheckCircle2,
-  ChevronLeft,
-  Circle,
-  ListChecks,
-  Pencil,
+  MoreHorizontal,
   Pin,
-  PinOff,
   Plus,
-  Save,
   Search,
-  StickyNote,
-  Tag,
-  Trash2,
   X,
 } from "lucide-react";
 
@@ -34,6 +24,7 @@ import Swal from "sweetalert2";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+
 import { createClient } from "@/lib/supabase/client";
 
 /*
@@ -141,49 +132,85 @@ const categories = [
 const colorOptions: {
   value: NoteColor;
   label: string;
-  className: string;
+  swatch: string;
 }[] = [
   {
-    value:
-      "blue",
-    label:
-      "Blue",
-    className:
-      "bg-[#dff5fc] border-[#b7e6f5]",
+    value: "blue",
+    label: "Blue",
+    swatch:
+      "bg-[#cbeef7]",
   },
   {
-    value:
-      "cream",
-    label:
-      "Cream",
-    className:
-      "bg-[#fff6e7] border-[#f0dfc5]",
+    value: "cream",
+    label: "Cream",
+    swatch:
+      "bg-[#f3e3c7]",
   },
   {
-    value:
-      "pink",
-    label:
-      "Pink",
-    className:
-      "bg-[#fdecef] border-[#f8cfd7]",
+    value: "pink",
+    label: "Pink",
+    swatch:
+      "bg-[#f8cfd7]",
   },
   {
-    value:
-      "green",
-    label:
-      "Green",
-    className:
-      "bg-[#e9f8ef] border-[#cbead6]",
+    value: "green",
+    label: "Green",
+    swatch:
+      "bg-[#cbead6]",
   },
   {
-    value:
-      "lavender",
-    label:
-      "Lavender",
-    className:
-      "bg-[#f0edff] border-[#ded7ff]",
+    value: "lavender",
+    label: "Lavender",
+    swatch:
+      "bg-[#ded7ff]",
   },
 ];
+
+/*
+ * =========================================================
+ * STYLES
+ * =========================================================
+ */
+
+const inputClass = `
+  w-full
+  rounded-[13px]
+  border
+  border-ocean-100
+  bg-white/75
+  px-4
+  py-3
+  text-sm
+  text-ocean-950
+  outline-none
+  transition
+  placeholder:text-ink-soft/45
+  focus:border-ocean-300
+  focus:bg-white
+  focus:ring-4
+  focus:ring-ocean-100/45
+`;
+
+const primaryButtonClass = `
+  inline-flex
+  items-center
+  justify-center
+  gap-2
+  rounded-[13px]
+  bg-ocean-950
+  px-5
+  py-2.5
+  text-sm
+  font-semibold
+  text-white
+  shadow-[0_8px_22px_rgba(6,42,63,0.12)]
+  transition
+  duration-200
+  hover:bg-ocean-800
+  active:scale-[0.98]
+  disabled:pointer-events-none
+  disabled:opacity-45
+`;
 
 /*
  * =========================================================
@@ -200,10 +227,10 @@ export default function NotesClient({
     notes,
     setNotes,
   ] =
-    useState<
-      NoteItem[]
-    >(
-      initialNotes
+    useState<NoteItem[]>(
+      sortNotes(
+        initialNotes
+      )
     );
 
   const [
@@ -216,17 +243,13 @@ export default function NotesClient({
     categoryFilter,
     setCategoryFilter,
   ] =
-    useState(
-      "all"
-    );
+    useState("all");
 
   const [
     formOpen,
     setFormOpen,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     editingNote,
@@ -234,25 +257,19 @@ export default function NotesClient({
   ] =
     useState<
       NoteItem | null
-    >(
-      null
-    );
+    >(null);
 
   const [
     isSaving,
     setIsSaving,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     form,
     setForm,
   ] =
-    useState<
-      NoteFormState
-    >(
+    useState<NoteFormState>(
       createEmptyForm()
     );
 
@@ -264,7 +281,7 @@ export default function NotesClient({
 
   const filteredNotes =
     useMemo(() => {
-      const normalizedSearch =
+      const keyword =
         search
           .trim()
           .toLowerCase();
@@ -279,11 +296,11 @@ export default function NotesClient({
                 categoryFilter;
 
             const matchesSearch =
-              !normalizedSearch ||
+              !keyword ||
               note.title
                 .toLowerCase()
                 .includes(
-                  normalizedSearch
+                  keyword
                 ) ||
               (
                 note.content ??
@@ -291,8 +308,16 @@ export default function NotesClient({
               )
                 .toLowerCase()
                 .includes(
-                  normalizedSearch
-                );
+                  keyword
+                ) ||
+              note.checklistItems.some(
+                (item) =>
+                  item.title
+                    .toLowerCase()
+                    .includes(
+                      keyword
+                    )
+              );
 
             return (
               matchesCategory &&
@@ -346,7 +371,7 @@ export default function NotesClient({
 
   /*
    * =========================================================
-   * OPEN CREATE
+   * CREATE
    * =========================================================
    */
 
@@ -367,7 +392,7 @@ export default function NotesClient({
 
   /*
    * =========================================================
-   * OPEN EDIT
+   * EDIT
    * =========================================================
    */
 
@@ -440,19 +465,10 @@ export default function NotesClient({
         form.title.trim();
 
       if (!title) {
-        await Swal.fire({
-          icon:
-            "warning",
-
-          title:
-            "Judul belum diisi",
-
-          text:
-            "Judul note wajib diisi.",
-
-          confirmButtonColor:
-            "#1688b5",
-        });
+        await showWarning(
+          "Title required",
+          "Add a title first."
+        );
 
         return;
       }
@@ -466,9 +482,7 @@ export default function NotesClient({
           createClient();
 
         /*
-         * =====================================
          * UPDATE
-         * =====================================
          */
 
         if (
@@ -501,12 +515,9 @@ export default function NotesClient({
               .single();
 
           if (error) {
-            await showError(
-              "Note gagal diperbarui",
+            throw new Error(
               error.message
             );
-
-            return;
           }
 
           setNotes(
@@ -535,27 +546,15 @@ export default function NotesClient({
             null
           );
 
-          await Swal.fire({
-            icon:
-              "success",
-
-            title:
-              "Note diperbarui",
-
-            timer:
-              900,
-
-            showConfirmButton:
-              false,
-          });
+          await showSuccess(
+            "Note updated"
+          );
 
           return;
         }
 
         /*
-         * =====================================
          * CREATE
-         * =====================================
          */
 
         const {
@@ -590,12 +589,9 @@ export default function NotesClient({
             .single();
 
         if (error) {
-          await showError(
-            "Note gagal dibuat",
+          throw new Error(
             error.message
           );
-
-          return;
         }
 
         const newNote:
@@ -621,19 +617,20 @@ export default function NotesClient({
           false
         );
 
-        await Swal.fire({
-          icon:
-            "success",
+        await showSuccess(
+          "Note added"
+        );
+      } catch (error) {
+        await showError(
+          editingNote
+            ? "Note could not be updated"
+            : "Note could not be created",
 
-          title:
-            "Note ditambahkan",
-
-          timer:
-            900,
-
-          showConfirmButton:
-            false,
-        });
+          error instanceof
+            Error
+            ? error.message
+            : "Something went wrong."
+        );
       } finally {
         setIsSaving(
           false
@@ -654,9 +651,6 @@ export default function NotesClient({
     ) => {
       const newValue =
         !note.is_pinned;
-
-      const supabase =
-        createClient();
 
       /*
        * Optimistic UI.
@@ -680,6 +674,9 @@ export default function NotesClient({
           )
       );
 
+      const supabase =
+        createClient();
+
       const {
         data,
         error,
@@ -698,6 +695,10 @@ export default function NotesClient({
           .single();
 
       if (error) {
+        /*
+         * Rollback.
+         */
+
         setNotes(
           (current) =>
             sortNotes(
@@ -712,7 +713,7 @@ export default function NotesClient({
         );
 
         await showError(
-          "Pin gagal diperbarui",
+          "Pin could not be updated",
           error.message
         );
 
@@ -751,29 +752,29 @@ export default function NotesClient({
     ) => {
       const result =
         await Swal.fire({
-          icon:
-            "warning",
-
           title:
-            "Hapus note?",
+            "Delete note?",
 
           text:
-            `"${note.title}" dan checklist di dalamnya akan dihapus.`,
+            note.title,
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
 
-          cancelButtonColor:
-            "#1688b5",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -798,7 +799,7 @@ export default function NotesClient({
 
       if (error) {
         await showError(
-          "Note gagal dihapus",
+          "Note could not be deleted",
           error.message
         );
 
@@ -814,19 +815,70 @@ export default function NotesClient({
           )
       );
 
-      await Swal.fire({
-        icon:
-          "success",
+      await showSuccess(
+        "Note deleted"
+      );
+    };
 
-        title:
-          "Note dihapus",
+  /*
+   * =========================================================
+   * NOTE OPTIONS
+   * =========================================================
+   */
 
-        timer:
-          800,
+  const handleNoteOptions =
+    async (
+      note:
+        NoteItem
+    ) => {
+      const result =
+        await Swal.fire({
+          title:
+            note.title,
 
-        showConfirmButton:
-          false,
-      });
+          showCancelButton:
+            true,
+
+          showDenyButton:
+            true,
+
+          confirmButtonText:
+            "Edit",
+
+          denyButtonText:
+            "Delete",
+
+          cancelButtonText:
+            "Close",
+
+          confirmButtonColor:
+            "#083b59",
+
+          denyButtonColor:
+            "#d85f72",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+      if (
+        result.isConfirmed
+      ) {
+        handleOpenEdit(
+          note
+        );
+      }
+
+      if (
+        result.isDenied
+      ) {
+        await handleDeleteNote(
+          note
+        );
+      }
     };
 
   /*
@@ -843,32 +895,38 @@ export default function NotesClient({
       const result =
         await Swal.fire({
           title:
-            "Add Checklist",
+            "New Checklist Item",
 
           input:
             "text",
 
           inputPlaceholder:
-            "Contoh: Beli tiket",
+            "What needs to be done?",
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Tambah",
+            "Add",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
 
           inputValidator:
             (value) => {
               if (
                 !value.trim()
               ) {
-                return "Checklist tidak boleh kosong.";
+                return "Checklist cannot be empty.";
               }
 
               return undefined;
@@ -922,7 +980,7 @@ export default function NotesClient({
 
       if (error) {
         await showError(
-          "Checklist gagal ditambahkan",
+          "Checklist could not be added",
           error.message
         );
 
@@ -964,6 +1022,10 @@ export default function NotesClient({
     ) => {
       const newValue =
         !checklist.is_completed;
+
+      /*
+       * Optimistic.
+       */
 
       setNotes(
         (current) =>
@@ -1013,7 +1075,7 @@ export default function NotesClient({
 
       if (error) {
         /*
-         * rollback
+         * Rollback.
          */
 
         setNotes(
@@ -1039,7 +1101,7 @@ export default function NotesClient({
         );
 
         await showError(
-          "Checklist gagal diperbarui",
+          "Checklist could not be updated",
           error.message
         );
       }
@@ -1074,20 +1136,26 @@ export default function NotesClient({
             true,
 
           confirmButtonText:
-            "Simpan",
+            "Save",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
 
           inputValidator:
             (value) => {
               if (
                 !value.trim()
               ) {
-                return "Checklist tidak boleh kosong.";
+                return "Checklist cannot be empty.";
               }
 
               return undefined;
@@ -1124,7 +1192,7 @@ export default function NotesClient({
 
       if (error) {
         await showError(
-          "Checklist gagal diperbarui",
+          "Checklist could not be updated",
           error.message
         );
 
@@ -1190,7 +1258,7 @@ export default function NotesClient({
 
       if (error) {
         await showError(
-          "Checklist gagal dihapus",
+          "Checklist could not be deleted",
           error.message
         );
 
@@ -1228,7 +1296,7 @@ export default function NotesClient({
     <div
       className="
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
@@ -1242,12 +1310,12 @@ export default function NotesClient({
           min-h-[100svh]
           px-4
           pb-28
-          pt-4
+          pt-6
           sm:px-6
-          sm:pt-6
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+          lg:px-8
+          lg:pb-14
+          lg:pt-9
           xl:px-10
         "
       >
@@ -1255,63 +1323,31 @@ export default function NotesClient({
           className="
             mx-auto
             w-full
-            max-w-[1500px]
+            max-w-[1440px]
           "
         >
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <header
             className="
               flex
-              flex-col
+              items-end
+              justify-between
               gap-5
-              sm:flex-row
-              sm:items-end
-              sm:justify-between
             "
           >
             <div>
-              <Link
-                href="/dashboard"
-                className="
-                  mb-3
-                  inline-flex
-                  items-center
-                  gap-2
-                  text-sm
-                  font-semibold
-                  text-ink-soft
-                  transition
-                  hover:text-ocean-700
-                "
-              >
-                <ChevronLeft
-                  size={17}
-                />
-
-                Dashboard
-              </Link>
-
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.23em]
-                  text-ocean-500
-                "
-              >
-                Shared Notes
-              </p>
-
               <h1
                 className="
-                  mt-1
                   font-display
-                  text-3xl
+                  text-[34px]
                   font-semibold
+                  leading-none
+                  tracking-[-0.035em]
                   text-ocean-950
-                  sm:text-4xl
+                  sm:text-[40px]
                 "
               >
                 Notes
@@ -1319,16 +1355,39 @@ export default function NotesClient({
 
               <p
                 className="
-                  mt-2
-                  max-w-xl
-                  text-sm
-                  leading-6
+                  mt-3
+                  text-xs
                   text-ink-soft
                 "
               >
-                Catatan bersama untuk reminder,
-                wishlist, ide, dan hal-hal yang
-                perlu disimpan.
+                {notes.length}{" "}
+                {notes.length ===
+                1
+                  ? "note"
+                  : "notes"}
+
+                <span
+                  className="
+                    mx-2
+                    text-ocean-200
+                  "
+                >
+                  ·
+                </span>
+
+                {pinnedCount} pinned
+
+                <span
+                  className="
+                    mx-2
+                    text-ocean-200
+                  "
+                >
+                  ·
+                </span>
+
+                {completedChecklist}/
+                {checklistCount} tasks
               </p>
             </div>
 
@@ -1337,276 +1396,226 @@ export default function NotesClient({
               onClick={
                 handleOpenCreate
               }
-              className="
-                love-button
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-[15px]
-                px-5
-                py-3.5
-                text-sm
-                font-semibold
-              "
+              className={
+                primaryButtonClass
+              }
             >
               <Plus
-                size={18}
+                size={15}
               />
 
               Add Note
             </button>
           </header>
 
-          {/* STATS */}
+          {/* =================================================
+              SEARCH
+          ================================================= */}
 
           <section
             className="
-              mt-7
+              mt-8
               grid
               gap-3
-              sm:grid-cols-3
-            "
-          >
-            <SummaryCard
-              icon={
-                StickyNote
-              }
-              value={
-                notes.length
-              }
-              label="Total Notes"
-            />
-
-            <SummaryCard
-              icon={
-                Pin
-              }
-              value={
-                pinnedCount
-              }
-              label="Pinned Notes"
-            />
-
-            <SummaryCard
-              icon={
-                CheckCircle2
-              }
-              value={
-                checklistCount >
-                0
-                  ? `${completedChecklist}/${checklistCount}`
-                  : "0"
-              }
-              label="Checklist Done"
-            />
-          </section>
-
-          {/* SEARCH + FILTER */}
-
-          <section
-            className="
-              glass-card
-              mt-5
-              rounded-[25px]
-              p-4
-              sm:p-5
+              border-b
+              border-ocean-100/80
+              pb-5
+              lg:grid-cols-[minmax(0,1fr)_210px]
             "
           >
             <div
               className="
-                grid
-                gap-3
-                lg:grid-cols-[1fr_260px]
+                relative
               "
             >
-              <div
+              <Search
+                size={16}
                 className="
-                  relative
+                  absolute
+                  left-4
+                  top-1/2
+                  -translate-y-1/2
+                  text-ink-soft/55
                 "
-              >
-                <Search
-                  size={17}
-                  className="
-                    absolute
-                    left-4
-                    top-1/2
-                    -translate-y-1/2
-                    text-ink-soft
-                  "
-                />
+              />
 
-                <input
-                  type="search"
-                  value={
-                    search
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search notes..."
-                  className="
-                    love-input
-                    w-full
-                    rounded-[15px]
-                    py-3
-                    pl-11
-                    pr-4
-                    text-sm
-                  "
-                />
-              </div>
-
-              <select
+              <input
+                type="search"
                 value={
-                  categoryFilter
+                  search
                 }
                 onChange={(
                   event
                 ) =>
-                  setCategoryFilter(
-                    event.target.value
+                  setSearch(
+                    event.target
+                      .value
                   )
                 }
+                placeholder="Search notes"
                 className="
-                  love-input
                   w-full
-                  rounded-[15px]
-                  px-4
+                  rounded-[14px]
+                  border
+                  border-ocean-100
+                  bg-white/75
                   py-3
+                  pl-11
+                  pr-4
                   text-sm
-                  text-ocean-900
+                  text-ocean-950
+                  outline-none
+                  transition
+                  placeholder:text-ink-soft/45
+                  focus:border-ocean-200
+                  focus:bg-white
                 "
-              >
-                <option value="all">
-                  All Categories
-                </option>
-
-                {categories.map(
-                  (
-                    category
-                  ) => (
-                    <option
-                      key={
-                        category
-                      }
-                      value={
-                        category
-                      }
-                    >
-                      {category}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-          </section>
-
-          {/* NOTE GRID */}
-
-          <section
-            className="
-              mt-6
-            "
-          >
-            {filteredNotes.length >
-            0 ? (
-              <div
-                className="
-                  grid
-                  items-start
-                  gap-4
-                  md:grid-cols-2
-                  2xl:grid-cols-3
-                "
-              >
-                {filteredNotes.map(
-                  (
-                    note
-                  ) => (
-                    <NoteCard
-                      key={
-                        note.id
-                      }
-                      note={
-                        note
-                      }
-                      onEdit={() =>
-                        handleOpenEdit(
-                          note
-                        )
-                      }
-                      onDelete={() =>
-                        handleDeleteNote(
-                          note
-                        )
-                      }
-                      onTogglePin={() =>
-                        handleTogglePin(
-                          note
-                        )
-                      }
-                      onAddChecklist={() =>
-                        handleAddChecklist(
-                          note
-                        )
-                      }
-                      onToggleChecklist={(
-                        checklist
-                      ) =>
-                        handleToggleChecklist(
-                          note,
-                          checklist
-                        )
-                      }
-                      onEditChecklist={(
-                        checklist
-                      ) =>
-                        handleEditChecklist(
-                          note,
-                          checklist
-                        )
-                      }
-                      onDeleteChecklist={(
-                        checklist
-                      ) =>
-                        handleDeleteChecklist(
-                          note,
-                          checklist
-                        )
-                      }
-                    />
-                  )
-                )}
-              </div>
-            ) : (
-              <EmptyNotes
-                hasFilters={
-                  Boolean(
-                    search.trim()
-                  ) ||
-                  categoryFilter !==
-                    "all"
-                }
-                onCreate={
-                  handleOpenCreate
-                }
-                onClear={() => {
-                  setSearch("");
-
-                  setCategoryFilter(
-                    "all"
-                  );
-                }}
               />
-            )}
+            </div>
+
+            <select
+              value={
+                categoryFilter
+              }
+              onChange={(
+                event
+              ) =>
+                setCategoryFilter(
+                  event.target
+                    .value
+                )
+              }
+              className="
+                rounded-[14px]
+                border
+                border-ocean-100
+                bg-white/75
+                px-4
+                py-3
+                text-sm
+                text-ocean-900
+                outline-none
+                transition
+                focus:border-ocean-200
+                focus:bg-white
+              "
+            >
+              <option value="all">
+                All Categories
+              </option>
+
+              {categories.map(
+                (category) => (
+                  <option
+                    key={
+                      category
+                    }
+                    value={
+                      category
+                    }
+                  >
+                    {category}
+                  </option>
+                )
+              )}
+            </select>
           </section>
+
+          {/* =================================================
+              NOTES
+          ================================================= */}
+
+          {filteredNotes.length >
+          0 ? (
+            <section
+              className="
+                mt-6
+                grid
+                items-start
+                gap-4
+                md:grid-cols-2
+                2xl:grid-cols-3
+              "
+            >
+              {filteredNotes.map(
+                (note) => (
+                  <NoteCard
+                    key={
+                      note.id
+                    }
+                    note={
+                      note
+                    }
+                    onTogglePin={() =>
+                      void handleTogglePin(
+                        note
+                      )
+                    }
+                    onOptions={() =>
+                      void handleNoteOptions(
+                        note
+                      )
+                    }
+                    onAddChecklist={() =>
+                      void handleAddChecklist(
+                        note
+                      )
+                    }
+                    onToggleChecklist={(
+                      checklist
+                    ) =>
+                      void handleToggleChecklist(
+                        note,
+                        checklist
+                      )
+                    }
+                    onEditChecklist={(
+                      checklist
+                    ) =>
+                      void handleEditChecklist(
+                        note,
+                        checklist
+                      )
+                    }
+                    onDeleteChecklist={(
+                      checklist
+                    ) =>
+                      void handleDeleteChecklist(
+                        note,
+                        checklist
+                      )
+                    }
+                  />
+                )
+              )}
+            </section>
+          ) : (
+            <EmptyNotes
+              filtered={
+                Boolean(
+                  search.trim()
+                ) ||
+                categoryFilter !==
+                  "all"
+              }
+              onCreate={
+                handleOpenCreate
+              }
+              onClear={() => {
+                setSearch("");
+
+                setCategoryFilter(
+                  "all"
+                );
+              }}
+            />
+          )}
         </div>
       </main>
+
+      {/* =====================================================
+          FORM
+      ====================================================== */}
 
       {formOpen && (
         <NoteFormModal
@@ -1644,9 +1653,8 @@ export default function NotesClient({
 
 function NoteCard({
   note,
-  onEdit,
-  onDelete,
   onTogglePin,
+  onOptions,
   onAddChecklist,
   onToggleChecklist,
   onEditChecklist,
@@ -1655,35 +1663,29 @@ function NoteCard({
   note:
     NoteItem;
 
-  onEdit:
-    () => void;
-
-  onDelete:
-    () => void;
-
   onTogglePin:
+    () => void;
+
+  onOptions:
     () => void;
 
   onAddChecklist:
     () => void;
 
-  onToggleChecklist:
-    (
-      checklist:
-        ChecklistItem
-    ) => void;
+  onToggleChecklist: (
+    checklist:
+      ChecklistItem
+  ) => void;
 
-  onEditChecklist:
-    (
-      checklist:
-        ChecklistItem
-    ) => void;
+  onEditChecklist: (
+    checklist:
+      ChecklistItem
+  ) => void;
 
-  onDeleteChecklist:
-    (
-      checklist:
-        ChecklistItem
-    ) => void;
+  onDeleteChecklist: (
+    checklist:
+      ChecklistItem
+  ) => void;
 }) {
   const completed =
     note.checklistItems.filter(
@@ -1691,442 +1693,375 @@ function NoteCard({
         item.is_completed
     ).length;
 
+  const total =
+    note.checklistItems.length;
+
   const progress =
-    note.checklistItems.length >
-    0
+    total > 0
       ? Math.round(
           (
             completed /
-            note.checklistItems.length
-          ) *
-            100
+            total
+          ) * 100
         )
       : 0;
 
   return (
     <article
       className={`
+        group
         relative
         overflow-hidden
         rounded-[26px]
         border
-        p-5
-        shadow-[0_12px_35px_rgba(17,76,104,0.07)]
+        shadow-[0_12px_35px_rgba(8,59,89,0.045)]
         transition
+        duration-300
         hover:-translate-y-0.5
-        hover:shadow-[0_18px_45px_rgba(17,76,104,0.10)]
+        hover:shadow-[0_18px_45px_rgba(8,59,89,0.075)]
         ${getNoteColorClasses(
           note.color
         )}
       `}
     >
-      {/* HEADER */}
+      {/* ACCENT */}
 
       <div
-        className="
-          flex
-          items-start
-          justify-between
-          gap-3
-        "
-      >
-        <div
-          className="
-            min-w-0
-          "
-        >
-          <div
-            className="
-              flex
-              flex-wrap
-              items-center
-              gap-2
-            "
-          >
-            <span
-              className="
-                inline-flex
-                items-center
-                gap-1.5
-                rounded-full
-                bg-white/70
-                px-2.5
-                py-1.5
-                text-[9px]
-                font-bold
-                uppercase
-                tracking-[0.1em]
-                text-ocean-700
-              "
-            >
-              <Tag
-                size={10}
-              />
-
-              {
-                note.category
-              }
-            </span>
-
-            {note.is_pinned && (
-              <span
-                className="
-                  inline-flex
-                  items-center
-                  gap-1
-                  rounded-full
-                  bg-ocean-700
-                  px-2.5
-                  py-1.5
-                  text-[9px]
-                  font-bold
-                  uppercase
-                  tracking-[0.1em]
-                  text-white
-                "
-              >
-                <Pin
-                  size={10}
-                  fill="currentColor"
-                />
-
-                Pinned
-              </span>
-            )}
-          </div>
-
-          <h2
-            className="
-              mt-4
-              break-words
-              font-display
-              text-2xl
-              font-semibold
-              text-ocean-950
-            "
-          >
-            {note.title}
-          </h2>
-        </div>
-
-        <button
-          type="button"
-          onClick={
-            onTogglePin
-          }
-          aria-label={
-            note.is_pinned
-              ? "Unpin note"
-              : "Pin note"
-          }
-          className="
-            flex
-            h-9
-            w-9
-            shrink-0
-            items-center
-            justify-center
-            rounded-[12px]
-            bg-white/70
-            text-ocean-600
-            transition
-            hover:bg-white
-            hover:text-ocean-800
-          "
-        >
-          {note.is_pinned ? (
-            <PinOff
-              size={15}
-            />
-          ) : (
-            <Pin
-              size={15}
-            />
+        className={`
+          h-[4px]
+          w-full
+          ${getNoteAccentClass(
+            note.color
           )}
-        </button>
-      </div>
-
-      {/* CONTENT */}
-
-      {note.content ? (
-        <p
-          className="
-            mt-4
-            whitespace-pre-line
-            text-sm
-            leading-7
-            text-ink-soft
-          "
-        >
-          {note.content}
-        </p>
-      ) : (
-        <p
-          className="
-            mt-4
-            text-sm
-            italic
-            text-ink-soft/60
-          "
-        >
-          No additional text.
-        </p>
-      )}
-
-      {/* CHECKLIST */}
+        `}
+      />
 
       <div
         className="
-          mt-5
-          rounded-[18px]
-          bg-white/55
-          p-3.5
+          p-5
+          sm:p-6
         "
       >
+        {/* HEADER */}
+
         <div
           className="
             flex
-            items-center
+            items-start
             justify-between
-            gap-3
+            gap-4
           "
         >
           <div
             className="
-              flex
-              items-center
-              gap-2
+              min-w-0
+              flex-1
             "
           >
-            <ListChecks
-              size={16}
-              className="
-                text-ocean-600
-              "
-            />
-
-            <p
-              className="
-                text-xs
-                font-bold
-                text-ocean-900
-              "
-            >
-              Checklist
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={
-              onAddChecklist
-            }
-            className="
-              flex
-              items-center
-              gap-1
-              rounded-[10px]
-              px-2
-              py-1.5
-              text-[10px]
-              font-bold
-              text-ocean-600
-              transition
-              hover:bg-ocean-50
-            "
-          >
-            <Plus
-              size={12}
-            />
-
-            Add
-          </button>
-        </div>
-
-        {note.checklistItems.length >
-        0 ? (
-          <>
             <div
               className="
-                mt-3
-                space-y-1.5
+                flex
+                items-center
+                gap-2
+                text-[10px]
+                font-medium
+                text-ink-soft/70
               "
             >
-              {note.checklistItems.map(
-                (
-                  checklist
-                ) => (
-                  <ChecklistRow
-                    key={
-                      checklist.id
-                    }
-                    checklist={
-                      checklist
-                    }
-                    onToggle={() =>
-                      onToggleChecklist(
-                        checklist
-                      )
-                    }
-                    onEdit={() =>
-                      onEditChecklist(
-                        checklist
-                      )
-                    }
-                    onDelete={() =>
-                      onDeleteChecklist(
-                        checklist
-                      )
-                    }
+              <span>
+                {note.category}
+              </span>
+
+              {note.is_pinned && (
+                <>
+                  <span
+                    className="
+                      h-[3px]
+                      w-[3px]
+                      rounded-full
+                      bg-ocean-300
+                    "
                   />
-                )
+
+                  <span
+                    className="
+                      text-ocean-700
+                    "
+                  >
+                    Pinned
+                  </span>
+                </>
               )}
             </div>
 
-            <div
+            <h2
               className="
-                mt-4
+                mt-3
+                break-words
+                font-display
+                text-[25px]
+                font-semibold
+                leading-[1.12]
+                tracking-[-0.025em]
+                text-ocean-950
               "
             >
-              <div
+              {note.title}
+            </h2>
+          </div>
+
+          <div
+            className="
+              flex
+              shrink-0
+              gap-1
+            "
+          >
+            <button
+              type="button"
+              onClick={
+                onTogglePin
+              }
+              aria-label={
+                note.is_pinned
+                  ? "Unpin note"
+                  : "Pin note"
+              }
+              className={`
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-full
+                transition
+
+                ${
+                  note.is_pinned
+                    ? "bg-ocean-950 text-white"
+                    : "text-ink-soft/55 hover:bg-white/70 hover:text-ocean-900"
+                }
+              `}
+            >
+              <Pin
+                size={14}
+                fill={
+                  note.is_pinned
+                    ? "currentColor"
+                    : "none"
+                }
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={
+                onOptions
+              }
+              aria-label="Note options"
+              className="
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-full
+                text-ink-soft/55
+                transition
+                hover:bg-white/70
+                hover:text-ocean-900
+              "
+            >
+              <MoreHorizontal
+                size={16}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* CONTENT */}
+
+        {note.content && (
+          <p
+            className="
+              mt-5
+              line-clamp-6
+              whitespace-pre-line
+              text-sm
+              leading-7
+              text-ink-soft
+            "
+          >
+            {note.content}
+          </p>
+        )}
+
+        {/* CHECKLIST */}
+
+        <div
+          className={`
+            ${
+              note.content
+                ? "mt-6"
+                : "mt-5"
+            }
+
+            border-t
+            border-ocean-950/[0.07]
+            pt-5
+          `}
+        >
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              gap-4
+            "
+          >
+            <div>
+              <p
                 className="
-                  flex
-                  items-center
-                  justify-between
-                  text-[10px]
+                  text-xs
                   font-semibold
-                  text-ink-soft
+                  text-ocean-950
                 "
               >
-                <span>
-                  {completed}/
-                  {
-                    note.checklistItems.length
-                  } completed
-                </span>
+                Checklist
+              </p>
 
-                <span>
-                  {progress}%
-                </span>
+              {total > 0 && (
+                <p
+                  className="
+                    mt-1
+                    text-[10px]
+                    text-ink-soft/65
+                  "
+                >
+                  {completed}/{total} completed
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                onAddChecklist
+              }
+              className="
+                text-xs
+                font-semibold
+                text-ocean-700
+                transition
+                hover:text-ocean-950
+              "
+            >
+              + Add
+            </button>
+          </div>
+
+          {total > 0 && (
+            <>
+              <div
+                className="
+                  mt-4
+                  space-y-1
+                "
+              >
+                {note.checklistItems
+                  .slice()
+                  .sort(
+                    (
+                      a,
+                      b
+                    ) =>
+                      a.sort_order -
+                      b.sort_order
+                  )
+                  .map(
+                    (
+                      checklist
+                    ) => (
+                      <ChecklistRow
+                        key={
+                          checklist.id
+                        }
+                        checklist={
+                          checklist
+                        }
+                        onToggle={() =>
+                          onToggleChecklist(
+                            checklist
+                          )
+                        }
+                        onEdit={() =>
+                          onEditChecklist(
+                            checklist
+                          )
+                        }
+                        onDelete={() =>
+                          onDeleteChecklist(
+                            checklist
+                          )
+                        }
+                      />
+                    )
+                  )}
               </div>
 
               <div
                 className="
-                  mt-2
-                  h-1.5
-                  overflow-hidden
-                  rounded-full
-                  bg-white
+                  mt-4
                 "
               >
                 <div
                   className="
-                    h-full
+                    h-[4px]
+                    overflow-hidden
                     rounded-full
-                    bg-ocean-600
-                    transition-all
-                    duration-300
+                    bg-white/65
                   "
-                  style={{
-                    width:
-                      `${progress}%`,
-                  }}
-                />
+                >
+                  <div
+                    className="
+                      h-full
+                      rounded-full
+                      bg-ocean-800
+                      transition-[width]
+                      duration-300
+                    "
+                    style={{
+                      width:
+                        `${progress}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <p
-            className="
-              mt-3
-              text-[11px]
-              text-ink-soft/70
-            "
-          >
-            No checklist items.
-          </p>
-        )}
-      </div>
-
-      {/* FOOTER */}
-
-      <div
-        className="
-          mt-5
-          flex
-          items-center
-          justify-between
-          gap-3
-          border-t
-          border-white/70
-          pt-4
-        "
-      >
-        <p
-          className="
-            text-[10px]
-            text-ink-soft
-          "
-        >
-          Updated{" "}
-          {formatUpdatedAt(
-            note.updated_at
+            </>
           )}
-        </p>
+        </div>
+
+        {/* FOOTER */}
 
         <div
           className="
-            flex
-            gap-1
+            mt-5
+            border-t
+            border-ocean-950/[0.07]
+            pt-4
           "
         >
-          <button
-            type="button"
-            onClick={
-              onEdit
-            }
-            aria-label="Edit note"
+          <p
             className="
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-[10px]
-              bg-white/65
-              text-ocean-600
-              transition
-              hover:bg-white
+              text-[9px]
+              text-ink-soft/55
             "
           >
-            <Pencil
-              size={14}
-            />
-          </button>
-
-          <button
-            type="button"
-            onClick={
-              onDelete
-            }
-            aria-label="Delete note"
-            className="
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-[10px]
-              bg-white/65
-              text-heart
-              transition
-              hover:bg-white
-            "
-          >
-            <Trash2
-              size={14}
-            />
-          </button>
+            Updated{" "}
+            {formatUpdatedAt(
+              note.updated_at
+            )}
+          </p>
         </div>
       </div>
     </article>
@@ -2157,16 +2092,62 @@ function ChecklistRow({
   onDelete:
     () => void;
 }) {
+  const handleOptions =
+    async () => {
+      const result =
+        await Swal.fire({
+          title:
+            checklist.title,
+
+          showCancelButton:
+            true,
+
+          showDenyButton:
+            true,
+
+          confirmButtonText:
+            "Edit",
+
+          denyButtonText:
+            "Delete",
+
+          cancelButtonText:
+            "Close",
+
+          confirmButtonColor:
+            "#083b59",
+
+          denyButtonColor:
+            "#d85f72",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+      if (
+        result.isConfirmed
+      ) {
+        onEdit();
+      }
+
+      if (
+        result.isDenied
+      ) {
+        onDelete();
+      }
+    };
+
   return (
     <div
       className="
-        group
+        group/item
         flex
+        min-h-[36px]
         items-center
-        gap-2
-        rounded-[11px]
-        px-1
-        py-1.5
+        gap-2.5
       "
     >
       <button
@@ -2174,25 +2155,32 @@ function ChecklistRow({
         onClick={
           onToggle
         }
+        aria-label={
+          checklist.is_completed
+            ? "Mark incomplete"
+            : "Mark complete"
+        }
         className={`
           flex
-          h-6
-          w-6
+          h-[22px]
+          w-[22px]
           shrink-0
           items-center
           justify-center
-          rounded-[8px]
+          rounded-[7px]
           border
           transition
+
           ${
             checklist.is_completed
-              ? "border-ocean-600 bg-ocean-600 text-white"
-              : "border-ocean-200 bg-white text-transparent hover:border-ocean-500"
+              ? "border-ocean-900 bg-ocean-900 text-white"
+              : "border-ocean-200 bg-white/75 text-transparent hover:border-ocean-500"
           }
         `}
       >
         <Check
-          size={13}
+          size={12}
+          strokeWidth={2.2}
         />
       </button>
 
@@ -2206,25 +2194,25 @@ function ChecklistRow({
           flex-1
           text-left
           text-xs
-          font-medium
+          leading-5
+          transition
+
           ${
             checklist.is_completed
-              ? "text-ink-soft line-through"
-              : "text-ocean-950"
+              ? "text-ink-soft/60 line-through"
+              : "font-medium text-ocean-950"
           }
         `}
       >
-        {
-          checklist.title
-        }
+        {checklist.title}
       </button>
 
       <button
         type="button"
-        onClick={
-          onDelete
+        onClick={() =>
+          void handleOptions()
         }
-        aria-label="Delete checklist item"
+        aria-label="Checklist options"
         className="
           flex
           h-7
@@ -2232,16 +2220,18 @@ function ChecklistRow({
           shrink-0
           items-center
           justify-center
-          rounded-[9px]
-          text-heart
-          opacity-50
+          rounded-full
+          text-ink-soft/45
+          opacity-60
           transition
-          hover:bg-heart-soft
-          hover:opacity-100
+          hover:bg-white/70
+          hover:text-ocean-900
+          sm:opacity-0
+          sm:group-hover/item:opacity-100
         "
       >
-        <X
-          size={12}
+        <MoreHorizontal
+          size={13}
         />
       </button>
     </div>
@@ -2266,8 +2256,8 @@ function NoteFormModal({
     NoteFormState;
 
   setForm:
-    React.Dispatch<
-      React.SetStateAction<
+    Dispatch<
+      SetStateAction<
         NoteFormState
       >
     >;
@@ -2281,32 +2271,32 @@ function NoteFormModal({
   onClose:
     () => void;
 
-  onSubmit:
-    (
-      event:
-        FormEvent<HTMLFormElement>
-    ) => void;
+  onSubmit: (
+    event:
+      FormEvent<HTMLFormElement>
+  ) => void;
 }) {
   return (
     <div
       className="
         fixed
         inset-0
-        z-[1200]
+        z-[1500]
         flex
         items-center
         justify-center
-        bg-ocean-950/35
+        bg-ocean-950/45
         p-3
-        backdrop-blur-sm
+        backdrop-blur-[6px]
         sm:p-5
       "
       onMouseDown={(
         event
       ) => {
         if (
+          !isSaving &&
           event.target ===
-          event.currentTarget
+            event.currentTarget
         ) {
           onClose();
         }
@@ -2316,13 +2306,13 @@ function NoteFormModal({
         className="
           max-h-[94svh]
           w-full
-          max-w-[680px]
+          max-w-[720px]
           overflow-y-auto
           rounded-[28px]
           border
-          border-white/80
-          bg-[#fbfdfe]
-          shadow-[0_30px_100px_rgba(6,42,63,0.25)]
+          border-white/60
+          bg-[#fffdf9]
+          shadow-[0_30px_100px_rgba(6,42,63,0.24)]
         "
       >
         {/* HEADER */}
@@ -2336,41 +2326,27 @@ function NoteFormModal({
             items-center
             justify-between
             border-b
-            border-ocean-100
-            bg-[#fbfdfe]/95
+            border-ocean-100/80
+            bg-[#fffdf9]/95
             px-5
             py-4
             backdrop-blur-xl
             sm:px-6
           "
         >
-          <div>
-            <p
-              className="
-                text-[9px]
-                font-bold
-                uppercase
-                tracking-[0.2em]
-                text-ocean-500
-              "
-            >
-              Shared Note
-            </p>
-
-            <h2
-              className="
-                mt-0.5
-                font-display
-                text-2xl
-                font-semibold
-                text-ocean-950
-              "
-            >
-              {editing
-                ? "Edit Note"
-                : "Add Note"}
-            </h2>
-          </div>
+          <h2
+            className="
+              font-display
+              text-[25px]
+              font-semibold
+              tracking-[-0.025em]
+              text-ocean-950
+            "
+          >
+            {editing
+              ? "Edit Note"
+              : "New Note"}
+          </h2>
 
           <button
             type="button"
@@ -2380,26 +2356,28 @@ function NoteFormModal({
             disabled={
               isSaving
             }
+            aria-label="Close"
             className="
               flex
-              h-10
-              w-10
+              h-9
+              w-9
               items-center
               justify-center
-              rounded-[13px]
-              bg-ocean-50
+              rounded-full
               text-ink-soft
               transition
-              hover:bg-ocean-100
-              hover:text-ocean-800
-              disabled:opacity-50
+              hover:bg-ocean-50
+              hover:text-ocean-950
+              disabled:opacity-40
             "
           >
             <X
-              size={18}
+              size={16}
             />
           </button>
         </div>
+
+        {/* FORM */}
 
         <form
           onSubmit={
@@ -2416,6 +2394,8 @@ function NoteFormModal({
               gap-5
             "
           >
+            {/* TITLE */}
+
             <FormField
               label="Title"
               required
@@ -2435,21 +2415,32 @@ function NoteFormModal({
                       ...current,
 
                       title:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
-                placeholder="Contoh: Things to remember"
+                autoFocus
+                placeholder="Note title"
                 className="
-                  love-input
                   w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
+                  border-0
+                  bg-transparent
+                  px-0
+                  py-1
+                  font-display
+                  text-[31px]
+                  font-semibold
+                  leading-tight
+                  tracking-[-0.035em]
+                  text-ocean-950
+                  outline-none
+                  placeholder:text-ocean-200
                 "
               />
             </FormField>
+
+            {/* CONTENT */}
 
             <FormField
               label="Content"
@@ -2468,156 +2459,206 @@ function NoteFormModal({
                       ...current,
 
                       content:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
-                rows={6}
+                rows={9}
                 placeholder="Write something..."
-                className="
-                  love-input
-                  w-full
+                className={`
+                  ${inputClass}
                   resize-none
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                  leading-7
+                `}
               />
             </FormField>
+
+            {/* CATEGORY */}
 
             <FormField
               label="Category"
             >
-              <select
-                value={
-                  form.category
-                }
-                onChange={(
-                  event
-                ) =>
-                  setForm(
-                    (
-                      current
-                    ) => ({
-                      ...current,
-
-                      category:
-                        event.target.value,
-                    })
-                  )
-                }
+              <div
                 className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                  text-ocean-900
+                  flex
+                  flex-wrap
+                  gap-2
                 "
               >
                 {categories.map(
-                  (
-                    category
-                  ) => (
-                    <option
-                      key={
-                        category
-                      }
-                      value={
-                        category
-                      }
-                    >
-                      {
-                        category
-                      }
-                    </option>
-                  )
-                )}
-              </select>
-            </FormField>
+                  (category) => {
+                    const active =
+                      form.category ===
+                      category;
 
-            <FormField
-              label="Card Color"
-            >
-              <div
-                className="
-                  grid
-                  grid-cols-2
-                  gap-2
-                  sm:grid-cols-5
-                "
-              >
-                {colorOptions.map(
-                  (
-                    option
-                  ) => (
-                    <button
-                      key={
-                        option.value
-                      }
-                      type="button"
-                      onClick={() =>
-                        setForm(
-                          (
-                            current
-                          ) => ({
-                            ...current,
-
-                            color:
-                              option.value,
-                          })
-                        )
-                      }
-                      className={`
-                        relative
-                        rounded-[15px]
-                        border
-                        p-3
-                        text-xs
-                        font-semibold
-                        transition
-                        ${option.className}
-                        ${
-                          form.color ===
-                          option.value
-                            ? "ring-2 ring-ocean-600 ring-offset-2"
-                            : "hover:-translate-y-0.5"
+                    return (
+                      <button
+                        key={
+                          category
                         }
-                      `}
-                    >
-                      {
-                        option.label
-                      }
+                        type="button"
+                        onClick={() =>
+                          setForm(
+                            (
+                              current
+                            ) => ({
+                              ...current,
 
-                      {form.color ===
-                        option.value && (
-                        <Check
-                          size={13}
-                          className="
-                            absolute
-                            right-2
-                            top-2
-                            text-ocean-700
-                          "
-                        />
-                      )}
-                    </button>
-                  )
+                              category,
+                            })
+                          )
+                        }
+                        className={`
+                          rounded-full
+                          border
+                          px-3.5
+                          py-2
+                          text-xs
+                          font-medium
+                          transition
+
+                          ${
+                            active
+                              ? "border-ocean-950 bg-ocean-950 text-white"
+                              : "border-ocean-100 bg-white text-ink-soft hover:border-ocean-200 hover:text-ocean-900"
+                          }
+                        `}
+                      >
+                        {category}
+                      </button>
+                    );
+                  }
                 )}
               </div>
             </FormField>
+
+            {/* COLOR */}
+
+            <FormField
+              label="Color"
+            >
+              <div
+                className="
+                  flex
+                  flex-wrap
+                  gap-3
+                "
+              >
+                {colorOptions.map(
+                  (option) => {
+                    const active =
+                      form.color ===
+                      option.value;
+
+                    return (
+                      <button
+                        key={
+                          option.value
+                        }
+                        type="button"
+                        title={
+                          option.label
+                        }
+                        aria-label={
+                          option.label
+                        }
+                        onClick={() =>
+                          setForm(
+                            (
+                              current
+                            ) => ({
+                              ...current,
+
+                              color:
+                                option.value,
+                            })
+                          )
+                        }
+                        className={`
+                          flex
+                          h-10
+                          w-10
+                          items-center
+                          justify-center
+                          rounded-full
+                          border
+                          border-white
+                          shadow-[0_4px_12px_rgba(8,59,89,0.08)]
+                          ring-offset-2
+                          transition
+                          ${option.swatch}
+
+                          ${
+                            active
+                              ? "scale-105 ring-2 ring-ocean-700"
+                              : "hover:scale-105"
+                          }
+                        `}
+                      >
+                        {active && (
+                          <Check
+                            size={14}
+                            strokeWidth={2.2}
+                            className="
+                              text-ocean-950
+                            "
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            </FormField>
+
+            {/* PREVIEW STRIP */}
+
+            <div
+              className={`
+                rounded-[18px]
+                border
+                px-4
+                py-4
+                ${getNoteColorClasses(
+                  form.color
+                )}
+              `}
+            >
+              <p
+                className="
+                  text-[9px]
+                  font-medium
+                  text-ink-soft/60
+                "
+              >
+                {form.category}
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  truncate
+                  font-display
+                  text-lg
+                  font-semibold
+                  text-ocean-950
+                "
+              >
+                {form.title.trim() ||
+                  "Untitled"}
+              </p>
+            </div>
           </div>
+
+          {/* ACTIONS */}
 
           <div
             className="
               mt-7
               flex
-              flex-col-reverse
+              justify-end
               gap-2
-              sm:flex-row
-              sm:justify-end
             "
           >
             <button
@@ -2629,18 +2670,18 @@ function NoteFormModal({
                 isSaving
               }
               className="
-                rounded-[15px]
+                rounded-[13px]
                 border
                 border-ocean-100
                 bg-white
                 px-5
-                py-3
+                py-2.5
                 text-sm
                 font-semibold
                 text-ink-soft
                 transition
                 hover:bg-ocean-50
-                disabled:opacity-50
+                disabled:opacity-40
               "
             >
               Cancel
@@ -2651,29 +2692,13 @@ function NoteFormModal({
               disabled={
                 isSaving
               }
-              className="
-                love-button
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-[15px]
-                px-5
-                py-3
-                text-sm
-                font-semibold
-                disabled:opacity-60
-              "
+              className={
+                primaryButtonClass
+              }
             >
-              <Save
-                size={16}
-              />
-
               {isSaving
                 ? "Saving..."
-                : editing
-                  ? "Save Changes"
-                  : "Save Note"}
+                : "Save"}
             </button>
           </div>
         </form>
@@ -2693,7 +2718,8 @@ function FormField({
   required = false,
   children,
 }: {
-  label: string;
+  label:
+    string;
 
   required?:
     boolean;
@@ -2708,102 +2734,18 @@ function FormField({
           mb-2
           block
           text-xs
-          font-bold
-          text-ocean-800
+          font-medium
+          text-ocean-900
         "
       >
         {label}
 
-        {required && (
-          <span
-            className="
-              ml-1
-              text-heart
-            "
-          >
-            *
-          </span>
-        )}
+        {required
+          ? " *"
+          : ""}
       </label>
 
       {children}
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * SUMMARY
- * =========================================================
- */
-
-function SummaryCard({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon:
-    ElementType;
-
-  value:
-    number | string;
-
-  label:
-    string;
-}) {
-  return (
-    <div
-      className="
-        glass-card
-        flex
-        items-center
-        gap-4
-        rounded-[24px]
-        p-4
-        sm:p-5
-      "
-    >
-      <div
-        className="
-          flex
-          h-11
-          w-11
-          shrink-0
-          items-center
-          justify-center
-          rounded-[15px]
-          bg-ocean-100
-          text-ocean-700
-        "
-      >
-        <Icon
-          size={19}
-        />
-      </div>
-
-      <div>
-        <p
-          className="
-            font-display
-            text-2xl
-            font-semibold
-            leading-none
-            text-ocean-950
-          "
-        >
-          {value}
-        </p>
-
-        <p
-          className="
-            mt-1.5
-            text-[11px]
-            text-ink-soft
-          "
-        >
-          {label}
-        </p>
-      </div>
     </div>
   );
 }
@@ -2815,11 +2757,11 @@ function SummaryCard({
  */
 
 function EmptyNotes({
-  hasFilters,
+  filtered,
   onCreate,
   onClear,
 }: {
-  hasFilters:
+  filtered:
     boolean;
 
   onCreate:
@@ -2829,63 +2771,31 @@ function EmptyNotes({
     () => void;
 }) {
   return (
-    <div
+    <section
       className="
-        glass-card
-        rounded-[30px]
-        px-6
-        py-16
+        flex
+        min-h-[430px]
+        flex-col
+        items-center
+        justify-center
         text-center
       "
     >
-      <div
-        className="
-          mx-auto
-          flex
-          h-16
-          w-16
-          items-center
-          justify-center
-          rounded-[22px]
-          bg-ocean-100
-          text-ocean-600
-        "
-      >
-        <StickyNote
-          size={28}
-        />
-      </div>
-
       <h2
         className="
-          mt-5
           font-display
-          text-3xl
+          text-[30px]
           font-semibold
+          tracking-[-0.03em]
           text-ocean-950
         "
       >
-        {hasFilters
-          ? "No notes found"
-          : "Belum ada note"}
+        {filtered
+          ? "No notes found."
+          : "No notes yet."}
       </h2>
 
-      <p
-        className="
-          mx-auto
-          mt-2
-          max-w-md
-          text-sm
-          leading-7
-          text-ink-soft
-        "
-      >
-        {hasFilters
-          ? "Tidak ada note yang cocok dengan pencarian atau filter."
-          : "Tambahkan note pertama untuk mulai menyimpan catatan bersama."}
-      </p>
-
-      {hasFilters ? (
+      {filtered ? (
         <button
           type="button"
           onClick={
@@ -2893,15 +2803,11 @@ function EmptyNotes({
           }
           className="
             mt-6
-            rounded-[15px]
-            border
-            border-ocean-100
-            bg-white
-            px-5
-            py-3
             text-sm
             font-semibold
             text-ocean-700
+            transition
+            hover:text-ocean-950
           "
         >
           Clear Filters
@@ -2912,27 +2818,15 @@ function EmptyNotes({
           onClick={
             onCreate
           }
-          className="
-            love-button
+          className={`
+            ${primaryButtonClass}
             mt-6
-            inline-flex
-            items-center
-            gap-2
-            rounded-[15px]
-            px-5
-            py-3
-            text-sm
-            font-semibold
-          "
+          `}
         >
-          <Plus
-            size={16}
-          />
-
           Add Note
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -2995,24 +2889,55 @@ function getNoteColorClasses(
   color:
     NoteColor
 ) {
-  const classes: Record<
-    NoteColor,
-    string
-  > = {
+  const classes:
+    Record<
+      NoteColor,
+      string
+    > = {
     blue:
-      "border-[#b7e6f5] bg-[#e7f8fd]",
+      "border-[#cdeaf3] bg-[#f0fafd]",
 
     cream:
-      "border-[#f0dfc5] bg-[#fff8ea]",
+      "border-[#eadfcf] bg-[#fffaf1]",
 
     pink:
-      "border-[#f8cfd7] bg-[#fff0f2]",
+      "border-[#f3d8dd] bg-[#fff5f6]",
 
     green:
-      "border-[#cbead6] bg-[#eefaf2]",
+      "border-[#d5eadc] bg-[#f3fbf5]",
 
     lavender:
-      "border-[#ded7ff] bg-[#f4f1ff]",
+      "border-[#e2ddf3] bg-[#f8f6ff]",
+  };
+
+  return classes[
+    color
+  ];
+}
+
+function getNoteAccentClass(
+  color:
+    NoteColor
+) {
+  const classes:
+    Record<
+      NoteColor,
+      string
+    > = {
+    blue:
+      "bg-[#8ed6ef]",
+
+    cream:
+      "bg-[#dec59d]",
+
+    pink:
+      "bg-[#ef9aaa]",
+
+    green:
+      "bg-[#97c9aa]",
+
+    lavender:
+      "bg-[#b4a7df]",
   };
 
   return classes[
@@ -3027,6 +2952,9 @@ function formatUpdatedAt(
   return new Intl.DateTimeFormat(
     "id-ID",
     {
+      timeZone:
+        "Asia/Jakarta",
+
       day:
         "numeric",
 
@@ -3038,12 +2966,72 @@ function formatUpdatedAt(
 
       minute:
         "2-digit",
+
+      hourCycle:
+        "h23",
     }
   ).format(
     new Date(
       value
     )
   );
+}
+
+/*
+ * =========================================================
+ * ALERTS
+ * =========================================================
+ */
+
+async function showSuccess(
+  title:
+    string
+) {
+  await Swal.fire({
+    icon:
+      "success",
+
+    title,
+
+    timer:
+      900,
+
+    showConfirmButton:
+      false,
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
+}
+
+async function showWarning(
+  title:
+    string,
+
+  message:
+    string
+) {
+  await Swal.fire({
+    icon:
+      "warning",
+
+    title,
+
+    text:
+      message,
+
+    confirmButtonColor:
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
 }
 
 async function showError(
@@ -3063,6 +3051,12 @@ async function showError(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }

@@ -2,12 +2,11 @@
 
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 
 import {
   type Dispatch,
-  type ElementType,
   type FormEvent,
   type ReactNode,
   type SetStateAction,
@@ -16,17 +15,10 @@ import {
 } from "react";
 
 import {
-  CalendarDays,
-  ChevronLeft,
-  Clock3,
-  ExternalLink,
-  Heart,
+  ArrowRight,
   MapPin,
-  MapPinned,
   Pencil,
   Plus,
-  Save,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -39,7 +31,10 @@ import MemoryLocationPicker from "@/components/memories/MemoryLocationPicker";
 import MemoryMap from "@/components/memories/MemoryMap";
 
 import { createClient } from "@/lib/supabase/client";
-
+import {
+  IMAGE_ACCEPT,
+  normalizeImageFiles,
+} from "@/utils/image";
 /*
  * =========================================================
  * TYPES
@@ -50,7 +45,6 @@ type MemoryItem = {
   id: string;
 
   couple_id: string;
-
   created_by: string;
 
   source_plan_id:
@@ -86,24 +80,19 @@ type MemoryItem = {
     | null;
 
   created_at: string;
-
   updated_at: string;
 
   cover_url:
     | string
     | null;
 
-  photo_count:
-    number;
+  photo_count: number;
 };
 
 type MemoryUser = {
   id: string;
-
   email: string;
-
   fullName: string;
-
   nickname: string;
 
   avatarUrl:
@@ -122,15 +111,12 @@ type MemoriesClientProps = {
 
 type MemoryFormState = {
   title: string;
-
   story: string;
 
   memoryDate: string;
-
   memoryTime: string;
 
   locationName: string;
-
   mapsUrl: string;
 
   latitude:
@@ -157,27 +143,23 @@ export default function MemoriesClient({
     memories,
     setMemories,
   ] =
-    useState<
-      MemoryItem[]
-    >(
-      initialMemories
+    useState<MemoryItem[]>(
+      sortMemories(
+        initialMemories
+      )
     );
 
   const [
     selectedYear,
     setSelectedYear,
   ] =
-    useState(
-      "all"
-    );
+    useState("all");
 
   const [
     formOpen,
     setFormOpen,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     editingMemory,
@@ -185,17 +167,13 @@ export default function MemoriesClient({
   ] =
     useState<
       MemoryItem | null
-    >(
-      null
-    );
+    >(null);
 
   const [
     form,
     setForm,
   ] =
-    useState<
-      MemoryFormState
-    >(
+    useState<MemoryFormState>(
       createEmptyForm()
     );
 
@@ -203,13 +181,11 @@ export default function MemoriesClient({
     isSaving,
     setIsSaving,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   /*
    * =========================================================
-   * YEARS
+   * FILTER
    * =========================================================
    */
 
@@ -234,12 +210,6 @@ export default function MemoriesClient({
       );
     }, [memories]);
 
-  /*
-   * =========================================================
-   * FILTER
-   * =========================================================
-   */
-
   const filteredMemories =
     useMemo(() => {
       if (
@@ -263,13 +233,14 @@ export default function MemoriesClient({
 
   /*
    * =========================================================
-   * SUMMARY
+   * STATS
    * =========================================================
    */
 
   const currentYear =
-    String(
-      new Date().getFullYear()
+    getTodayInputValue().slice(
+      0,
+      4
     );
 
   const thisYearCount =
@@ -295,9 +266,7 @@ export default function MemoriesClient({
             (
               value
             ): value is string =>
-              Boolean(
-                value
-              )
+              Boolean(value)
           );
 
       return new Set(
@@ -316,7 +285,7 @@ export default function MemoriesClient({
 
   /*
    * =========================================================
-   * OPEN CREATE
+   * CREATE
    * =========================================================
    */
 
@@ -337,7 +306,7 @@ export default function MemoriesClient({
 
   /*
    * =========================================================
-   * OPEN EDIT
+   * EDIT
    * =========================================================
    */
 
@@ -388,7 +357,7 @@ export default function MemoriesClient({
 
   /*
    * =========================================================
-   * CLOSE FORM
+   * CLOSE
    * =========================================================
    */
 
@@ -411,7 +380,7 @@ export default function MemoriesClient({
 
   /*
    * =========================================================
-   * SAVE CREATE / UPDATE
+   * SAVE
    * =========================================================
    */
 
@@ -427,8 +396,8 @@ export default function MemoriesClient({
 
       if (!title) {
         await showWarning(
-          "Judul belum diisi",
-          "Judul memory wajib diisi."
+          "Title required",
+          "Add a title first."
         );
 
         return;
@@ -438,8 +407,8 @@ export default function MemoriesClient({
         !form.memoryDate
       ) {
         await showWarning(
-          "Tanggal belum diisi",
-          "Tanggal memory wajib diisi."
+          "Date required",
+          "Choose a date first."
         );
 
         return;
@@ -455,8 +424,8 @@ export default function MemoriesClient({
         )
       ) {
         await showWarning(
-          "Link tidak valid",
-          "Link Google Maps harus berupa URL yang valid."
+          "Invalid link",
+          "Enter a valid Maps URL."
         );
 
         return;
@@ -465,16 +434,16 @@ export default function MemoriesClient({
       if (
         (
           form.latitude ===
-            null
+          null
         ) !==
         (
           form.longitude ===
-            null
+          null
         )
       ) {
         await showWarning(
-          "Lokasi belum lengkap",
-          "Silakan pilih kembali titik lokasi pada map."
+          "Location incomplete",
+          "Choose the location again."
         );
 
         return;
@@ -543,12 +512,9 @@ export default function MemoriesClient({
               .single();
 
           if (error) {
-            await showError(
-              "Memory gagal diperbarui",
+            throw new Error(
               error.message
             );
-
-            return;
           }
 
           setMemories(
@@ -557,17 +523,18 @@ export default function MemoriesClient({
                 current.map(
                   (item) =>
                     item.id ===
-editingMemory.id
-  ? {
-      ...data,
+                    editingMemory.id
+                      ? {
+                          ...item,
+                          ...data,
 
-      cover_url:
-        editingMemory.cover_url,
+                          cover_url:
+                            editingMemory.cover_url,
 
-      photo_count:
-        editingMemory.photo_count,
-    }
-  : item
+                          photo_count:
+                            editingMemory.photo_count,
+                        }
+                      : item
                 )
               )
           );
@@ -580,19 +547,9 @@ editingMemory.id
             null
           );
 
-          await Swal.fire({
-            icon:
-              "success",
-
-            title:
-              "Memory diperbarui",
-
-            timer:
-              1000,
-
-            showConfirmButton:
-              false,
-          });
+          await showSuccess(
+            "Memory updated"
+          );
 
           return;
         }
@@ -625,24 +582,21 @@ editingMemory.id
             .single();
 
         if (error) {
-          await showError(
-            "Memory gagal dibuat",
+          throw new Error(
             error.message
           );
-
-          return;
         }
 
         const newMemory:
-  MemoryItem = {
-  ...data,
+          MemoryItem = {
+          ...(data as MemoryItem),
 
-  cover_url:
-    null,
+          cover_url:
+            null,
 
-  photo_count:
-    0,
-};
+          photo_count:
+            0,
+        };
 
         setMemories(
           (current) =>
@@ -652,36 +606,28 @@ editingMemory.id
             ])
         );
 
-        if (
-          selectedYear !==
-            "all" &&
-          getYear(
-            newMemory.memory_date
-          ) !==
-            selectedYear
-        ) {
-          setSelectedYear(
-            "all"
-          );
-        }
+        setSelectedYear(
+          "all"
+        );
 
         setFormOpen(
           false
         );
 
-        await Swal.fire({
-          icon:
-            "success",
+        await showSuccess(
+          "Memory added"
+        );
+      } catch (error) {
+        await showError(
+          editingMemory
+            ? "Memory could not be updated"
+            : "Memory could not be created",
 
-          title:
-            "Memory ditambahkan",
-
-          timer:
-            1100,
-
-          showConfirmButton:
-            false,
-        });
+          error instanceof
+            Error
+            ? error.message
+            : "Something went wrong."
+        );
       } finally {
         setIsSaving(
           false
@@ -702,29 +648,29 @@ editingMemory.id
     ) => {
       const result =
         await Swal.fire({
-          icon:
-            "warning",
-
           title:
-            "Hapus memory?",
+            "Delete memory?",
 
           text:
-            `"${memory.title}" akan dihapus.`,
+            memory.title,
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
 
-          cancelButtonColor:
-            "#1688b5",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -751,7 +697,7 @@ editingMemory.id
 
       if (error) {
         await showError(
-          "Memory gagal dihapus",
+          "Memory could not be deleted",
           error.message
         );
 
@@ -766,20 +712,6 @@ editingMemory.id
               memory.id
           )
       );
-
-      await Swal.fire({
-        icon:
-          "success",
-
-        title:
-          "Memory dihapus",
-
-        timer:
-          900,
-
-        showConfirmButton:
-          false,
-      });
     };
 
   /*
@@ -792,13 +724,11 @@ editingMemory.id
     <div
       className="
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
-        user={
-          user
-        }
+        user={user}
       />
 
       <MobileBottomNav />
@@ -808,12 +738,12 @@ editingMemory.id
           min-h-[100svh]
           px-4
           pb-28
-          pt-4
+          pt-6
           sm:px-6
-          sm:pt-6
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+          lg:px-8
+          lg:pb-14
+          lg:pt-9
           xl:px-10
         "
       >
@@ -821,7 +751,7 @@ editingMemory.id
           className="
             mx-auto
             w-full
-            max-w-[1450px]
+            max-w-[1440px]
           "
         >
           {/* HEADER */}
@@ -829,74 +759,24 @@ editingMemory.id
           <header
             className="
               flex
-              flex-col
+              items-end
+              justify-between
               gap-5
-              sm:flex-row
-              sm:items-end
-              sm:justify-between
             "
           >
-            <div>
-              <Link
-                href="/dashboard"
-                className="
-                  mb-3
-                  inline-flex
-                  items-center
-                  gap-2
-                  text-sm
-                  font-semibold
-                  text-ink-soft
-                  transition
-                  hover:text-ocean-700
-                "
-              >
-                <ChevronLeft
-                  size={17}
-                />
-
-                Dashboard
-              </Link>
-
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.23em]
-                  text-ocean-500
-                "
-              >
-                Memories
-              </p>
-
-              <h1
-                className="
-                  mt-1
-                  font-display
-                  text-3xl
-                  font-semibold
-                  text-ocean-950
-                  sm:text-4xl
-                "
-              >
-                Our Memories
-              </h1>
-
-              <p
-                className="
-                  mt-2
-                  max-w-xl
-                  text-sm
-                  leading-6
-                  text-ink-soft
-                "
-              >
-                Simpan cerita, tanggal,
-                dan tempat yang pernah
-                kalian kunjungi.
-              </p>
-            </div>
+            <h1
+              className="
+                font-display
+                text-[34px]
+                font-semibold
+                leading-none
+                tracking-[-0.035em]
+                text-ocean-950
+                sm:text-[40px]
+              "
+            >
+              Memories
+            </h1>
 
             <button
               type="button"
@@ -904,20 +784,24 @@ editingMemory.id
                 handleOpenCreate
               }
               className="
-                love-button
-                flex
+                inline-flex
                 items-center
-                justify-center
                 gap-2
-                rounded-[16px]
+                rounded-[13px]
+                bg-ocean-950
                 px-5
-                py-3.5
+                py-2.5
                 text-sm
                 font-semibold
+                text-white
+                shadow-[0_8px_22px_rgba(6,42,63,0.12)]
+                transition
+                hover:bg-ocean-800
+                active:scale-[0.98]
               "
             >
               <Plus
-                size={18}
+                size={15}
               />
 
               Add Memory
@@ -928,44 +812,43 @@ editingMemory.id
 
           <section
             className="
-              mt-7
+              mt-8
               grid
-              gap-3
+              overflow-hidden
+              rounded-[28px]
+              border
+              border-ocean-100/70
+              bg-white/75
+              shadow-[0_14px_45px_rgba(8,59,89,0.035)]
+              backdrop-blur-xl
               sm:grid-cols-3
             "
           >
-            <SummaryCard
-              icon={
-                Heart
-              }
+            <SummaryItem
               value={
                 memories.length
               }
-              label="Total Memories"
+              label="Memories"
             />
 
-            <SummaryCard
-              icon={
-                CalendarDays
-              }
+            <SummaryItem
               value={
                 thisYearCount
               }
-              label={`Memories in ${currentYear}`}
+              label={
+                currentYear
+              }
             />
 
-            <SummaryCard
-              icon={
-                MapPin
-              }
+            <SummaryItem
               value={
                 locationCount
               }
-              label="Places Visited"
+              label="Places"
             />
           </section>
 
-          {/* MEMORY MAP */}
+          {/* MAP */}
 
           <section
             className="
@@ -973,91 +856,59 @@ editingMemory.id
               overflow-hidden
               rounded-[30px]
               border
-              border-white/80
-              bg-white/65
-              p-4
-              shadow-[0_20px_60px_rgba(17,76,104,0.08)]
+              border-ocean-100/70
+              bg-white/75
+              shadow-[0_14px_45px_rgba(8,59,89,0.04)]
               backdrop-blur-xl
-              sm:p-5
             "
           >
             <div
               className="
-                mb-4
                 flex
-                flex-col
-                gap-3
-                sm:flex-row
-                sm:items-center
-                sm:justify-between
+                items-end
+                justify-between
+                gap-5
+                px-5
+                py-5
+                sm:px-7
               "
             >
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-3
-                "
-              >
-                <div
+              <div>
+                <h2
                   className="
-                    flex
-                    h-10
-                    w-10
-                    items-center
-                    justify-center
-                    rounded-[14px]
-                    bg-ocean-100
-                    text-ocean-700
+                    font-display
+                    text-[24px]
+                    font-semibold
+                    tracking-[-0.025em]
+                    text-ocean-950
                   "
                 >
-                  <MapPinned
-                    size={19}
-                  />
-                </div>
+                  Memory Map
+                </h2>
 
-                <div>
-                  <h2
-                    className="
-                      font-display
-                      text-xl
-                      font-semibold
-                      text-ocean-950
-                    "
-                  >
-                    Memory Map
-                  </h2>
-
-                  <p
-                    className="
-                      mt-0.5
-                      text-xs
-                      text-ink-soft
-                    "
-                  >
-                    {mappedCount} memory
-                    memiliki pin lokasi
-                  </p>
-                </div>
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    text-ink-soft
+                  "
+                >
+                  {mappedCount} pinned
+                </p>
               </div>
 
-              <span
+              <p
                 className="
-                  w-fit
-                  rounded-full
-                  bg-ocean-50
-                  px-4
-                  py-2
                   text-xs
-                  font-semibold
-                  text-ocean-700
+                  font-medium
+                  text-ink-soft
                 "
               >
                 {selectedYear ===
                 "all"
-                  ? "All Years"
+                  ? "All years"
                   : selectedYear}
-              </span>
+              </p>
             </div>
 
             <MemoryMap
@@ -1067,15 +918,18 @@ editingMemory.id
             />
           </section>
 
-          {/* FILTER */}
+          {/* YEAR FILTER */}
 
-          <section
+          <nav
             className="
-              mt-6
+              mt-8
               flex
-              gap-2
+              gap-7
               overflow-x-auto
-              pb-1
+              border-b
+              border-ocean-100/80
+              [scrollbar-width:none]
+              [&::-webkit-scrollbar]:hidden
             "
           >
             <YearFilterButton
@@ -1112,81 +966,56 @@ editingMemory.id
                 </YearFilterButton>
               )
             )}
-          </section>
+          </nav>
 
-          {/* TIMELINE */}
+          {/* MEMORIES */}
 
-          <section
-            className="
-              mt-7
-            "
-          >
-            {filteredMemories.length >
-            0 ? (
-              <div
-                className="
-                  relative
-                  space-y-5
-                  md:pl-10
-                "
-              >
-                <div
-                  className="
-                    absolute
-                    bottom-8
-                    left-[15px]
-                    top-8
-                    hidden
-                    w-px
-                    bg-gradient-to-b
-                    from-ocean-300
-                    via-ocean-200
-                    to-transparent
-                    md:block
-                  "
-                />
-
-                {filteredMemories.map(
-                  (
-                    memory
-                  ) => (
-                    <MemoryTimelineItem
-                      key={
-                        memory.id
-                      }
-                      memory={
+          {filteredMemories.length >
+          0 ? (
+            <section
+              className="
+                mt-6
+                space-y-5
+              "
+            >
+              {filteredMemories.map(
+                (memory) => (
+                  <MemoryCard
+                    key={
+                      memory.id
+                    }
+                    memory={
+                      memory
+                    }
+                    onEdit={() =>
+                      handleOpenEdit(
                         memory
-                      }
-                      onEdit={() =>
-                        handleOpenEdit(
-                          memory
-                        )
-                      }
-                      onDelete={() =>
-                        handleDelete(
-                          memory
-                        )
-                      }
-                    />
-                  )
-                )}
-              </div>
-            ) : (
-              <EmptyMemories
-                onCreate={
-                  handleOpenCreate
-                }
-                filtered={
-                  selectedYear !==
-                  "all"
-                }
-              />
-            )}
-          </section>
+                      )
+                    }
+                    onDelete={() =>
+                      void handleDelete(
+                        memory
+                      )
+                    }
+                  />
+                )
+              )}
+            </section>
+          ) : (
+            <EmptyMemories
+              filtered={
+                selectedYear !==
+                "all"
+              }
+              onCreate={
+                handleOpenCreate
+              }
+            />
+          )}
         </div>
       </main>
 
-      {/* FORM MODAL */}
+      {/* FORM */}
 
       {formOpen && (
         <MemoryFormModal
@@ -1218,7 +1047,351 @@ editingMemory.id
 
 /*
  * =========================================================
- * MEMORY FORM MODAL
+ * SUMMARY
+ * =========================================================
+ */
+
+function SummaryItem({
+  value,
+  label,
+}: {
+  value: number;
+  label: string;
+}) {
+  return (
+    <div
+      className="
+        border-b
+        border-ocean-100/70
+        px-6
+        py-6
+        last:border-b-0
+        sm:border-b-0
+        sm:border-r
+        sm:last:border-r-0
+      "
+    >
+      <p
+        className="
+          font-display
+          text-[34px]
+          font-semibold
+          leading-none
+          tracking-[-0.04em]
+          text-ocean-950
+        "
+      >
+        {value}
+      </p>
+
+      <p
+        className="
+          mt-2
+          text-xs
+          text-ink-soft
+        "
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * MEMORY CARD
+ * =========================================================
+ */
+
+function MemoryCard({
+  memory,
+  onEdit,
+  onDelete,
+}: {
+  memory:
+    MemoryItem;
+
+  onEdit:
+    () => void;
+
+  onDelete:
+    () => void;
+}) {
+  return (
+    <article
+      className="
+        overflow-hidden
+        rounded-[28px]
+        border
+        border-ocean-100/70
+        bg-white/80
+        shadow-[0_14px_45px_rgba(8,59,89,0.04)]
+        backdrop-blur-xl
+      "
+    >
+      <div
+        className="
+          grid
+          md:grid-cols-[320px_1fr]
+          xl:grid-cols-[370px_1fr]
+        "
+      >
+        {/* IMAGE */}
+
+        <Link
+          href={`/memories/${memory.id}`}
+          className="
+            group
+            relative
+            min-h-[280px]
+            overflow-hidden
+            bg-ocean-100
+          "
+        >
+          {memory.cover_url ? (
+            <Image
+              src={
+                memory.cover_url
+              }
+              alt={
+                memory.title
+              }
+              fill
+              unoptimized
+              className="
+                object-cover
+                transition
+                duration-700
+                ease-out
+                group-hover:scale-[1.025]
+              "
+            />
+          ) : (
+            <div
+              className="
+                absolute
+                inset-0
+                bg-[linear-gradient(145deg,#0b4f71,#67c5e2)]
+              "
+            />
+          )}
+
+          <div
+            className="
+              absolute
+              inset-0
+              bg-gradient-to-t
+              from-ocean-950/45
+              via-transparent
+              to-transparent
+            "
+          />
+
+          {memory.photo_count >
+            0 && (
+            <span
+              className="
+                absolute
+                bottom-4
+                left-4
+                rounded-full
+                bg-black/25
+                px-3
+                py-1.5
+                text-[10px]
+                font-medium
+                text-white
+                backdrop-blur-md
+              "
+            >
+              {memory.photo_count}{" "}
+              {memory.photo_count ===
+              1
+                ? "photo"
+                : "photos"}
+            </span>
+          )}
+        </Link>
+
+        {/* CONTENT */}
+
+        <div
+          className="
+            flex
+            min-h-[280px]
+            flex-col
+            p-6
+            sm:p-7
+            lg:p-8
+          "
+        >
+          <div
+            className="
+              flex
+              items-start
+              justify-between
+              gap-5
+            "
+          >
+            <div
+              className="
+                min-w-0
+              "
+            >
+              <p
+                className="
+                  text-xs
+                  text-ink-soft
+                "
+              >
+                {formatDate(
+                  memory.memory_date
+                )}
+
+                {memory.memory_time
+                  ? ` · ${formatTime(
+                      memory.memory_time
+                    )}`
+                  : ""}
+              </p>
+
+              <h2
+                className="
+                  mt-2
+                  font-display
+                  text-[30px]
+                  font-semibold
+                  leading-[1.1]
+                  tracking-[-0.03em]
+                  text-ocean-950
+                "
+              >
+                {memory.title}
+              </h2>
+            </div>
+
+            <div
+              className="
+                flex
+                shrink-0
+                gap-1
+              "
+            >
+              <IconButton
+                label="Edit memory"
+                onClick={
+                  onEdit
+                }
+              >
+                <Pencil
+                  size={14}
+                />
+              </IconButton>
+
+              <IconButton
+                label="Delete memory"
+                destructive
+                onClick={
+                  onDelete
+                }
+              >
+                <Trash2
+                  size={14}
+                />
+              </IconButton>
+            </div>
+          </div>
+
+          {memory.location_name && (
+            <p
+              className="
+                mt-4
+                text-sm
+                font-medium
+                text-ocean-700
+              "
+            >
+              {
+                memory.location_name
+              }
+            </p>
+          )}
+
+          {memory.story && (
+            <p
+              className="
+                mt-5
+                max-w-3xl
+                line-clamp-3
+                whitespace-pre-line
+                text-sm
+                leading-7
+                text-ink-soft
+              "
+            >
+              {memory.story}
+            </p>
+          )}
+
+          <div
+            className="
+              mt-auto
+              flex
+              flex-wrap
+              items-center
+              gap-4
+              pt-7
+            "
+          >
+            <PrimaryLink
+              href={`/memories/${memory.id}`}
+            >
+              Open
+            </PrimaryLink>
+
+            {memory.maps_url && (
+              <a
+                href={
+                  memory.maps_url
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="
+                  text-xs
+                  font-medium
+                  text-ocean-600
+                  transition
+                  hover:text-ocean-950
+                "
+              >
+                Maps ↗
+              </a>
+            )}
+
+            {memory.source_plan_id && (
+              <Link
+                href={`/planner/${memory.source_plan_id}`}
+                className="
+                  text-xs
+                  font-medium
+                  text-ocean-600
+                  transition
+                  hover:text-ocean-950
+                "
+              >
+                Plan ↗
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/*
+ * =========================================================
+ * FORM
  * =========================================================
  */
 
@@ -1240,20 +1413,17 @@ function MemoryFormModal({
       >
     >;
 
-  editing:
-    boolean;
+  editing: boolean;
 
-  isSaving:
-    boolean;
+  isSaving: boolean;
 
   onClose:
     () => void;
 
-  onSubmit:
-    (
-      event:
-        FormEvent<HTMLFormElement>
-    ) => void;
+  onSubmit: (
+    event:
+      FormEvent<HTMLFormElement>
+  ) => void;
 }) {
   const [
     showMap,
@@ -1307,27 +1477,26 @@ function MemoryFormModal({
       className="
         fixed
         inset-0
-        z-[1000]
+        z-[1400]
         flex
         items-center
         justify-center
-        bg-ocean-950/35
+        bg-ocean-950/45
         p-3
-        backdrop-blur-sm
+        backdrop-blur-[6px]
         sm:p-5
       "
-      onMouseDown={
-        (
-          event
-        ) => {
-          if (
-            event.target ===
+      onMouseDown={(
+        event
+      ) => {
+        if (
+          !isSaving &&
+          event.target ===
             event.currentTarget
-          ) {
-            onClose();
-          }
+        ) {
+          onClose();
         }
-      }
+      }}
     >
       <div
         className="
@@ -1337,9 +1506,9 @@ function MemoryFormModal({
           overflow-y-auto
           rounded-[28px]
           border
-          border-white/80
-          bg-[#fbfdfe]
-          shadow-[0_30px_100px_rgba(6,42,63,0.25)]
+          border-white/60
+          bg-[#fffdf9]
+          shadow-[0_30px_100px_rgba(6,42,63,0.24)]
         "
       >
         {/* HEADER */}
@@ -1353,41 +1522,27 @@ function MemoryFormModal({
             items-center
             justify-between
             border-b
-            border-ocean-100
-            bg-[#fbfdfe]/95
+            border-ocean-100/80
+            bg-[#fffdf9]/95
             px-5
             py-4
             backdrop-blur-xl
             sm:px-6
           "
         >
-          <div>
-            <p
-              className="
-                text-[9px]
-                font-bold
-                uppercase
-                tracking-[0.2em]
-                text-ocean-500
-              "
-            >
-              Memory
-            </p>
-
-            <h2
-              className="
-                mt-0.5
-                font-display
-                text-2xl
-                font-semibold
-                text-ocean-950
-              "
-            >
-              {editing
-                ? "Edit Memory"
-                : "Add Memory"}
-            </h2>
-          </div>
+          <h2
+            className="
+              font-display
+              text-[25px]
+              font-semibold
+              tracking-[-0.025em]
+              text-ocean-950
+            "
+          >
+            {editing
+              ? "Edit Memory"
+              : "New Memory"}
+          </h2>
 
           <button
             type="button"
@@ -1397,26 +1552,28 @@ function MemoryFormModal({
             disabled={
               isSaving
             }
+            aria-label="Close"
             className="
               flex
-              h-10
-              w-10
+              h-9
+              w-9
               items-center
               justify-center
-              rounded-[13px]
-              bg-ocean-50
+              rounded-full
               text-ink-soft
               transition
-              hover:bg-ocean-100
-              hover:text-ocean-800
-              disabled:opacity-50
+              hover:bg-ocean-50
+              hover:text-ocean-950
+              disabled:opacity-40
             "
           >
             <X
-              size={18}
+              size={16}
             />
           </button>
         </div>
+
+        {/* FORM */}
 
         <form
           onSubmit={
@@ -1433,10 +1590,8 @@ function MemoryFormModal({
               gap-5
             "
           >
-            {/* TITLE */}
-
             <FormField
-              label="Judul"
+              label="Title"
               required
             >
               <input
@@ -1454,26 +1609,19 @@ function MemoryFormModal({
                       ...current,
 
                       title:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
-                placeholder="Contoh: Sunset di pantai"
-                className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                className={
+                  inputClass
+                }
               />
             </FormField>
 
-            {/* STORY */}
-
             <FormField
-              label="Cerita"
+              label="Story"
             >
               <textarea
                 value={
@@ -1489,25 +1637,18 @@ function MemoryFormModal({
                       ...current,
 
                       story:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
-                placeholder="Ceritakan sedikit tentang hari itu..."
-                rows={4}
-                className="
-                  love-input
-                  w-full
+                rows={5}
+                className={`
+                  ${inputClass}
                   resize-none
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                `}
               />
             </FormField>
-
-            {/* DATE TIME */}
 
             <div
               className="
@@ -1517,7 +1658,7 @@ function MemoryFormModal({
               "
             >
               <FormField
-                label="Tanggal"
+                label="Date"
                 required
               >
                 <input
@@ -1535,23 +1676,19 @@ function MemoryFormModal({
                         ...current,
 
                         memoryDate:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
-                  className="
-                    love-input
-                    w-full
-                    rounded-[15px]
-                    px-4
-                    py-3
-                    text-sm
-                  "
+                  className={
+                    inputClass
+                  }
                 />
               </FormField>
 
               <FormField
-                label="Jam"
+                label="Time"
               >
                 <input
                   type="time"
@@ -1568,26 +1705,20 @@ function MemoryFormModal({
                         ...current,
 
                         memoryTime:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
-                  className="
-                    love-input
-                    w-full
-                    rounded-[15px]
-                    px-4
-                    py-3
-                    text-sm
-                  "
+                  className={
+                    inputClass
+                  }
                 />
               </FormField>
             </div>
 
-            {/* LOCATION NAME */}
-
             <FormField
-              label="Nama Lokasi"
+              label="Location"
             >
               <input
                 type="text"
@@ -1604,27 +1735,19 @@ function MemoryFormModal({
                       ...current,
 
                       locationName:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
-                placeholder="Contoh: Pantai Marina"
-                className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                className={
+                  inputClass
+                }
               />
             </FormField>
 
-            {/* GOOGLE MAPS */}
-
             <FormField
-              label="Google Maps Link"
-              description="Opsional. URL Maps yang mengandung koordinat juga akan dicoba dibaca otomatis."
+              label="Google Maps"
             >
               <input
                 type="url"
@@ -1641,67 +1764,73 @@ function MemoryFormModal({
                       ...current,
 
                       mapsUrl:
-                        event.target.value,
+                        event.target
+                          .value,
                     })
                   )
                 }
                 onBlur={
                   handleMapsBlur
                 }
-                placeholder="https://maps.google.com/..."
-                className="
-                  love-input
-                  w-full
-                  rounded-[15px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                placeholder="https://..."
+                className={
+                  inputClass
+                }
               />
             </FormField>
 
-            {/* LOCATION PICKER */}
+            {/* LOCATION */}
 
             <div
               className="
-                rounded-[22px]
+                overflow-hidden
+                rounded-[20px]
                 border
-                border-ocean-100
-                bg-ocean-50/40
-                p-4
+                border-ocean-100/80
               "
             >
               <div
                 className="
                   flex
-                  flex-col
-                  gap-3
-                  sm:flex-row
-                  sm:items-center
-                  sm:justify-between
+                  items-center
+                  justify-between
+                  gap-4
+                  bg-white/60
+                  px-4
+                  py-3.5
                 "
               >
                 <div>
                   <p
                     className="
                       text-sm
-                      font-bold
+                      font-semibold
                       text-ocean-950
                     "
                   >
-                    Pin Location
+                    Map Location
                   </p>
 
-                  <p
-                    className="
-                      mt-1
-                      text-xs
-                      text-ink-soft
-                    "
-                  >
-                    Pilih titik lokasi
-                    langsung dari peta.
-                  </p>
+                  {form.latitude !==
+                    null &&
+                  form.longitude !==
+                    null && (
+                    <p
+                      className="
+                        mt-1
+                        text-[10px]
+                        text-ink-soft
+                      "
+                    >
+                      {form.latitude.toFixed(
+                        5
+                      )}
+                      ,{" "}
+                      {form.longitude.toFixed(
+                        5
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -1715,128 +1844,73 @@ function MemoryFormModal({
                     )
                   }
                   className="
-                    flex
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-[14px]
-                    bg-ocean-700
-                    px-4
-                    py-2.5
                     text-xs
                     font-semibold
-                    text-white
+                    text-ocean-700
                     transition
-                    hover:bg-ocean-800
+                    hover:text-ocean-950
                   "
                 >
-                  <MapPinned
-                    size={16}
-                  />
-
                   {showMap
-                    ? "Hide Map"
+                    ? "Hide"
                     : form.latitude !==
                           null
-                      ? "Change Location"
-                      : "Choose Location"}
+                      ? "Change"
+                      : "Choose"}
                 </button>
               </div>
 
-              {form.latitude !==
-                null &&
-                form.longitude !==
-                  null &&
-                !showMap && (
-                  <div
-                    className="
-                      mt-3
-                      flex
-                      items-center
-                      gap-2
-                      rounded-[14px]
-                      bg-white
-                      px-3
-                      py-2.5
-                      text-xs
-                      font-semibold
-                      text-ocean-700
-                    "
-                  >
-                    <MapPin
-                      size={14}
-                    />
-
-                    {form.latitude.toFixed(
-                      6
-                    )}
-                    ,{" "}
-                    {form.longitude.toFixed(
-                      6
-                    )}
-                  </div>
-                )}
-
               {showMap && (
-                <div
-                  className="
-                    mt-4
-                  "
-                >
-                  <MemoryLocationPicker
-                    latitude={
-                      form.latitude
-                    }
-                    longitude={
-                      form.longitude
-                    }
-                    onChange={(
-                      latitude,
-                      longitude
-                    ) =>
-                      setForm(
-                        (
-                          current
-                        ) => ({
-                          ...current,
+                <MemoryLocationPicker
+                  latitude={
+                    form.latitude
+                  }
+                  longitude={
+                    form.longitude
+                  }
+                  onChange={(
+                    latitude,
+                    longitude
+                  ) =>
+                    setForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
 
-                          latitude,
+                        latitude,
+                        longitude,
+                      })
+                    )
+                  }
+                  onClear={() =>
+                    setForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
 
-                          longitude,
-                        })
-                      )
-                    }
-                    onClear={() =>
-                      setForm(
-                        (
-                          current
-                        ) => ({
-                          ...current,
+                        latitude:
+                          null,
 
-                          latitude:
-                            null,
-
-                          longitude:
-                            null,
-                        })
-                      )
-                    }
-                  />
-                </div>
+                        longitude:
+                          null,
+                      })
+                    )
+                  }
+                />
               )}
             </div>
           </div>
 
-          {/* BUTTON */}
+          {/* ACTIONS */}
 
           <div
             className="
               mt-7
               flex
-              flex-col-reverse
+              justify-end
               gap-2
-              sm:flex-row
-              sm:justify-end
             "
           >
             <button
@@ -1848,18 +1922,18 @@ function MemoryFormModal({
                 isSaving
               }
               className="
-                rounded-[15px]
+                rounded-[13px]
                 border
                 border-ocean-100
                 bg-white
                 px-5
-                py-3
+                py-2.5
                 text-sm
                 font-semibold
                 text-ink-soft
                 transition
                 hover:bg-ocean-50
-                disabled:opacity-50
+                disabled:opacity-40
               "
             >
               Cancel
@@ -1871,29 +1945,22 @@ function MemoryFormModal({
                 isSaving
               }
               className="
-                love-button
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-[15px]
+                rounded-[13px]
+                bg-ocean-950
                 px-5
-                py-3
+                py-2.5
                 text-sm
                 font-semibold
-                disabled:cursor-not-allowed
-                disabled:opacity-60
+                text-white
+                shadow-[0_8px_20px_rgba(8,59,89,0.12)]
+                transition
+                hover:bg-ocean-800
+                disabled:opacity-45
               "
             >
-              <Save
-                size={16}
-              />
-
               {isSaving
                 ? "Saving..."
-                : editing
-                  ? "Save Changes"
-                  : "Save Memory"}
+                : "Save"}
             </button>
           </div>
         </form>
@@ -1908,20 +1975,32 @@ function MemoryFormModal({
  * =========================================================
  */
 
+const inputClass = `
+  w-full
+  rounded-[13px]
+  border
+  border-ocean-100
+  bg-white/75
+  px-4
+  py-3
+  text-sm
+  text-ocean-950
+  outline-none
+  transition
+  placeholder:text-ink-soft/50
+  focus:border-ocean-300
+  focus:bg-white
+  focus:ring-4
+  focus:ring-ocean-100/45
+`;
+
 function FormField({
   label,
   required = false,
-  description,
   children,
 }: {
-  label:
-    string;
-
-  required?:
-    boolean;
-
-  description?:
-    string;
+  label: string;
+  required?: boolean;
 
   children:
     ReactNode;
@@ -1933,722 +2012,25 @@ function FormField({
           mb-2
           block
           text-xs
-          font-bold
-          text-ocean-800
+          font-medium
+          text-ocean-900
         "
       >
         {label}
 
-        {required && (
-          <span
-            className="
-              ml-1
-              text-heart
-            "
-          >
-            *
-          </span>
-        )}
+        {required
+          ? " *"
+          : ""}
       </label>
 
       {children}
-
-      {description && (
-        <p
-          className="
-            mt-1.5
-            text-[10px]
-            leading-5
-            text-ink-soft
-          "
-        >
-          {description}
-        </p>
-      )}
     </div>
   );
 }
 
 /*
  * =========================================================
- * TIMELINE ITEM
- * =========================================================
- */
-
-function MemoryTimelineItem({
-  memory,
-  onEdit,
-  onDelete,
-}: {
-  memory:
-    MemoryItem;
-
-  onEdit:
-    () => void;
-
-  onDelete:
-    () => void;
-}) {
-  const hasPin =
-    memory.latitude !==
-      null &&
-    memory.longitude !==
-      null;
-
-  return (
-    <article
-      className="
-        relative
-      "
-    >
-      {/* TIMELINE DOT */}
-
-      <div
-        className="
-          absolute
-          -left-[32px]
-          top-8
-          z-10
-          hidden
-          h-[15px]
-          w-[15px]
-          rounded-full
-          border-[4px]
-          border-white
-          bg-ocean-600
-          shadow-md
-          md:block
-        "
-      />
-
-      <div
-        className="
-          glass-card
-          overflow-hidden
-          rounded-[28px]
-        "
-      >
-        <div
-          className="
-            grid
-            lg:grid-cols-[260px_1fr]
-          "
-        >
-          {/* =====================================
-              VISUAL SIDE
-          ====================================== */}
-
-          <div
-            className="
-              relative
-              min-h-[220px]
-              overflow-hidden
-              bg-gradient-to-br
-              from-ocean-800
-              via-ocean-700
-              to-ocean-500
-              text-white
-              lg:min-h-[300px]
-            "
-          >
-            {memory.cover_url ? (
-              <>
-                <Image
-                  src={
-                    memory.cover_url
-                  }
-                  alt={
-                    memory.title
-                  }
-                  fill
-                  unoptimized
-                  className="
-                    object-cover
-                  "
-                />
-
-                <div
-                  className="
-                    absolute
-                    inset-0
-                    bg-gradient-to-t
-                    from-ocean-950/90
-                    via-ocean-950/20
-                    to-black/5
-                  "
-                />
-              </>
-            ) : (
-              <>
-                <div
-                  className="
-                    absolute
-                    inset-0
-                    bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,.14),transparent_30%),radial-gradient(circle_at_10%_90%,rgba(158,223,240,.22),transparent_36%)]
-                  "
-                />
-
-                <Heart
-                  size={120}
-                  fill="currentColor"
-                  className="
-                    absolute
-                    -right-5
-                    -top-6
-                    text-white/[0.05]
-                  "
-                />
-              </>
-            )}
-
-            {/* PHOTO COUNT */}
-
-            {memory.photo_count >
-              0 && (
-              <div
-                className="
-                  absolute
-                  right-4
-                  top-4
-                  z-10
-                  rounded-full
-                  border
-                  border-white/20
-                  bg-black/25
-                  px-3
-                  py-1.5
-                  text-[10px]
-                  font-semibold
-                  text-white
-                  backdrop-blur-xl
-                "
-              >
-                {memory.photo_count}{" "}
-                {memory.photo_count ===
-                1
-                  ? "photo"
-                  : "photos"}
-              </div>
-            )}
-
-            {/* DATE */}
-
-            <div
-              className="
-                absolute
-                inset-x-0
-                bottom-0
-                z-10
-                p-5
-                sm:p-6
-              "
-            >
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.2em]
-                  text-white/60
-                "
-              >
-                {formatMonth(
-                  memory.memory_date
-                )}
-              </p>
-
-              <div
-                className="
-                  mt-1
-                  flex
-                  items-end
-                  gap-2
-                "
-              >
-                <p
-                  className="
-                    font-display
-                    text-5xl
-                    font-semibold
-                    leading-none
-                  "
-                >
-                  {formatDay(
-                    memory.memory_date
-                  )}
-                </p>
-
-                <p
-                  className="
-                    pb-1
-                    text-sm
-                    font-medium
-                    text-white/70
-                  "
-                >
-                  {getYear(
-                    memory.memory_date
-                  )}
-                </p>
-              </div>
-
-              {memory.memory_time && (
-                <div
-                  className="
-                    mt-4
-                    flex
-                    items-center
-                    gap-2
-                    text-xs
-                    text-white/65
-                  "
-                >
-                  <Clock3
-                    size={14}
-                  />
-
-                  {formatTime(
-                    memory.memory_time
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* =====================================
-              CONTENT
-          ====================================== */}
-
-          <div
-            className="
-              flex
-              min-w-0
-              flex-col
-              p-5
-              sm:p-6
-            "
-          >
-            <div
-              className="
-                flex
-                items-start
-                justify-between
-                gap-4
-              "
-            >
-              <div
-                className="
-                  min-w-0
-                "
-              >
-                <div
-                  className="
-                    flex
-                    flex-wrap
-                    gap-2
-                  "
-                >
-                  {memory.source_plan_id && (
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        gap-1.5
-                        rounded-full
-                        bg-ocean-100
-                        px-3
-                        py-1.5
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-ocean-700
-                      "
-                    >
-                      <Sparkles
-                        size={11}
-                      />
-
-                      From Planner
-                    </span>
-                  )}
-
-                  {hasPin && (
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        gap-1.5
-                        rounded-full
-                        bg-emerald-50
-                        px-3
-                        py-1.5
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-emerald-700
-                      "
-                    >
-                      <MapPin
-                        size={11}
-                      />
-
-                      Mapped
-                    </span>
-                  )}
-
-                  {memory.photo_count >
-                    0 && (
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        gap-1.5
-                        rounded-full
-                        bg-white
-                        px-3
-                        py-1.5
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-ocean-700
-                        shadow-sm
-                      "
-                    >
-                      {memory.photo_count}{" "}
-                      {memory.photo_count ===
-                      1
-                        ? "Photo"
-                        : "Photos"}
-                    </span>
-                  )}
-                </div>
-
-                <h2
-                  className="
-                    mt-3
-                    font-display
-                    text-2xl
-                    font-semibold
-                    text-ocean-950
-                    sm:text-3xl
-                  "
-                >
-                  {memory.title}
-                </h2>
-              </div>
-
-              {/* ACTION */}
-
-              <div
-                className="
-                  flex
-                  shrink-0
-                  gap-1
-                "
-              >
-                <button
-                  type="button"
-                  onClick={
-                    onEdit
-                  }
-                  aria-label="Edit memory"
-                  className="
-                    flex
-                    h-9
-                    w-9
-                    items-center
-                    justify-center
-                    rounded-[12px]
-                    bg-ocean-50
-                    text-ocean-600
-                    transition
-                    hover:bg-ocean-100
-                  "
-                >
-                  <Pencil
-                    size={15}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={
-                    onDelete
-                  }
-                  aria-label="Delete memory"
-                  className="
-                    flex
-                    h-9
-                    w-9
-                    items-center
-                    justify-center
-                    rounded-[12px]
-                    bg-heart-soft
-                    text-heart
-                    transition
-                    hover:opacity-80
-                  "
-                >
-                  <Trash2
-                    size={15}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* STORY */}
-
-            {memory.story ? (
-              <p
-                className="
-                  mt-4
-                  line-clamp-4
-                  whitespace-pre-line
-                  text-sm
-                  leading-7
-                  text-ink-soft
-                "
-              >
-                {memory.story}
-              </p>
-            ) : (
-              <p
-                className="
-                  mt-4
-                  text-sm
-                  italic
-                  text-ink-soft/60
-                "
-              >
-                Belum ada cerita
-                untuk memory ini.
-              </p>
-            )}
-
-            {/* =====================================
-                FOOTER
-            ====================================== */}
-
-            <div
-              className="
-                mt-auto
-                pt-5
-              "
-            >
-              <div
-                className="
-                  flex
-                  flex-wrap
-                  items-center
-                  gap-2
-                  border-t
-                  border-ocean-100
-                  pt-5
-                "
-              >
-                {memory.location_name && (
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                      rounded-full
-                      bg-ocean-50
-                      px-3
-                      py-2
-                      text-xs
-                      font-semibold
-                      text-ocean-700
-                    "
-                  >
-                    <MapPin
-                      size={13}
-                    />
-
-                    {
-                      memory.location_name
-                    }
-                  </div>
-                )}
-
-                {memory.maps_url && (
-                  <a
-                    href={
-                      memory.maps_url
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                      rounded-full
-                      border
-                      border-ocean-100
-                      bg-white/70
-                      px-3
-                      py-2
-                      text-xs
-                      font-semibold
-                      text-ocean-700
-                      transition
-                      hover:bg-white
-                    "
-                  >
-                    Open Maps
-
-                    <ExternalLink
-                      size={12}
-                    />
-                  </a>
-                )}
-
-                {memory.source_plan_id && (
-                  <Link
-                    href={`/planner/${memory.source_plan_id}`}
-                    className="
-                      flex
-                      items-center
-                      gap-2
-                      rounded-full
-                      border
-                      border-ocean-100
-                      bg-white/70
-                      px-3
-                      py-2
-                      text-xs
-                      font-semibold
-                      text-ocean-700
-                      transition
-                      hover:bg-white
-                    "
-                  >
-                    Original Plan
-
-                    <ExternalLink
-                      size={12}
-                    />
-                  </Link>
-                )}
-              </div>
-
-              <Link
-                href={`/memories/${memory.id}`}
-                className="
-                  mt-4
-                  flex
-                  w-full
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
-                  bg-ocean-700
-                  px-4
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-white
-                  transition
-                  hover:bg-ocean-800
-                "
-              >
-                View Memory
-
-                <ExternalLink
-                  size={14}
-                />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-/*
- * =========================================================
- * SUMMARY CARD
- * =========================================================
- */
-
-function SummaryCard({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon:
-    ElementType;
-
-  value:
-    number;
-
-  label:
-    string;
-}) {
-  return (
-    <div
-      className="
-        glass-card
-        flex
-        items-center
-        gap-4
-        rounded-[24px]
-        p-4
-        sm:p-5
-      "
-    >
-      <div
-        className="
-          flex
-          h-11
-          w-11
-          shrink-0
-          items-center
-          justify-center
-          rounded-[15px]
-          bg-ocean-100
-          text-ocean-700
-        "
-      >
-        <Icon
-          size={19}
-        />
-      </div>
-
-      <div>
-        <p
-          className="
-            font-display
-            text-2xl
-            font-semibold
-            leading-none
-            text-ocean-950
-          "
-        >
-          {value}
-        </p>
-
-        <p
-          className="
-            mt-1.5
-            text-[11px]
-            text-ink-soft
-          "
-        >
-          {label}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * YEAR FILTER
+ * FILTER
  * =========================================================
  */
 
@@ -2673,17 +2055,132 @@ function YearFilterButton({
         onClick
       }
       className={`
+        relative
         shrink-0
-        rounded-full
+        pb-3.5
+        text-sm
+        font-medium
+        transition
+
+        ${
+          active
+            ? "text-ocean-950"
+            : "text-ink-soft hover:text-ocean-800"
+        }
+
+        after:absolute
+        after:bottom-0
+        after:left-0
+        after:h-[2px]
+        after:w-full
+        after:origin-left
+        after:rounded-full
+        after:bg-ocean-900
+        after:transition-transform
+
+        ${
+          active
+            ? "after:scale-x-100"
+            : "after:scale-x-0"
+        }
+      `}
+    >
+      {children}
+    </button>
+  );
+}
+
+/*
+ * =========================================================
+ * BUTTONS
+ * =========================================================
+ */
+
+function PrimaryLink({
+  href,
+  children,
+}: {
+  href: string;
+
+  children:
+    ReactNode;
+}) {
+  return (
+    <Link
+      href={
+        href
+      }
+      style={{
+        color:
+          "#ffffff",
+      }}
+      className="
+        group
+        inline-flex
+        items-center
+        gap-2
+        rounded-[13px]
+        bg-ocean-900
         px-5
         py-2.5
         text-sm
         font-semibold
+        shadow-[0_8px_20px_rgba(8,59,89,0.12)]
         transition
+        hover:bg-ocean-800
+      "
+    >
+      {children}
+
+      <ArrowRight
+        size={14}
+        className="
+          transition-transform
+          group-hover:translate-x-0.5
+        "
+      />
+    </Link>
+  );
+}
+
+function IconButton({
+  label,
+  destructive = false,
+  onClick,
+  children,
+}: {
+  label: string;
+
+  destructive?: boolean;
+
+  onClick:
+    () => void;
+
+  children:
+    ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={
+        label
+      }
+      onClick={
+        onClick
+      }
+      className={`
+        flex
+        h-9
+        w-9
+        items-center
+        justify-center
+        rounded-full
+        transition
+
         ${
-          active
-            ? "bg-ocean-700 text-white shadow-md"
-            : "border border-ocean-100 bg-white/65 text-ink-soft hover:bg-white"
+          destructive
+            ? "text-ink-soft hover:bg-heart-soft hover:text-heart"
+            : "text-ink-soft hover:bg-ocean-50 hover:text-ocean-900"
         }
       `}
     >
@@ -2709,51 +2206,29 @@ function EmptyMemories({
     boolean;
 }) {
   return (
-    <div
+    <section
       className="
-        glass-card
-        rounded-[30px]
-        px-6
-        py-16
+        flex
+        min-h-[380px]
+        flex-col
+        items-center
+        justify-center
         text-center
       "
     >
-      <Heart
-        size={31}
-        className="
-          mx-auto
-          text-ocean-400
-        "
-      />
-
       <h2
         className="
-          mt-4
           font-display
-          text-3xl
+          text-[30px]
           font-semibold
+          tracking-[-0.03em]
           text-ocean-950
         "
       >
         {filtered
-          ? "Tidak ada memory di tahun ini"
-          : "Belum ada memory"}
+          ? "No memories here."
+          : "No memories yet."}
       </h2>
-
-      <p
-        className="
-          mx-auto
-          mt-2
-          max-w-md
-          text-sm
-          leading-7
-          text-ink-soft
-        "
-      >
-        {filtered
-          ? "Pilih tahun lain untuk melihat memories."
-          : "Tambahkan memory pertama kalian."}
-      </p>
 
       {!filtered && (
         <button
@@ -2762,26 +2237,22 @@ function EmptyMemories({
             onCreate
           }
           className="
-            love-button
             mt-6
-            inline-flex
-            items-center
-            gap-2
-            rounded-[16px]
+            rounded-[13px]
+            bg-ocean-950
             px-5
-            py-3
+            py-2.5
             text-sm
             font-semibold
+            text-white
+            transition
+            hover:bg-ocean-800
           "
         >
-          <Plus
-            size={17}
-          />
-
           Add Memory
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -2822,19 +2293,15 @@ function createEmptyForm():
 
 /*
  * =========================================================
- * GOOGLE MAPS COORDINATE PARSER
+ * MAP COORDINATES
  * =========================================================
  */
 
 function extractCoordinatesFromMapsUrl(
-  value:
-    string
+  value: string
 ): {
-  latitude:
-    number;
-
-  longitude:
-    number;
+  latitude: number;
+  longitude: number;
 } | null {
   let decoded =
     value;
@@ -2849,67 +2316,50 @@ function extractCoordinatesFromMapsUrl(
       value;
   }
 
-  const atMatch =
-    decoded.match(
-      /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,|$)/
-    );
+  const patterns = [
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,|$)/,
 
-  if (
-    atMatch
+    /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i,
+
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i,
+  ];
+
+  for (
+    const pattern of
+    patterns
   ) {
-    return {
-      latitude:
-        Number(
-          atMatch[1]
-        ),
+    const match =
+      decoded.match(
+        pattern
+      );
 
-      longitude:
-        Number(
-          atMatch[2]
-        ),
-    };
-  }
+    if (!match) {
+      continue;
+    }
 
-  const queryMatch =
-    decoded.match(
-      /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i
-    );
+    const latitude =
+      Number(
+        match[1]
+      );
 
-  if (
-    queryMatch
-  ) {
-    return {
-      latitude:
-        Number(
-          queryMatch[1]
-        ),
+    const longitude =
+      Number(
+        match[2]
+      );
 
-      longitude:
-        Number(
-          queryMatch[2]
-        ),
-    };
-  }
-
-  const dataMatch =
-    decoded.match(
-      /!3d(-?\d+(?:\.\d+)?).*?!4d(-?\d+(?:\.\d+)?)/i
-    );
-
-  if (
-    dataMatch
-  ) {
-    return {
-      latitude:
-        Number(
-          dataMatch[1]
-        ),
-
-      longitude:
-        Number(
-          dataMatch[2]
-        ),
-    };
+    if (
+      Number.isFinite(
+        latitude
+      ) &&
+      Number.isFinite(
+        longitude
+      )
+    ) {
+      return {
+        latitude,
+        longitude,
+      };
+    }
   }
 
   return null;
@@ -2917,7 +2367,7 @@ function extractCoordinatesFromMapsUrl(
 
 /*
  * =========================================================
- * SORT
+ * HELPERS
  * =========================================================
  */
 
@@ -2950,65 +2400,41 @@ function sortMemories(
   );
 }
 
-/*
- * =========================================================
- * DATE
- * =========================================================
- */
-
 function getTodayInputValue() {
-  const now =
-    new Date();
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Asia/Jakarta",
 
-  const year =
-    now.getFullYear();
+      year:
+        "numeric",
 
-  const month =
-    String(
-      now.getMonth() +
-        1
-    ).padStart(
-      2,
-      "0"
-    );
+      month:
+        "2-digit",
 
-  const day =
-    String(
-      now.getDate()
-    ).padStart(
-      2,
-      "0"
-    );
-
-  return `${year}-${month}-${day}`;
+      day:
+        "2-digit",
+    }
+  ).format(
+    new Date()
+  );
 }
 
-function formatDay(
-  value:
-    string
+function formatDate(
+  value: string
 ) {
   return new Intl.DateTimeFormat(
     "id-ID",
     {
       day:
-        "2-digit",
-    }
-  ).format(
-    new Date(
-      `${value}T00:00:00`
-    )
-  );
-}
+        "numeric",
 
-function formatMonth(
-  value:
-    string
-) {
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
       month:
         "long",
+
+      year:
+        "numeric",
     }
   ).format(
     new Date(
@@ -3018,8 +2444,7 @@ function formatMonth(
 }
 
 function getYear(
-  value:
-    string
+  value: string
 ) {
   return value.slice(
     0,
@@ -3028,8 +2453,7 @@ function getYear(
 }
 
 function formatTime(
-  value:
-    string
+  value: string
 ) {
   return value.slice(
     0,
@@ -3053,15 +2477,8 @@ function normalizeTime(
   );
 }
 
-/*
- * =========================================================
- * URL
- * =========================================================
- */
-
 function isValidUrl(
-  value:
-    string
+  value: string
 ) {
   try {
     const url =
@@ -3071,9 +2488,9 @@ function isValidUrl(
 
     return (
       url.protocol ===
-        "https:" ||
+        "http:" ||
       url.protocol ===
-        "http:"
+        "https:"
     );
   } catch {
     return false;
@@ -3082,16 +2499,36 @@ function isValidUrl(
 
 /*
  * =========================================================
- * ALERT
+ * ALERTS
  * =========================================================
  */
 
-async function showWarning(
-  title:
-    string,
+async function showSuccess(
+  title: string
+) {
+  await Swal.fire({
+    icon:
+      "success",
 
-  message:
-    string
+    title,
+
+    timer:
+      950,
+
+    showConfirmButton:
+      false,
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
+}
+
+async function showWarning(
+  title: string,
+  message: string
 ) {
   await Swal.fire({
     icon:
@@ -3103,16 +2540,19 @@ async function showWarning(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }
 
 async function showError(
-  title:
-    string,
-
-  message:
-    string
+  title: string,
+  message: string
 ) {
   await Swal.fire({
     icon:
@@ -3123,10 +2563,13 @@ async function showError(
     text:
       message,
 
-    confirmButtonText:
-      "Oke",
-
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }

@@ -6,787 +6,811 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
 import {
   ArrowLeft,
   ArrowRight,
   Eye,
   EyeOff,
-  Heart,
   Lock,
   Mail,
-  Sparkles,
   User,
 } from "lucide-react";
+
 import Swal from "sweetalert2";
 
 import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  const [fullName, setFullName] =
+  const [
+    fullName,
+    setFullName,
+  ] =
     useState("");
 
-  const [email, setEmail] =
+  const [
+    email,
+    setEmail,
+  ] =
     useState("");
 
-  const [password, setPassword] =
+  const [
+    password,
+    setPassword,
+  ] =
     useState("");
 
   const [
     confirmation,
     setConfirmation,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     showPassword,
     setShowPassword,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     showConfirmation,
     setShowConfirmation,
-  ] = useState(false);
-
-  const [isLoading, setIsLoading] =
+  ] =
     useState(false);
 
-  const handleRegister = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
+    useState(false);
 
-    if (
-      !fullName.trim() ||
-      !email.trim() ||
-      !password ||
-      !confirmation
-    ) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Masih ada yang kosong ♡",
-        text: "Lengkapi semua data terlebih dahulu.",
-        confirmButtonText: "Oke",
-        confirmButtonColor: "#1688b5",
-      });
+  const handleRegister =
+    async (
+      event:
+        React.FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
 
-      return;
-    }
+      const cleanName =
+        fullName.trim();
 
-    if (password.length < 6) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Password terlalu pendek",
-        text: "Gunakan minimal 6 karakter.",
-        confirmButtonText: "Oke",
-        confirmButtonColor: "#1688b5",
-      });
+      const cleanEmail =
+        email.trim();
 
-      return;
-    }
+      if (
+        !cleanName ||
+        !cleanEmail ||
+        !password ||
+        !confirmation
+      ) {
+        await Swal.fire({
+          icon:
+            "warning",
 
-    if (
-      password !== confirmation
-    ) {
-      await Swal.fire({
-        icon: "error",
-        title: "Password berbeda",
-        text: "Konfirmasi password belum sama.",
-        confirmButtonText:
-          "Periksa lagi",
-        confirmButtonColor: "#1688b5",
-      });
+          title:
+            "Incomplete",
 
-      return;
-    }
+          text:
+            "Complete all fields first.",
 
-    setIsLoading(true);
+          confirmButtonText:
+            "OK",
 
-    try {
-      const supabase =
-        createClient();
+          confirmButtonColor:
+            "#083b59",
 
-      const {
-        data,
-        error,
-      } =
-        await supabase.auth.signUp({
-          email: email.trim(),
-          password,
+          background:
+            "#fffdf9",
 
-          options: {
-            data: {
-              full_name:
-                fullName.trim(),
-            },
-
-            emailRedirectTo:
-              `${window.location.origin}/auth/callback`,
-          },
+          color:
+            "#123d59",
         });
 
-      if (error) {
-        let message =
-          error.message;
+        return;
+      }
+
+      if (
+        password.length <
+        6
+      ) {
+        await Swal.fire({
+          icon:
+            "warning",
+
+          title:
+            "Password too short",
+
+          text:
+            "Use at least 6 characters.",
+
+          confirmButtonText:
+            "OK",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+        return;
+      }
+
+      if (
+        password !==
+        confirmation
+      ) {
+        await Swal.fire({
+          icon:
+            "error",
+
+          title:
+            "Passwords do not match",
+
+          text:
+            "Check your password confirmation.",
+
+          confirmButtonText:
+            "Check again",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+        return;
+      }
+
+      setIsLoading(
+        true
+      );
+
+      try {
+        const supabase =
+          createClient();
+
+        const {
+          data,
+          error,
+        } =
+          await supabase.auth
+            .signUp({
+              email:
+                cleanEmail,
+
+              password,
+
+              options: {
+                data: {
+                  full_name:
+                    cleanName,
+                },
+
+                emailRedirectTo:
+                  `${window.location.origin}/auth/callback`,
+              },
+            });
+
+        if (error) {
+          let message =
+            error.message;
+
+          if (
+            error.message
+              .toLowerCase()
+              .includes(
+                "already registered"
+              )
+          ) {
+            message =
+              "This email is already registered.";
+          }
+
+          await Swal.fire({
+            icon:
+              "error",
+
+            title:
+              "Unable to register",
+
+            text:
+              message,
+
+            confirmButtonText:
+              "Try again",
+
+            confirmButtonColor:
+              "#083b59",
+
+            background:
+              "#fffdf9",
+
+            color:
+              "#123d59",
+          });
+
+          return;
+        }
 
         if (
-          error.message
-            .toLowerCase()
-            .includes(
-              "already registered"
-            )
+          data.session
         ) {
-          message =
-            "Email tersebut sudah terdaftar.";
+          router.replace(
+            "/dashboard"
+          );
+
+          router.refresh();
+
+          return;
         }
 
         await Swal.fire({
-          icon: "error",
+          icon:
+            "success",
+
           title:
-            "Register gagal",
-          text: message,
+            "Account created",
+
+          text:
+            "Check your email to confirm your account.",
+
           confirmButtonText:
-            "Coba lagi",
+            "Go to login",
+
           confirmButtonColor:
-            "#1688b5",
-        });
+            "#083b59",
 
-        return;
-      }
+          background:
+            "#fffdf9",
 
-      /*
-       * Jika Email Confirmation OFF,
-       * Supabase langsung memberikan session.
-       */
-
-      if (data.session) {
-        await Swal.fire({
-          icon: "success",
-          title:
-            "Welcome to Love4ever ♡",
-          text: "Akun berhasil dibuat.",
-          timer: 1400,
-          showConfirmButton: false,
+          color:
+            "#123d59",
         });
 
         router.replace(
-          "/dashboard"
+          "/login"
+        );
+      } catch (error) {
+        console.error(
+          "Register error:",
+          error
         );
 
-        router.refresh();
+        await Swal.fire({
+          icon:
+            "error",
 
-        return;
+          title:
+            "Connection error",
+
+          text:
+            "Please try again in a moment.",
+
+          confirmButtonText:
+            "OK",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+      } finally {
+        setIsLoading(
+          false
+        );
       }
-
-      /*
-       * Jika Email Confirmation ON,
-       * user perlu membuka email.
-       */
-
-      await Swal.fire({
-        icon: "success",
-        title:
-          "Akun berhasil dibuat ♡",
-        text:
-          "Silakan cek email untuk melakukan konfirmasi akun sebelum login.",
-        confirmButtonText:
-          "Ke Login",
-        confirmButtonColor:
-          "#1688b5",
-      });
-
-      router.replace("/login");
-    } catch (error) {
-      console.error(
-        "Register error:",
-        error
-      );
-
-      await Swal.fire({
-        icon: "error",
-        title:
-          "Terjadi kesalahan",
-        text:
-          "Tidak dapat terhubung ke server. Silakan coba kembali.",
-        confirmButtonText: "Oke",
-        confirmButtonColor:
-          "#1688b5",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
   return (
     <main
       className="
-        relative
         min-h-[100svh]
-        overflow-hidden
-        bg-[#f9fcfd]
+        bg-[#f7f7f4]
+        text-ocean-950
       "
     >
       <div
         className="
-          absolute
-          inset-0
-          bg-[radial-gradient(circle_at_10%_10%,rgba(103,197,226,0.26),transparent_30%),radial-gradient(circle_at_90%_15%,rgba(244,219,184,0.40),transparent_30%),linear-gradient(145deg,#f3fbff_0%,#fffdf8_48%,#f6eee4_100%)]
-        "
-      />
-
-      <div
-        className="
-          absolute
-          -left-24
-          bottom-16
-          h-80
-          w-80
-          rounded-full
-          bg-ocean-300/20
-          blur-3xl
-        "
-      />
-
-      <div
-        className="
-          relative
-          z-10
           mx-auto
           grid
           min-h-[100svh]
           max-w-[1600px]
-          lg:grid-cols-[0.9fr_1.1fr]
+          lg:grid-cols-[0.92fr_1.08fr]
         "
       >
-        {/* REGISTER */}
+        {/* FORM */}
 
         <section
           className="
             flex
+            min-h-[100svh]
             items-center
             justify-center
             px-5
-            py-8
+            py-10
             sm:px-8
-            lg:px-10
-            xl:px-16
-          "
-        >
-          <div className="w-full max-w-[540px]">
-            <Link
-              href="/login"
-              className="
-                mb-6
-                inline-flex
-                items-center
-                gap-2
-                text-sm
-                font-semibold
-                text-ink-soft
-                transition
-                hover:text-ocean-800
-              "
-            >
-              <ArrowLeft size={17} />
-
-              Back to login
-            </Link>
-
-            <div
-              className="
-                glass-card-strong
-                rounded-[32px]
-                p-6
-                sm:p-8
-                xl:p-10
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-4
-                "
-              >
-                <Image
-                  src="/icons/love4ever-logo.png"
-                  alt="Love4ever"
-                  width={60}
-                  height={60}
-                  priority
-                  className="
-                    h-14
-                    w-14
-                    rounded-2xl
-                    object-cover
-                    shadow-md
-                  "
-                />
-
-                <div>
-                  <p
-                    className="
-                      text-xs
-                      font-bold
-                      uppercase
-                      tracking-[0.22em]
-                      text-ocean-600
-                    "
-                  >
-                    Love4ever
-                  </p>
-
-                  <p className="mt-1 text-xs text-ink-soft">
-                    Our private little world
-                  </p>
-                </div>
-              </div>
-
-              <h1
-                className="
-                  mt-7
-                  font-display
-                  text-4xl
-                  font-semibold
-                  text-ocean-950
-                  sm:text-5xl
-                "
-              >
-                Create Account
-              </h1>
-
-              <p
-                className="
-                  mt-3
-                  text-sm
-                  leading-7
-                  text-ink-soft
-                "
-              >
-                Buat akun untuk menjadi bagian
-                dari perjalanan Love4ever.
-              </p>
-
-              <form
-                onSubmit={handleRegister}
-                className="mt-8 space-y-5"
-              >
-                <InputGroup
-                  id="full-name"
-                  label="Full Name"
-                  icon={User}
-                >
-                  <input
-                    id="full-name"
-                    type="text"
-                    value={fullName}
-                    onChange={(event) =>
-                      setFullName(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Nama lengkap"
-                    autoComplete="name"
-                    className="
-                      love-input
-                      rounded-2xl
-                      py-4
-                      pl-12
-                      pr-4
-                      text-sm
-                    "
-                  />
-                </InputGroup>
-
-                <InputGroup
-                  id="register-email"
-                  label="Email"
-                  icon={Mail}
-                >
-                  <input
-                    id="register-email"
-                    type="email"
-                    value={email}
-                    onChange={(event) =>
-                      setEmail(
-                        event.target.value
-                      )
-                    }
-                    placeholder="your@email.com"
-                    autoComplete="email"
-                    className="
-                      love-input
-                      rounded-2xl
-                      py-4
-                      pl-12
-                      pr-4
-                      text-sm
-                    "
-                  />
-                </InputGroup>
-
-                <InputGroup
-                  id="register-password"
-                  label="Password"
-                  icon={Lock}
-                >
-                  <input
-                    id="register-password"
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
-                    value={password}
-                    onChange={(event) =>
-                      setPassword(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Minimal 6 karakter"
-                    autoComplete="new-password"
-                    className="
-                      love-input
-                      rounded-2xl
-                      py-4
-                      pl-12
-                      pr-12
-                      text-sm
-                    "
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowPassword(
-                        (current) =>
-                          !current
-                      )
-                    }
-                    className="
-                      absolute
-                      right-4
-                      top-1/2
-                      -translate-y-1/2
-                      text-ink-soft
-                      hover:text-ocean-700
-                    "
-                    aria-label={
-                      showPassword
-                        ? "Hide password"
-                        : "Show password"
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeOff
-                        size={19}
-                      />
-                    ) : (
-                      <Eye
-                        size={19}
-                      />
-                    )}
-                  </button>
-                </InputGroup>
-
-                <InputGroup
-                  id="confirmation"
-                  label="Confirm Password"
-                  icon={Lock}
-                >
-                  <input
-                    id="confirmation"
-                    type={
-                      showConfirmation
-                        ? "text"
-                        : "password"
-                    }
-                    value={confirmation}
-                    onChange={(event) =>
-                      setConfirmation(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Ulangi password"
-                    autoComplete="new-password"
-                    className="
-                      love-input
-                      rounded-2xl
-                      py-4
-                      pl-12
-                      pr-12
-                      text-sm
-                    "
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowConfirmation(
-                        (current) =>
-                          !current
-                      )
-                    }
-                    className="
-                      absolute
-                      right-4
-                      top-1/2
-                      -translate-y-1/2
-                      text-ink-soft
-                      hover:text-ocean-700
-                    "
-                    aria-label={
-                      showConfirmation
-                        ? "Hide password"
-                        : "Show password"
-                    }
-                  >
-                    {showConfirmation ? (
-                      <EyeOff
-                        size={19}
-                      />
-                    ) : (
-                      <Eye
-                        size={19}
-                      />
-                    )}
-                  </button>
-                </InputGroup>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="
-                    love-button
-                    flex
-                    w-full
-                    items-center
-                    justify-center
-                    gap-3
-                    rounded-2xl
-                    py-4
-                    font-semibold
-                    disabled:cursor-not-allowed
-                    disabled:opacity-70
-                  "
-                >
-                  {isLoading ? (
-                    <>
-                      <span
-                        className="
-                          h-5
-                          w-5
-                          animate-spin
-                          rounded-full
-                          border-2
-                          border-white/30
-                          border-t-white
-                        "
-                      />
-
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      Create Account
-
-                      <ArrowRight
-                        size={19}
-                      />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <p
-                className="
-                  mt-7
-                  text-center
-                  text-sm
-                  text-ink-soft
-                "
-              >
-                Sudah punya akun?{" "}
-                <Link
-                  href="/login"
-                  className="
-                    font-bold
-                    text-ocean-700
-                    hover:text-ocean-950
-                  "
-                >
-                  Login
-                </Link>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* RIGHT DESKTOP */}
-
-        <section
-          className="
-            relative
-            hidden
-            p-8
-            lg:flex
-            xl:p-12
+            lg:px-14
+            xl:px-20
           "
         >
           <div
             className="
-              love-gradient
-              relative
-              flex
               w-full
-              flex-col
-              justify-between
-              overflow-hidden
-              rounded-[42px]
-              p-10
-              text-white
-              shadow-love-lg
-              xl:p-14
+              max-w-[440px]
             "
           >
             <div
               className="
-                absolute
-                -right-20
-                top-0
-                h-96
-                w-96
-                rounded-full
-                bg-white/10
-                blur-3xl
-              "
-            />
-
-            <div
-              className="
-                absolute
-                -bottom-32
-                -left-24
-                h-96
-                w-96
-                rounded-full
-                bg-ocean-200/20
-                blur-3xl
-              "
-            />
-
-            <div
-              className="
-                relative
-                z-10
+                mb-8
                 flex
                 items-center
                 justify-between
+                gap-4
               "
             >
-              <div
+              <Link
+                href="/login"
                 className="
-                  flex
+                  group
+                  inline-flex
                   items-center
                   gap-2
-                  text-sm
+                  text-xs
+                  font-semibold
+                  text-ink-soft
+                  transition
+                  hover:text-ocean-950
                 "
               >
-                <Heart
-                  size={17}
-                  fill="currentColor"
+                <ArrowLeft
+                  size={14}
+                  className="
+                    transition-transform
+                    group-hover:-translate-x-0.5
+                  "
                 />
 
-                Izac & Lian
-              </div>
+                Back
+              </Link>
 
-              <Sparkles size={22} />
-            </div>
-
-            <div
-              className="
-                relative
-                z-10
-                max-w-2xl
-              "
-            >
               <p
-                className="
-                  mb-5
-                  text-sm
-                  font-semibold
-                  uppercase
-                  tracking-[0.3em]
-                  text-white/65
-                "
-              >
-                Better Together
-              </p>
-
-              <h2
                 className="
                   font-display
-                  text-5xl
+                  text-lg
                   font-semibold
-                  leading-[1.08]
-                  xl:text-7xl
+                  tracking-[-0.02em]
+                  lg:hidden
                 "
               >
-                One account.
-                <br />
-                Thousands of memories.
-              </h2>
-
-              <p
-                className="
-                  mt-7
-                  max-w-xl
-                  text-base
-                  leading-8
-                  text-white/75
-                  xl:text-lg
-                "
-              >
-                Love4ever dibuat bukan hanya
-                untuk menyimpan foto, tetapi
-                untuk menyimpan perjalanan
-                yang terus bertambah setiap
-                harinya.
+                Love4ever
               </p>
             </div>
 
-            <div
-              className="
-                relative
-                z-10
-                rounded-[28px]
-                border
-                border-white/15
-                bg-white/10
-                p-6
-                backdrop-blur-xl
-              "
-            >
-              <Heart
-                size={25}
-                fill="currentColor"
-              />
+            <div>
+              <h1
+                className="
+                  font-display
+                  text-[42px]
+                  font-semibold
+                  leading-none
+                  tracking-[-0.045em]
+                  text-ocean-950
+                  sm:text-[48px]
+                "
+              >
+                Create account
+              </h1>
 
-              <blockquote
+              <p
                 className="
                   mt-4
-                  font-display
-                  text-2xl
-                  italic
-                  leading-relaxed
+                  text-sm
+                  text-ink-soft
                 "
               >
-                “Same journey, brighter
-                tomorrows, always.”
-              </blockquote>
+                Join Love4ever.
+              </p>
+            </div>
 
-              <p className="mt-4 text-sm text-white/60">
-                — Love4ever ♡
+            <form
+              onSubmit={
+                handleRegister
+              }
+              className="
+                mt-9
+                space-y-4
+              "
+            >
+              <Field
+                id="full-name"
+                label="Full Name"
+                icon={User}
+              >
+                <input
+                  id="full-name"
+                  name="full-name"
+                  type="text"
+                  value={
+                    fullName
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setFullName(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Full name"
+                  autoComplete="name"
+                  disabled={
+                    isLoading
+                  }
+                  className={
+                    inputClass
+                  }
+                />
+              </Field>
+
+              <Field
+                id="register-email"
+                label="Email"
+                icon={Mail}
+              >
+                <input
+                  id="register-email"
+                  name="email"
+                  type="email"
+                  value={
+                    email
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setEmail(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Email"
+                  autoComplete="email"
+                  disabled={
+                    isLoading
+                  }
+                  className={
+                    inputClass
+                  }
+                />
+              </Field>
+
+              <Field
+                id="register-password"
+                label="Password"
+                icon={Lock}
+              >
+                <input
+                  id="register-password"
+                  name="password"
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  value={
+                    password
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setPassword(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Minimum 6 characters"
+                  autoComplete="new-password"
+                  disabled={
+                    isLoading
+                  }
+                  className={`
+                    ${inputClass}
+                    pr-12
+                  `}
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword(
+                      (
+                        current
+                      ) =>
+                        !current
+                    )
+                  }
+                  disabled={
+                    isLoading
+                  }
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                  className={
+                    passwordToggleClass
+                  }
+                >
+                  {showPassword ? (
+                    <EyeOff
+                      size={16}
+                    />
+                  ) : (
+                    <Eye
+                      size={16}
+                    />
+                  )}
+                </button>
+              </Field>
+
+              <Field
+                id="confirmation"
+                label="Confirm Password"
+                icon={Lock}
+              >
+                <input
+                  id="confirmation"
+                  name="confirmation"
+                  type={
+                    showConfirmation
+                      ? "text"
+                      : "password"
+                  }
+                  value={
+                    confirmation
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setConfirmation(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  disabled={
+                    isLoading
+                  }
+                  className={`
+                    ${inputClass}
+                    pr-12
+                  `}
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmation(
+                      (
+                        current
+                      ) =>
+                        !current
+                    )
+                  }
+                  disabled={
+                    isLoading
+                  }
+                  aria-label={
+                    showConfirmation
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                  className={
+                    passwordToggleClass
+                  }
+                >
+                  {showConfirmation ? (
+                    <EyeOff
+                      size={16}
+                    />
+                  ) : (
+                    <Eye
+                      size={16}
+                    />
+                  )}
+                </button>
+              </Field>
+
+              <button
+                type="submit"
+                disabled={
+                  isLoading
+                }
+                className="
+                  group
+                  mt-2
+                  flex
+                  w-full
+                  items-center
+                  justify-center
+                  gap-2.5
+                  rounded-[14px]
+                  bg-ocean-950
+                  px-5
+                  py-3.5
+                  text-sm
+                  font-semibold
+                  text-white
+                  transition
+                  hover:bg-ocean-800
+                  active:scale-[0.99]
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+              >
+                {isLoading ? (
+                  <>
+                    <span
+                      className="
+                        h-4
+                        w-4
+                        animate-spin
+                        rounded-full
+                        border-2
+                        border-white/25
+                        border-t-white
+                      "
+                    />
+
+                    Creating account
+                  </>
+                ) : (
+                  <>
+                    Create account
+
+                    <ArrowRight
+                      size={15}
+                      className="
+                        transition-transform
+                        group-hover:translate-x-0.5
+                      "
+                    />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div
+              className="
+                mt-7
+                flex
+                items-center
+                justify-between
+                gap-4
+                border-t
+                border-ocean-100
+                pt-6
+              "
+            >
+              <p
+                className="
+                  text-xs
+                  text-ink-soft
+                "
+              >
+                Already registered?
+              </p>
+
+              <Link
+                href="/login"
+                className="
+                  text-xs
+                  font-semibold
+                  text-ocean-800
+                  transition
+                  hover:text-ocean-950
+                "
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* IMAGE */}
+
+        <section
+          className="
+            hidden
+            p-6
+            lg:block
+            xl:p-8
+          "
+        >
+          <div
+            className="
+              relative
+              h-full
+              min-h-[calc(100svh-64px)]
+              overflow-hidden
+              rounded-[32px]
+              bg-ocean-950
+            "
+          >
+            <Image
+              src="/images/register.jpg"
+              alt="Love4ever"
+              fill
+              priority
+              className="
+                object-cover
+              "
+            />
+
+            <div
+              className="
+                absolute
+                inset-0
+                bg-[linear-gradient(180deg,rgba(6,42,63,0.04)_20%,rgba(6,42,63,0.72)_100%)]
+              "
+            />
+
+            <div
+              className="
+                absolute
+                bottom-0
+                left-0
+                right-0
+                flex
+                items-end
+                justify-between
+                gap-6
+                p-8
+                text-white
+                xl:p-10
+              "
+            >
+              <div>
+                <p
+                  className="
+                    font-display
+                    text-[32px]
+                    font-semibold
+                    tracking-[-0.035em]
+                  "
+                >
+                  Love4ever
+                </p>
+
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    text-white/58
+                  "
+                >
+                  Izac & Lian
+                </p>
+              </div>
+
+              <p
+                className="
+                  text-[10px]
+                  text-white/45
+                "
+              >
+                07.10.2024
               </p>
             </div>
           </div>
@@ -796,25 +820,34 @@ export default function RegisterPage() {
   );
 }
 
-function InputGroup({
+function Field({
   id,
   label,
   icon: Icon,
   children,
 }: {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
+  id:
+    string;
+
+  label:
+    string;
+
+  icon:
+    React.ElementType;
+
+  children:
+    React.ReactNode;
 }) {
   return (
     <div>
       <label
-        htmlFor={id}
+        htmlFor={
+          id
+        }
         className="
           mb-2
           block
-          text-sm
+          text-xs
           font-semibold
           text-ocean-900
         "
@@ -822,16 +855,22 @@ function InputGroup({
         {label}
       </label>
 
-      <div className="relative">
+      <div
+        className="
+          relative
+        "
+      >
         <Icon
-          size={19}
+          size={16}
+          strokeWidth={1.8}
           className="
+            pointer-events-none
             absolute
             left-4
             top-1/2
             z-10
             -translate-y-1/2
-            text-ocean-600
+            text-ink-soft/55
           "
         />
 
@@ -840,3 +879,43 @@ function InputGroup({
     </div>
   );
 }
+
+const inputClass = `
+  w-full
+  rounded-[14px]
+  border
+  border-ocean-100
+  bg-white
+  py-3.5
+  pl-11
+  pr-4
+  text-sm
+  text-ocean-950
+  outline-none
+  transition
+  placeholder:text-ink-soft/35
+  focus:border-ocean-300
+  focus:ring-4
+  focus:ring-ocean-100/40
+  disabled:cursor-not-allowed
+  disabled:opacity-60
+`;
+
+const passwordToggleClass = `
+  absolute
+  right-3
+  top-1/2
+  z-20
+  flex
+  h-8
+  w-8
+  -translate-y-1/2
+  items-center
+  justify-center
+  rounded-full
+  text-ink-soft/55
+  transition
+  hover:bg-ocean-50
+  hover:text-ocean-900
+  disabled:opacity-40
+`;

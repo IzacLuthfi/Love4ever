@@ -4,25 +4,45 @@
 
 import Image from "next/image";
 import Link from "next/link";
+
 import { usePathname } from "next/navigation";
+
+import type {
+  ElementType,
+} from "react";
 
 import {
   CalendarDays,
   ChevronRight,
   Home,
   Images,
+  History,
   MapPinned,
   MessageCircleHeart,
   Music2,
   NotebookPen,
+  Search,
   Settings,
 } from "lucide-react";
 
+import LogoutButton from "@/components/ui/LogoutButton";
+
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 type SidebarUser = {
   fullName: string;
+
   nickname: string;
+
   email: string;
-  avatarUrl: string | null;
+
+  avatarUrl:
+    | string
+    | null;
 };
 
 type AppSidebarProps = {
@@ -31,74 +51,170 @@ type AppSidebarProps = {
 
 type NavigationItem = {
   label: string;
+
   href: string;
-  icon: React.ElementType;
+
+  icon: ElementType;
 };
 
-const mainNavigation: NavigationItem[] = [
+/*
+ * =========================================================
+ * NAVIGATION
+ * =========================================================
+ */
+
+const navigation:
+  NavigationItem[] = [
   {
-    label: "Home",
-    href: "/dashboard",
-    icon: Home,
+    label:
+      "Home",
+
+    href:
+      "/dashboard",
+
+    icon:
+      Home,
   },
   {
-    label: "Gallery",
-    href: "/gallery",
-    icon: Images,
+  label: "Search",
+  href: "/search",
+  icon: Search,
+},
+  {
+    label:
+      "Gallery",
+
+    href:
+      "/gallery",
+
+    icon:
+      Images,
   },
   {
-    label: "Planner",
-    href: "/planner",
-    icon: CalendarDays,
+    label:
+      "Planner",
+
+    href:
+      "/planner",
+
+    icon:
+      CalendarDays,
   },
   {
-    label: "Memories",
-    href: "/memories",
-    icon: MapPinned,
+    label:
+      "Memories",
+
+    href:
+      "/memories",
+
+    icon:
+      MapPinned,
+  },
+  {
+  label: "Timeline",
+  href: "/timeline",
+  icon: History,
+},
+  {
+    label:
+      "Messages",
+
+    href:
+      "/messages",
+
+    icon:
+      MessageCircleHeart,
+  },
+  {
+    label:
+      "Notes",
+
+    href:
+      "/notes",
+
+    icon:
+      NotebookPen,
+  },
+  {
+    label:
+      "Music",
+
+    href:
+      "/music",
+
+    icon:
+      Music2,
   },
 ];
 
-const connectionNavigation: NavigationItem[] = [
-  {
-    label: "Messages",
-    href: "/messages",
-    icon: MessageCircleHeart,
-  },
-  {
-    label: "Notes",
-    href: "/notes",
-    icon: NotebookPen,
-  },
-  {
-    label: "Music",
-    href: "/music",
-    icon: Music2,
-  },
-];
+/*
+ * =========================================================
+ * COMPONENT
+ * =========================================================
+ */
 
 export default function AppSidebar({
   user,
 }: AppSidebarProps) {
-  const pathname = usePathname();
+  const pathname =
+    usePathname();
 
-  const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
+  /*
+   * =========================================================
+   * ACTIVE ROUTE
+   * =========================================================
+   */
+
+  const isActive = (
+    href: string
+  ) => {
+    if (
+      href ===
+      "/dashboard"
+    ) {
+      return (
+        pathname ===
+        "/dashboard"
+      );
     }
 
     return (
       pathname === href ||
-      pathname.startsWith(`${href}/`)
+      pathname.startsWith(
+        `${href}/`
+      )
     );
   };
+
+  /*
+   * =========================================================
+   * USER
+   * =========================================================
+   */
+
+  const displayName =
+    user.nickname?.trim() ||
+    user.fullName?.trim() ||
+    "Profile";
+
+  const initials =
+    getInitials(
+      displayName
+    );
+
+  /*
+   * =========================================================
+   * UI
+   * =========================================================
+   */
 
   return (
     <aside
       className="
         fixed
-        bottom-4
-        left-4
-        top-4
+        bottom-[18px]
+        left-[18px]
+        top-[18px]
         z-40
         hidden
         w-[268px]
@@ -106,26 +222,28 @@ export default function AppSidebar({
         overflow-hidden
         rounded-[30px]
         border
-        border-white/80
-        bg-white/80
-        shadow-[0_20px_70px_rgba(17,76,104,0.10)]
-        backdrop-blur-[28px]
+        border-white/75
+        bg-white/78
+        shadow-[0_24px_70px_rgba(8,59,89,0.08)]
+        backdrop-blur-[30px]
         lg:flex
       "
     >
-      {/* BACKGROUND DECORATION */}
+      {/* =====================================================
+          BACKGROUND
+      ====================================================== */}
 
       <div
         className="
           pointer-events-none
           absolute
-          -right-24
-          -top-24
-          h-56
-          w-56
+          -right-28
+          -top-32
+          h-64
+          w-64
           rounded-full
-          bg-ocean-200/25
-          blur-3xl
+          bg-ocean-100/30
+          blur-[85px]
         "
       />
 
@@ -133,17 +251,19 @@ export default function AppSidebar({
         className="
           pointer-events-none
           absolute
-          -bottom-28
-          -left-24
-          h-56
-          w-56
+          -bottom-36
+          -left-28
+          h-64
+          w-64
           rounded-full
           bg-cream-deep/20
-          blur-3xl
+          blur-[95px]
         "
       />
 
-      {/* BRAND */}
+      {/* =====================================================
+          ACCOUNT
+      ====================================================== */}
 
       <div
         className="
@@ -155,194 +275,74 @@ export default function AppSidebar({
         "
       >
         <Link
-          href="/dashboard"
+          href="/profile"
           className="
             group
             flex
             items-center
-            gap-3
+            gap-3.5
             rounded-[20px]
-            px-2
-            py-2
+            border
+            border-ocean-100/55
+            bg-white/52
+            px-3
+            py-3
+            transition
+            duration-200
+            hover:border-ocean-100
+            hover:bg-white/82
+            hover:shadow-[0_8px_25px_rgba(8,59,89,0.045)]
           "
         >
+          {/* AVATAR */}
+
           <div
             className="
               relative
+              h-11
+              w-11
               shrink-0
             "
           >
-            <div
-              className="
-                absolute
-                inset-1
-                rounded-2xl
-                bg-ocean-300/25
-                blur-md
-              "
-            />
-
-            <Image
-              src="/icons/love4ever-logo.png"
-              alt="Love4ever"
-              width={48}
-              height={48}
-              priority
-              className="
-                relative
-                h-12
-                w-12
-                rounded-[16px]
-                border
-                border-white
-                object-cover
-                shadow-[0_8px_20px_rgba(17,107,145,0.14)]
-              "
-            />
+            {user.avatarUrl ? (
+              <Image
+                src={
+                  user.avatarUrl
+                }
+                alt={
+                  displayName
+                }
+                fill
+                unoptimized
+                className="
+                  rounded-[14px]
+                  object-cover
+                  ring-1
+                  ring-ocean-100
+                "
+              />
+            ) : (
+              <div
+                className="
+                  flex
+                  h-full
+                  w-full
+                  items-center
+                  justify-center
+                  rounded-[14px]
+                  bg-ocean-950
+                  font-display
+                  text-[15px]
+                  font-semibold
+                  text-white
+                "
+              >
+                {initials}
+              </div>
+            )}
           </div>
 
-          <div className="min-w-0">
-            <h1
-              className="
-                font-display
-                text-[21px]
-                font-semibold
-                leading-none
-                tracking-[-0.02em]
-                text-ocean-950
-              "
-            >
-              Love4ever
-            </h1>
-
-            <p
-              className="
-                mt-2
-                text-[9px]
-                font-bold
-                uppercase
-                tracking-[0.22em]
-                text-ocean-500
-              "
-            >
-              Izac & Lian
-            </p>
-          </div>
-        </Link>
-      </div>
-
-      {/* DIVIDER */}
-
-      <div
-        className="
-          mx-6
-          h-px
-          bg-gradient-to-r
-          from-transparent
-          via-ocean-100
-          to-transparent
-        "
-      />
-
-      {/* NAVIGATION */}
-
-      <div
-        className="
-          relative
-          z-10
-          flex-1
-          overflow-y-auto
-          px-4
-          pb-4
-          pt-5
-        "
-      >
-        <NavigationSection
-          title="Our Space"
-          navigation={mainNavigation}
-          isActive={isActive}
-        />
-
-        <div className="mt-7">
-          <NavigationSection
-            title="Connection"
-            navigation={connectionNavigation}
-            isActive={isActive}
-          />
-        </div>
-      </div>
-
-      {/* BOTTOM */}
-
-      <div
-        className="
-          relative
-          z-10
-          border-t
-          border-ocean-100/70
-          p-3
-        "
-      >
-        {/* PROFILE */}
-
-        <Link
-          href="/profile"
-          className={`
-            group
-            flex
-            items-center
-            gap-3
-            rounded-[18px]
-            px-3
-            py-2.5
-            transition-all
-            duration-200
-            ${
-              isActive("/profile")
-                ? "bg-ocean-50"
-                : "hover:bg-ocean-50/80"
-            }
-          `}
-        >
-          {user.avatarUrl ? (
-            <Image
-              src={user.avatarUrl}
-              alt={user.nickname}
-              width={40}
-              height={40}
-              className="
-                h-10
-                w-10
-                shrink-0
-                rounded-[14px]
-                object-cover
-                shadow-sm
-              "
-            />
-          ) : (
-            <div
-              className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-[14px]
-                bg-gradient-to-br
-                from-ocean-100
-                to-sky-soft
-                font-display
-                text-base
-                font-bold
-                text-ocean-700
-              "
-            >
-              {user.nickname
-                .charAt(0)
-                .toUpperCase()}
-            </div>
-          )}
+          {/* INFO */}
 
           <div
             className="
@@ -353,222 +353,349 @@ export default function AppSidebar({
             <p
               className="
                 truncate
-                text-sm
-                font-bold
+                text-[13px]
+                font-semibold
                 text-ocean-950
               "
             >
-              {user.nickname}
+              {displayName}
             </p>
 
-            <p
-              className="
-                mt-0.5
-                text-[10px]
-                font-medium
-                text-ink-soft
-              "
-            >
-              Profile
-            </p>
+            {user.fullName &&
+              user.fullName !==
+                displayName && (
+                <p
+                  className="
+                    mt-0.5
+                    truncate
+                    text-[10px]
+                    text-ink-soft
+                  "
+                >
+                  {
+                    user.fullName
+                  }
+                </p>
+              )}
           </div>
 
           <ChevronRight
-            size={16}
+            size={15}
+            strokeWidth={1.8}
             className="
               shrink-0
               text-ocean-300
-              transition-all
+              transition
               duration-200
               group-hover:translate-x-0.5
               group-hover:text-ocean-600
             "
           />
         </Link>
+      </div>
 
-        {/* SETTINGS */}
+      {/* =====================================================
+          NAVIGATION
+      ====================================================== */}
 
-        <Link
-          href="/settings"
-          className={`
-            mt-1
-            flex
-            items-center
-            gap-3
-            rounded-[17px]
-            px-3
-            py-2.5
-            text-[13px]
-            font-semibold
-            transition-all
-            duration-200
-            ${
-              isActive("/settings")
-                ? "bg-ocean-700 text-white shadow-[0_10px_25px_rgba(17,107,145,0.18)]"
-                : "text-ink-soft hover:bg-ocean-50 hover:text-ocean-800"
-            }
-          `}
+      <div
+        className="
+          relative
+          z-10
+          flex-1
+          overflow-y-auto
+          px-4
+          py-3
+          [scrollbar-width:none]
+          [&::-webkit-scrollbar]:hidden
+        "
+      >
+        <nav
+          className="
+            space-y-1
+          "
         >
-          <div
+          {navigation.map(
+            (item) => {
+              const Icon =
+                item.icon;
+
+              const active =
+                isActive(
+                  item.href
+                );
+
+              return (
+                <Link
+                  key={
+                    item.href
+                  }
+                  href={
+                    item.href
+                  }
+                  aria-current={
+                    active
+                      ? "page"
+                      : undefined
+                  }
+                  className={`
+                    group
+                    relative
+                    flex
+                    h-[46px]
+                    items-center
+                    gap-3
+                    rounded-[15px]
+                    px-3
+                    text-[13px]
+                    font-medium
+                    transition
+                    duration-200
+
+                    ${
+                      active
+                        ? "bg-ocean-950/[0.065] text-ocean-950"
+                        : "text-ink-soft hover:bg-white/65 hover:text-ocean-900"
+                    }
+                  `}
+                >
+                  {/* ACTIVE LINE */}
+
+                  <span
+                    className={`
+                      absolute
+                      left-0
+                      h-5
+                      w-[3px]
+                      rounded-full
+                      bg-ocean-800
+                      transition
+                      duration-200
+
+                      ${
+                        active
+                          ? "scale-y-100 opacity-100"
+                          : "scale-y-50 opacity-0"
+                      }
+                    `}
+                  />
+
+                  {/* ICON */}
+
+                  <span
+                    className={`
+                      flex
+                      h-8
+                      w-8
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-[10px]
+                      transition
+                      duration-200
+
+                      ${
+                        active
+                          ? "bg-ocean-950 text-white shadow-[0_5px_14px_rgba(6,42,63,0.14)]"
+                          : "text-ocean-500 group-hover:text-ocean-800"
+                      }
+                    `}
+                  >
+                    <Icon
+                      size={16}
+                      strokeWidth={
+                        active
+                          ? 2
+                          : 1.8
+                      }
+                    />
+                  </span>
+
+                  <span>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            }
+          )}
+        </nav>
+      </div>
+
+      {/* =====================================================
+          ACCOUNT ACTIONS
+      ====================================================== */}
+
+      <div
+        className="
+          relative
+          z-10
+          px-4
+          pb-4
+          pt-3
+        "
+      >
+        {/* SEPARATOR */}
+
+        <div
+          className="
+            mb-3
+            h-px
+            bg-ocean-100/70
+          "
+        />
+
+        <div
+          className="
+            space-y-1
+          "
+        >
+          {/* SETTINGS */}
+
+          <Link
+            href="/settings"
+            aria-current={
+              isActive(
+                "/settings"
+              )
+                ? "page"
+                : undefined
+            }
             className={`
+              group
+              relative
               flex
-              h-8
-              w-8
+              h-[44px]
               items-center
-              justify-center
-              rounded-[11px]
+              gap-3
+              rounded-[15px]
+              px-3
+              text-[13px]
+              font-medium
+              transition
+              duration-200
+
               ${
-                isActive("/settings")
-                  ? "bg-white/15"
-                  : "bg-ocean-50"
+                isActive(
+                  "/settings"
+                )
+                  ? "bg-ocean-950/[0.065] text-ocean-950"
+                  : "text-ink-soft hover:bg-white/65 hover:text-ocean-900"
               }
             `}
           >
-            <Settings
-              size={16}
-            />
-          </div>
+            {/* ACTIVE LINE */}
 
-          <span>
-            Settings
-          </span>
-        </Link>
+            <span
+              className={`
+                absolute
+                left-0
+                h-5
+                w-[3px]
+                rounded-full
+                bg-ocean-800
+                transition
+
+                ${
+                  isActive(
+                    "/settings"
+                  )
+                    ? "scale-y-100 opacity-100"
+                    : "scale-y-50 opacity-0"
+                }
+              `}
+            />
+
+            {/* ICON */}
+
+            <span
+              className={`
+                flex
+                h-8
+                w-8
+                shrink-0
+                items-center
+                justify-center
+                rounded-[10px]
+                transition
+
+                ${
+                  isActive(
+                    "/settings"
+                  )
+                    ? "bg-ocean-950 text-white shadow-[0_5px_14px_rgba(6,42,63,0.14)]"
+                    : "text-ocean-500 group-hover:text-ocean-800"
+                }
+              `}
+            >
+              <Settings
+                size={16}
+                strokeWidth={1.8}
+              />
+            </span>
+
+            <span>
+              Settings
+            </span>
+          </Link>
+
+          {/* LOGOUT */}
+
+          <LogoutButton />
+        </div>
+
+        {/* SMALL ACCOUNT FOOTER */}
+
+        <div
+          className="
+            mt-3
+            px-3
+          "
+        >
+          <p
+            className="
+              text-[9px]
+              font-medium
+              tracking-[0.02em]
+              text-ink-soft/35
+            "
+          >
+            Love4ever · Private Space
+          </p>
+        </div>
       </div>
     </aside>
   );
 }
 
 /*
- * ============================================
- * NAVIGATION SECTION
- * ============================================
+ * =========================================================
+ * INITIALS
+ * =========================================================
  */
 
-function NavigationSection({
-  title,
-  navigation,
-  isActive,
-}: {
-  title: string;
-  navigation: NavigationItem[];
-  isActive: (
-    href: string
-  ) => boolean;
-}) {
-  return (
-    <div>
-      <p
-        className="
-          mb-2
-          px-3
-          text-[9px]
-          font-bold
-          uppercase
-          tracking-[0.24em]
-          text-ink-soft/50
-        "
-      >
-        {title}
-      </p>
+function getInitials(
+  value: string
+) {
+  if (
+    !value.trim()
+  ) {
+    return "?";
+  }
 
-      <nav className="space-y-1">
-        {navigation.map(
-          (item) => {
-            const Icon =
-              item.icon;
-
-            const active =
-              isActive(
-                item.href
-              );
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`
-                  group
-                  relative
-                  flex
-                  items-center
-                  gap-3
-                  overflow-hidden
-                  rounded-[17px]
-                  px-3
-                  py-[10px]
-                  text-[13px]
-                  font-semibold
-                  transition-all
-                  duration-200
-                  ${
-                    active
-                      ? "bg-ocean-700 text-white shadow-[0_10px_28px_rgba(17,107,145,0.16)]"
-                      : "text-ink-soft hover:bg-ocean-50/80 hover:text-ocean-800"
-                  }
-                `}
-              >
-                {active && (
-                  <span
-                    className="
-                      absolute
-                      bottom-3
-                      left-0
-                      top-3
-                      w-[3px]
-                      rounded-r-full
-                      bg-white/90
-                    "
-                  />
-                )}
-
-                <div
-                  className={`
-                    flex
-                    h-8
-                    w-8
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-[11px]
-                    transition-all
-                    duration-200
-                    ${
-                      active
-                        ? "bg-white/15 text-white"
-                        : "bg-ocean-50 text-ocean-600 group-hover:bg-ocean-100"
-                    }
-                  `}
-                >
-                  <Icon
-                    size={16}
-                    strokeWidth={
-                      active
-                        ? 2.3
-                        : 2
-                    }
-                  />
-                </div>
-
-                <span>
-                  {item.label}
-                </span>
-
-                {active && (
-                  <span
-                    className="
-                      ml-auto
-                      h-1.5
-                      w-1.5
-                      rounded-full
-                      bg-white/80
-                    "
-                  />
-                )}
-              </Link>
-            );
-          }
-        )}
-      </nav>
-    </div>
-  );
+  return value
+    .trim()
+    .split(
+      /\s+/
+    )
+    .slice(
+      0,
+      2
+    )
+    .map(
+      (part) =>
+        part
+          .charAt(0)
+          .toUpperCase()
+    )
+    .join("");
 }

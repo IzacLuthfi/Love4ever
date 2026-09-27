@@ -3,22 +3,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 
 import {
-  CalendarDays,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Edit3,
-  ExternalLink,
-  Heart,
-  MapPin,
+  type ReactNode,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  ArrowRight,
+  MoreHorizontal,
   Plus,
-  Trash2,
-  WalletCards,
-  XCircle,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -28,6 +23,17 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 import { createClient } from "@/lib/supabase/client";
 
+import {
+  differenceInDays,
+  getTodayInJakarta,
+} from "@/utils/date";
+
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 type PlanStatus =
   | "planned"
   | "done"
@@ -35,21 +41,16 @@ type PlanStatus =
 
 type Plan = {
   id: string;
-
   couple_id: string;
-
   created_by: string;
 
   title: string;
-
   description: string | null;
 
   plan_date: string;
-
   plan_time: string | null;
 
   location_name: string | null;
-
   maps_url: string | null;
 
   budget: number | null;
@@ -57,41 +58,31 @@ type Plan = {
   status: PlanStatus;
 
   created_at: string;
-
   updated_at: string;
 };
 
 type PlannerUser = {
   id: string;
-
   email: string;
-
   fullName: string;
-
   nickname: string;
-
   avatarUrl: string | null;
 };
 
 type PlannerClientProps = {
   user: PlannerUser;
-
   coupleId: string;
-
   initialPlans: Plan[];
 };
 
 type PlanFormResult = {
   title: string;
-
   description: string;
 
   planDate: string;
-
   planTime: string;
 
   locationName: string;
-
   mapsUrl: string;
 
   budget: number | null;
@@ -99,46 +90,44 @@ type PlanFormResult = {
   status: PlanStatus;
 };
 
+type PlanFilter =
+  | "all"
+  | PlanStatus;
+
+/*
+ * =========================================================
+ * COMPONENT
+ * =========================================================
+ */
+
 export default function PlannerClient({
   user,
   coupleId,
   initialPlans,
 }: PlannerClientProps) {
-  const [plans, setPlans] =
+  const [
+    plans,
+    setPlans,
+  ] =
     useState<Plan[]>(
       initialPlans
     );
 
-  const [filter, setFilter] =
-    useState<
-      "all" | PlanStatus
-    >("all");
+  const [
+    filter,
+    setFilter,
+  ] =
+    useState<PlanFilter>(
+      "all"
+    );
+
+  const today =
+    getTodayInJakarta();
 
   /*
-   * ============================================
-   * FILTERED PLANS
-   * ============================================
-   */
-
-  const filteredPlans =
-    useMemo(() => {
-      if (filter === "all") {
-        return plans;
-      }
-
-      return plans.filter(
-        (plan) =>
-          plan.status === filter
-      );
-    }, [
-      filter,
-      plans,
-    ]);
-
-  /*
-   * ============================================
-   * SUMMARY
-   * ============================================
+   * =========================================================
+   * COUNTS
+   * =========================================================
    */
 
   const plannedCount =
@@ -163,59 +152,56 @@ export default function PlannerClient({
     ).length;
 
   /*
-   * ============================================
+   * =========================================================
+   * FILTER
+   * =========================================================
+   */
+
+  const filteredPlans =
+    useMemo(() => {
+      const selected =
+        filter === "all"
+          ? plans
+          : plans.filter(
+              (plan) =>
+                plan.status ===
+                filter
+            );
+
+      return sortPlans(
+        selected
+      );
+    }, [
+      filter,
+      plans,
+    ]);
+
+  /*
+   * =========================================================
    * NEXT PLAN
-   * ============================================
+   * =========================================================
    */
 
   const nextPlan =
     useMemo(() => {
-      const today =
-        new Date();
-
-      today.setHours(
-        0,
-        0,
-        0,
-        0
-      );
-
-      return plans
-        .filter(
-          (plan) => {
-            if (
-              plan.status !==
-              "planned"
-            ) {
-              return false;
-            }
-
-            const planDate =
-              new Date(
-                `${plan.plan_date}T00:00:00`
-              );
-
-            return (
-              planDate >=
+      return sortPlans(
+        plans.filter(
+          (plan) =>
+            plan.status ===
+              "planned" &&
+            plan.plan_date >=
               today
-            );
-          }
         )
-        .sort(
-          (a, b) =>
-            new Date(
-              `${a.plan_date}T${a.plan_time || "00:00"}`
-            ).getTime() -
-            new Date(
-              `${b.plan_date}T${b.plan_time || "00:00"}`
-            ).getTime()
-        )[0] ?? null;
-    }, [plans]);
+      )[0] ?? null;
+    }, [
+      plans,
+      today,
+    ]);
 
   /*
-   * ============================================
-   * CREATE PLAN
-   * ============================================
+   * =========================================================
+   * CREATE
+   * =========================================================
    */
 
   const handleCreate =
@@ -275,18 +261,10 @@ export default function PlannerClient({
           .single();
 
       if (error) {
-        await Swal.fire({
-          icon: "error",
-
-          title:
-            "Plan gagal dibuat",
-
-          text:
-            error.message,
-
-          confirmButtonColor:
-            "#1688b5",
-        });
+        await showError(
+          "Plan could not be created",
+          error.message
+        );
 
         return;
       }
@@ -299,26 +277,15 @@ export default function PlannerClient({
           ])
       );
 
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Plan berhasil dibuat ♡",
-
-        text:
-          "Rencana baru sudah masuk ke Love4ever.",
-
-        timer: 1400,
-
-        showConfirmButton:
-          false,
-      });
+      await showSuccess(
+        "Plan created"
+      );
     };
 
   /*
-   * ============================================
-   * EDIT PLAN
-   * ============================================
+   * =========================================================
+   * EDIT
+   * =========================================================
    */
 
   const handleEdit =
@@ -380,18 +347,10 @@ export default function PlannerClient({
           .single();
 
       if (error) {
-        await Swal.fire({
-          icon: "error",
-
-          title:
-            "Update gagal",
-
-          text:
-            error.message,
-
-          confirmButtonColor:
-            "#1688b5",
-        });
+        await showError(
+          "Plan could not be updated",
+          error.message
+        );
 
         return;
       }
@@ -403,29 +362,23 @@ export default function PlannerClient({
               (item) =>
                 item.id ===
                 plan.id
-                  ? (data as Plan)
+                  ? (
+                      data as Plan
+                    )
                   : item
             )
           )
       );
 
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Plan diperbarui ♡",
-
-        timer: 1200,
-
-        showConfirmButton:
-          false,
-      });
+      await showSuccess(
+        "Plan updated"
+      );
     };
 
   /*
-   * ============================================
-   * DELETE PLAN
-   * ============================================
+   * =========================================================
+   * DELETE
+   * =========================================================
    */
 
   const handleDelete =
@@ -434,28 +387,29 @@ export default function PlannerClient({
     ) => {
       const result =
         await Swal.fire({
-          icon: "warning",
-
           title:
-            "Hapus plan?",
+            "Delete plan?",
 
           text:
-            `"${plan.title}" akan dihapus dari Love4ever.`,
+            plan.title,
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
 
-          cancelButtonColor:
-            "#1688b5",
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -479,18 +433,10 @@ export default function PlannerClient({
           );
 
       if (error) {
-        await Swal.fire({
-          icon: "error",
-
-          title:
-            "Gagal menghapus",
-
-          text:
-            error.message,
-
-          confirmButtonColor:
-            "#1688b5",
-        });
+        await showError(
+          "Plan could not be deleted",
+          error.message
+        );
 
         return;
       }
@@ -503,31 +449,79 @@ export default function PlannerClient({
               plan.id
           )
       );
-
-      await Swal.fire({
-        icon: "success",
-
-        title:
-          "Plan dihapus",
-
-        timer: 1100,
-
-        showConfirmButton:
-          false,
-      });
     };
 
   /*
-   * ============================================
+   * =========================================================
+   * OPTIONS
+   * =========================================================
+   */
+
+  const handleOptions =
+    async (
+      plan: Plan
+    ) => {
+      const result =
+        await Swal.fire({
+          title:
+            plan.title,
+
+          showCancelButton:
+            true,
+
+          showDenyButton:
+            true,
+
+          confirmButtonText:
+            "Edit",
+
+          denyButtonText:
+            "Delete",
+
+          cancelButtonText:
+            "Close",
+
+          confirmButtonColor:
+            "#083b59",
+
+          denyButtonColor:
+            "#d85f72",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+
+      if (
+        result.isConfirmed
+      ) {
+        await handleEdit(
+          plan
+        );
+      }
+
+      if (
+        result.isDenied
+      ) {
+        await handleDelete(
+          plan
+        );
+      }
+    };
+
+  /*
+   * =========================================================
    * UI
-   * ============================================
+   * =========================================================
    */
 
   return (
     <div
       className="
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
@@ -541,12 +535,12 @@ export default function PlannerClient({
           min-h-[100svh]
           px-4
           pb-28
-          pt-4
+          pt-6
           sm:px-6
-          sm:pt-6
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+          lg:px-8
+          lg:pb-14
+          lg:pt-9
           xl:px-10
         "
       >
@@ -554,472 +548,221 @@ export default function PlannerClient({
           className="
             mx-auto
             w-full
-            max-w-[1500px]
+            max-w-[1440px]
           "
         >
-          {/* ====================================
+          {/* =================================================
               HEADER
-          ===================================== */}
+          ================================================= */}
 
           <header
             className="
               flex
-              flex-col
+              items-end
+              justify-between
               gap-5
-              sm:flex-row
-              sm:items-center
-              sm:justify-between
             "
           >
-            <div>
-              <Link
-                href="/dashboard"
-                className="
-                  mb-3
-                  inline-flex
-                  items-center
-                  gap-2
-                  text-sm
-                  font-semibold
-                  text-ink-soft
-                  transition
-                  hover:text-ocean-700
-                "
-              >
-                <ChevronLeft
-                  size={17}
-                />
-
-                Dashboard
-              </Link>
-
-              <p
-                className="
-                  text-xs
-                  font-bold
-                  uppercase
-                  tracking-[0.23em]
-                  text-ocean-500
-                "
-              >
-                Our Planner
-              </p>
-
-              <h1
-                className="
-                  mt-1
-                  font-display
-                  text-3xl
-                  font-semibold
-                  text-ocean-950
-                  sm:text-4xl
-                "
-              >
-                Plans for us ♡
-              </h1>
-
-              <p
-                className="
-                  mt-2
-                  max-w-xl
-                  text-sm
-                  leading-6
-                  text-ink-soft
-                "
-              >
-                Simpan rencana date,
-                perjalanan, wishlist,
-                atau hal kecil yang
-                ingin kalian lakukan
-                bersama.
-              </p>
-            </div>
+            <h1
+              className="
+                font-display
+                text-[34px]
+                font-semibold
+                leading-none
+                tracking-[-0.035em]
+                text-ocean-950
+                sm:text-[40px]
+              "
+            >
+              Planner
+            </h1>
 
             <button
               type="button"
-              onClick={
-                handleCreate
+              onClick={() =>
+                void handleCreate()
               }
               className="
-                love-button
-                flex
+                inline-flex
                 items-center
-                justify-center
                 gap-2
-                rounded-2xl
+                rounded-[13px]
+                bg-ocean-950
                 px-5
-                py-3.5
+                py-2.5
                 text-sm
                 font-semibold
+                text-white
+                shadow-[0_8px_22px_rgba(6,42,63,0.12)]
+                transition
+                hover:bg-ocean-800
+                active:scale-[0.98]
               "
             >
-              <Plus size={18} />
+              <Plus
+                size={15}
+              />
 
               Add Plan
             </button>
           </header>
 
-          {/* ====================================
-              NEXT PLAN
-          ===================================== */}
+          {/* =================================================
+              FEATURED
+          ================================================= */}
 
           <section
             className="
-              mt-7
+              mt-8
               grid
-              gap-4
-              xl:grid-cols-[1.4fr_0.6fr]
+              gap-5
+              xl:grid-cols-[1fr_340px]
             "
           >
-            <div
-              className="
-                relative
-                overflow-hidden
-                rounded-[32px]
-                bg-gradient-to-br
-                from-ocean-900
-                via-ocean-700
-                to-ocean-400
-                p-6
-                text-white
-                shadow-love-lg
-                sm:p-8
-              "
-            >
-              <div
-                className="
-                  absolute
-                  -right-16
-                  -top-20
-                  h-64
-                  w-64
-                  rounded-full
-                  bg-white/10
-                  blur-xl
-                "
-              />
+            <NextPlan
+              plan={
+                nextPlan
+              }
+              today={
+                today
+              }
+              onCreate={
+                handleCreate
+              }
+            />
 
-              <p
-                className="
-                  relative
-                  z-10
-                  text-xs
-                  font-bold
-                  uppercase
-                  tracking-[0.24em]
-                  text-white/60
-                "
-              >
-                Next Plan
-              </p>
-
-              {nextPlan ? (
-                <div
-                  className="
-                    relative
-                    z-10
-                  "
-                >
-                  <h2
-                    className="
-                      mt-4
-                      max-w-3xl
-                      font-display
-                      text-4xl
-                      font-semibold
-                      sm:text-5xl
-                    "
-                  >
-                    {
-                      nextPlan.title
-                    }
-                  </h2>
-
-                  <div
-                    className="
-                      mt-7
-                      flex
-                      flex-wrap
-                      gap-3
-                    "
-                  >
-                    <InfoPill
-                      icon={
-                        CalendarDays
-                      }
-                    >
-                      {formatDate(
-                        nextPlan.plan_date
-                      )}
-                    </InfoPill>
-
-                    {nextPlan.plan_time && (
-                      <InfoPill
-                        icon={
-                          Clock3
-                        }
-                      >
-                        {formatTime(
-                          nextPlan.plan_time
-                        )}
-                      </InfoPill>
-                    )}
-
-                    {nextPlan.location_name && (
-                      <InfoPill
-                        icon={
-                          MapPin
-                        }
-                      >
-                        {
-                          nextPlan.location_name
-                        }
-                      </InfoPill>
-                    )}
-                  </div>
-
-                  {nextPlan.description && (
-                    <p
-                      className="
-                        mt-6
-                        max-w-2xl
-                        text-sm
-                        leading-7
-                        text-white/70
-                      "
-                    >
-                      {
-                        nextPlan.description
-                      }
-                    </p>
-                  )}
-
-                  <Link
-                    href={`/planner/${nextPlan.id}`}
-                    className="
-                      mt-6
-                      inline-flex
-                      items-center
-                      gap-2
-                      rounded-2xl
-                      border
-                      border-white/20
-                      bg-white
-                      px-5
-                      py-3
-                      text-sm
-                      font-bold
-                      text-ocean-800
-                      shadow-lg
-                      transition
-                      hover:-translate-y-0.5
-                      hover:bg-ocean-50
-                    "
-                  >
-                    Open Plan Detail
-
-                    <ChevronRight
-                      size={17}
-                    />
-                  </Link>
-                </div>
-              ) : (
-                <div
-                  className="
-                    relative
-                    z-10
-                  "
-                >
-                  <Heart
-                    className="
-                      mt-8
-                      text-white/75
-                    "
-                    size={37}
-                    fill="currentColor"
-                  />
-
-                  <h2
-                    className="
-                      mt-4
-                      font-display
-                      text-4xl
-                      font-semibold
-                    "
-                  >
-                    Belum ada rencana.
-                  </h2>
-
-                  <p
-                    className="
-                      mt-3
-                      max-w-xl
-                      leading-7
-                      text-white/70
-                    "
-                  >
-                    Mungkin waktunya
-                    merencanakan date
-                    kecil berikutnya ♡
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleCreate
-                    }
-                    className="
-                      mt-6
-                      inline-flex
-                      items-center
-                      gap-2
-                      rounded-2xl
-                      bg-white
-                      px-5
-                      py-3
-                      text-sm
-                      font-bold
-                      text-ocean-800
-                      transition
-                      hover:bg-ocean-50
-                    "
-                  >
-                    <Plus
-                      size={17}
-                    />
-
-                    Create First Plan
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* ====================================
-                SUMMARY
-            ===================================== */}
-
-            <div
-              className="
-                grid
-                grid-cols-3
-                gap-3
-                xl:grid-cols-1
-              "
-            >
-              <SummaryCard
-                label="Planned"
-                value={
-                  plannedCount
-                }
-                icon={
-                  CalendarDays
-                }
-              />
-
-              <SummaryCard
-                label="Done"
-                value={
-                  doneCount
-                }
-                icon={
-                  CheckCircle2
-                }
-              />
-
-              <SummaryCard
-                label="Cancelled"
-                value={
-                  cancelledCount
-                }
-                icon={
-                  XCircle
-                }
-              />
-            </div>
+            <PlanSummary
+              total={
+                plans.length
+              }
+              planned={
+                plannedCount
+              }
+              done={
+                doneCount
+              }
+              cancelled={
+                cancelledCount
+              }
+            />
           </section>
 
-          {/* ====================================
-              FILTER
-          ===================================== */}
+          {/* =================================================
+              FILTERS
+          ================================================= */}
 
-          <section
+          <div
             className="
-              mt-6
+              mt-8
               flex
-              gap-2
-              overflow-x-auto
-              pb-1
+              items-end
+              justify-between
+              gap-5
+              border-b
+              border-ocean-100/80
             "
           >
-            <FilterButton
-              active={
-                filter === "all"
-              }
-              onClick={() =>
-                setFilter("all")
-              }
+            <div
+              className="
+                flex
+                gap-7
+                overflow-x-auto
+                [scrollbar-width:none]
+                [&::-webkit-scrollbar]:hidden
+              "
             >
-              All
-            </FilterButton>
+              <FilterButton
+                active={
+                  filter ===
+                  "all"
+                }
+                onClick={() =>
+                  setFilter(
+                    "all"
+                  )
+                }
+              >
+                All
+              </FilterButton>
 
-            <FilterButton
-              active={
-                filter ===
-                "planned"
-              }
-              onClick={() =>
-                setFilter(
+              <FilterButton
+                active={
+                  filter ===
                   "planned"
-                )
-              }
-            >
-              Planned
-            </FilterButton>
+                }
+                onClick={() =>
+                  setFilter(
+                    "planned"
+                  )
+                }
+              >
+                Planned
+              </FilterButton>
 
-            <FilterButton
-              active={
-                filter === "done"
-              }
-              onClick={() =>
-                setFilter(
+              <FilterButton
+                active={
+                  filter ===
                   "done"
-                )
-              }
-            >
-              Done
-            </FilterButton>
+                }
+                onClick={() =>
+                  setFilter(
+                    "done"
+                  )
+                }
+              >
+                Done
+              </FilterButton>
 
-            <FilterButton
-              active={
-                filter ===
-                "cancelled"
-              }
-              onClick={() =>
-                setFilter(
+              <FilterButton
+                active={
+                  filter ===
                   "cancelled"
-                )
-              }
+                }
+                onClick={() =>
+                  setFilter(
+                    "cancelled"
+                  )
+                }
+              >
+                Cancelled
+              </FilterButton>
+            </div>
+
+            <p
+              className="
+                hidden
+                pb-3.5
+                text-xs
+                text-ink-soft
+                sm:block
+              "
             >
-              Cancelled
-            </FilterButton>
-          </section>
+              {
+                filteredPlans.length
+              }{" "}
+              {filteredPlans.length ===
+              1
+                ? "plan"
+                : "plans"}
+            </p>
+          </div>
 
-          {/* ====================================
-              PLAN LIST
-          ===================================== */}
+          {/* =================================================
+              LIST
+          ================================================= */}
 
-          <section
-            className="
-              mt-5
-              grid
-              gap-4
-              md:grid-cols-2
-              2xl:grid-cols-3
-            "
-          >
-            {filteredPlans.length >
-            0 ? (
-              filteredPlans.map(
+          {filteredPlans.length >
+          0 ? (
+            <section
+              className="
+                mt-6
+                grid
+                gap-4
+                md:grid-cols-2
+                2xl:grid-cols-3
+              "
+            >
+              {filteredPlans.map(
                 (plan) => (
                   <PlanCard
                     key={
@@ -1028,103 +771,26 @@ export default function PlannerClient({
                     plan={
                       plan
                     }
-                    onEdit={() =>
-                      handleEdit(
-                        plan
-                      )
-                    }
-                    onDelete={() =>
-                      handleDelete(
+                    onOptions={() =>
+                      void handleOptions(
                         plan
                       )
                     }
                   />
                 )
-              )
-            ) : (
-              <div
-                className="
-                  glass-card
-                  col-span-full
-                  rounded-[30px]
-                  px-6
-                  py-16
-                  text-center
-                "
-              >
-                <div
-                  className="
-                    mx-auto
-                    flex
-                    h-16
-                    w-16
-                    items-center
-                    justify-center
-                    rounded-[22px]
-                    bg-ocean-100
-                    text-ocean-600
-                  "
-                >
-                  <CalendarDays
-                    size={28}
-                  />
-                </div>
-
-                <h2
-                  className="
-                    mt-5
-                    font-display
-                    text-3xl
-                    font-semibold
-                    text-ocean-950
-                  "
-                >
-                  Belum ada plan ♡
-                </h2>
-
-                <p
-                  className="
-                    mx-auto
-                    mt-2
-                    max-w-md
-                    text-sm
-                    leading-7
-                    text-ink-soft
-                  "
-                >
-                  Tambahkan rencana
-                  pertama kalian dan
-                  mulai isi perjalanan
-                  Love4ever.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={
-                    handleCreate
-                  }
-                  className="
-                    love-button
-                    mt-6
-                    inline-flex
-                    items-center
-                    gap-2
-                    rounded-2xl
-                    px-5
-                    py-3
-                    text-sm
-                    font-semibold
-                  "
-                >
-                  <Plus
-                    size={17}
-                  />
-
-                  Add First Plan
-                </button>
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+          ) : (
+            <EmptyPlans
+              hasPlans={
+                plans.length >
+                0
+              }
+              onCreate={
+                handleCreate
+              }
+            />
+          )}
         </div>
       </main>
     </div>
@@ -1132,45 +798,424 @@ export default function PlannerClient({
 }
 
 /*
- * ============================================
+ * =========================================================
+ * NEXT PLAN
+ * =========================================================
+ */
+
+function NextPlan({
+  plan,
+  today,
+  onCreate,
+}: {
+  plan:
+    | Plan
+    | null;
+
+  today: string;
+
+  onCreate:
+    () => void;
+}) {
+  if (!plan) {
+    return (
+      <section
+        className="
+          flex
+          min-h-[330px]
+          flex-col
+          rounded-[30px]
+          bg-ocean-950
+          p-7
+          text-white
+          shadow-[0_22px_55px_rgba(6,42,63,0.12)]
+          sm:p-9
+        "
+      >
+        <p
+          className="
+            text-xs
+            font-medium
+            text-white/40
+          "
+        >
+          Next Plan
+        </p>
+
+        <h2
+          className="
+            mt-5
+            max-w-xl
+            font-display
+            text-[38px]
+            font-semibold
+            leading-[1.08]
+            tracking-[-0.035em]
+          "
+        >
+          Nothing planned yet.
+        </h2>
+
+        <button
+          type="button"
+          onClick={
+            onCreate
+          }
+          className="
+            mt-auto
+            w-fit
+            rounded-[13px]
+            bg-white
+            px-5
+            py-2.5
+            text-sm
+            font-semibold
+            text-ocean-950
+            transition
+            hover:bg-white/90
+          "
+        >
+          Add Plan
+        </button>
+      </section>
+    );
+  }
+
+  const distance =
+    differenceInDays(
+      today,
+      plan.plan_date
+    );
+
+  return (
+    <section
+      className="
+        relative
+        min-h-[330px]
+        overflow-hidden
+        rounded-[30px]
+        bg-ocean-950
+        p-7
+        text-white
+        shadow-[0_22px_55px_rgba(6,42,63,0.12)]
+        sm:p-9
+      "
+    >
+      <div
+        className="
+          pointer-events-none
+          absolute
+          -right-28
+          -top-32
+          h-80
+          w-80
+          rounded-full
+          bg-ocean-400/10
+          blur-[90px]
+        "
+      />
+
+      <div
+        className="
+          relative
+          z-10
+          flex
+          min-h-[258px]
+          flex-col
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-5
+          "
+        >
+          <p
+            className="
+              text-xs
+              font-medium
+              text-white/40
+            "
+          >
+            Next Plan
+          </p>
+
+          <p
+            className="
+              text-xs
+              font-medium
+              text-white/45
+            "
+          >
+            {getDistanceLabel(
+              distance
+            )}
+          </p>
+        </div>
+
+        <h2
+          className="
+            mt-5
+            max-w-3xl
+            font-display
+            text-[38px]
+            font-semibold
+            leading-[1.06]
+            tracking-[-0.04em]
+            sm:text-[46px]
+          "
+        >
+          {plan.title}
+        </h2>
+
+        <div
+          className="
+            mt-5
+            flex
+            flex-wrap
+            items-center
+            gap-x-2
+            gap-y-1
+            text-sm
+            text-white/50
+          "
+        >
+          <span>
+            {formatDate(
+              plan.plan_date
+            )}
+          </span>
+
+          {plan.plan_time && (
+            <>
+              <MetaDot />
+
+              <span>
+                {formatTime(
+                  plan.plan_time
+                )}
+              </span>
+            </>
+          )}
+
+          {plan.location_name && (
+            <>
+              <MetaDot />
+
+              <span>
+                {
+                  plan.location_name
+                }
+              </span>
+            </>
+          )}
+        </div>
+
+        {plan.description && (
+          <p
+            className="
+              mt-6
+              max-w-2xl
+              line-clamp-2
+              text-sm
+              leading-7
+              text-white/50
+            "
+          >
+            {
+              plan.description
+            }
+          </p>
+        )}
+
+        <div
+          className="
+            mt-auto
+            pt-8
+          "
+        >
+          <LightLink
+            href={`/planner/${plan.id}`}
+          >
+            Open
+          </LightLink>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/*
+ * =========================================================
+ * SUMMARY
+ * =========================================================
+ */
+
+function PlanSummary({
+  total,
+  planned,
+  done,
+  cancelled,
+}: {
+  total: number;
+  planned: number;
+  done: number;
+  cancelled: number;
+}) {
+  return (
+    <section
+      className="
+        flex
+        min-h-[330px]
+        flex-col
+        rounded-[30px]
+        border
+        border-ocean-100/70
+        bg-white/80
+        p-7
+        shadow-[0_16px_50px_rgba(8,59,89,0.045)]
+        backdrop-blur-xl
+      "
+    >
+      <p
+        className="
+          text-xs
+          font-medium
+          text-ink-soft
+        "
+      >
+        Plans
+      </p>
+
+      <p
+        className="
+          mt-4
+          font-display
+          text-[52px]
+          font-semibold
+          leading-none
+          tracking-[-0.05em]
+          text-ocean-950
+        "
+      >
+        {total}
+      </p>
+
+      <div
+        className="
+          mt-auto
+          divide-y
+          divide-ocean-100/80
+        "
+      >
+        <SummaryRow
+          label="Planned"
+          value={
+            planned
+          }
+        />
+
+        <SummaryRow
+          label="Done"
+          value={
+            done
+          }
+        />
+
+        <SummaryRow
+          label="Cancelled"
+          value={
+            cancelled
+          }
+        />
+      </div>
+    </section>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div
+      className="
+        flex
+        items-center
+        justify-between
+        py-3
+        first:pt-0
+        last:pb-0
+      "
+    >
+      <span
+        className="
+          text-sm
+          text-ink-soft
+        "
+      >
+        {label}
+      </span>
+
+      <span
+        className="
+          font-display
+          text-xl
+          font-semibold
+          text-ocean-950
+        "
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/*
+ * =========================================================
  * PLAN CARD
- * ============================================
+ * =========================================================
  */
 
 function PlanCard({
   plan,
-  onEdit,
-  onDelete,
+  onOptions,
 }: {
   plan: Plan;
-
-  onEdit: () => void;
-
-  onDelete: () => void;
+  onOptions:
+    () => void;
 }) {
   return (
     <article
       className="
-        glass-card
+        group
         flex
-        h-full
+        min-h-[320px]
         flex-col
-        rounded-[28px]
-        p-5
+        rounded-[25px]
+        border
+        border-ocean-100/70
+        bg-white/80
+        p-6
+        shadow-[0_10px_35px_rgba(8,59,89,0.035)]
+        backdrop-blur-xl
         transition
         duration-300
-        hover:-translate-y-1
-        hover:shadow-love
+        hover:-translate-y-0.5
+        hover:shadow-[0_18px_45px_rgba(8,59,89,0.075)]
       "
     >
-      {/* TOP */}
-
       <div
         className="
           flex
           items-start
           justify-between
-          gap-4
+          gap-5
         "
       >
         <StatusBadge
@@ -1179,81 +1224,51 @@ function PlanCard({
           }
         />
 
-        <div
+        <button
+          type="button"
+          onClick={
+            onOptions
+          }
+          aria-label="Plan options"
           className="
             flex
-            gap-1
+            h-9
+            w-9
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            text-ink-soft
+            transition
+            hover:bg-ocean-50
+            hover:text-ocean-950
           "
         >
-          <button
-            type="button"
-            onClick={onEdit}
-            aria-label="Edit plan"
-            className="
-              flex
-              h-9
-              w-9
-              items-center
-              justify-center
-              rounded-xl
-              bg-ocean-50
-              text-ocean-700
-              transition
-              hover:bg-ocean-100
-            "
-          >
-            <Edit3
-              size={16}
-            />
-          </button>
-
-          <button
-            type="button"
-            onClick={
-              onDelete
-            }
-            aria-label="Delete plan"
-            className="
-              flex
-              h-9
-              w-9
-              items-center
-              justify-center
-              rounded-xl
-              bg-heart-soft
-              text-heart
-              transition
-              hover:opacity-80
-            "
-          >
-            <Trash2
-              size={16}
-            />
-          </button>
-        </div>
+          <MoreHorizontal
+            size={17}
+          />
+        </button>
       </div>
-
-      {/* TITLE */}
 
       <h2
         className="
           mt-5
           font-display
-          text-2xl
+          text-[26px]
           font-semibold
+          leading-[1.15]
+          tracking-[-0.03em]
           text-ocean-950
         "
       >
         {plan.title}
       </h2>
 
-      {/* DESCRIPTION */}
-
       {plan.description && (
         <p
           className="
-            mt-2
-            line-clamp-3
+            mt-3
+            line-clamp-2
             text-sm
             leading-6
             text-ink-soft
@@ -1265,100 +1280,64 @@ function PlanCard({
         </p>
       )}
 
-      {/* INFO */}
-
       <div
         className="
-          mt-5
-          space-y-3
-          border-t
-          border-ocean-100
-          pt-5
+          mt-6
+          space-y-1
+          text-sm
+          leading-6
+          text-ink-soft
         "
       >
-        <PlanInfo
-          icon={
-            CalendarDays
-          }
-        >
+        <p>
           {formatDate(
             plan.plan_date
           )}
-        </PlanInfo>
+        </p>
 
         {plan.plan_time && (
-          <PlanInfo
-            icon={
-              Clock3
-            }
-          >
+          <p>
             {formatTime(
               plan.plan_time
             )}
-          </PlanInfo>
+          </p>
         )}
 
         {plan.location_name && (
-          <PlanInfo
-            icon={
-              MapPin
-            }
-          >
+          <p>
             {
               plan.location_name
             }
-          </PlanInfo>
+          </p>
         )}
 
-        {plan.budget !== null && (
-          <PlanInfo
-            icon={
-              WalletCards
-            }
-          >
+        {plan.budget !==
+          null && (
+          <p>
             {formatRupiah(
               Number(
                 plan.budget
               )
             )}
-          </PlanInfo>
+          </p>
         )}
       </div>
 
-      {/* PUSH BUTTONS TO BOTTOM */}
-
-      <div className="mt-auto pt-5">
-        {/* PLAN DETAIL */}
-
-        <Link
+      <div
+        className="
+          mt-auto
+          flex
+          items-end
+          justify-between
+          gap-4
+          pt-7
+        "
+      >
+        <PrimaryLink
           href={`/planner/${plan.id}`}
-          className="
-            flex
-            w-full
-            items-center
-            justify-center
-            gap-2
-            rounded-2xl
-            bg-ocean-700
-            px-4
-            py-3
-            text-sm
-            font-semibold
-            text-white
-            shadow-[0_10px_25px_rgba(17,107,145,0.18)]
-            transition
-            hover:-translate-y-0.5
-            hover:bg-ocean-800
-          "
         >
-          View Plan Detail
-
-          <ChevronRight
-            size={16}
-          />
-        </Link>
-
-        {/* MAPS */}
+          Open
+        </PrimaryLink>
 
         {plan.maps_url && (
           <a
@@ -1368,32 +1347,15 @@ function PlanCard({
             target="_blank"
             rel="noreferrer"
             className="
-              mt-3
-              flex
-              w-full
-              items-center
-              justify-center
-              gap-2
-              rounded-2xl
-              bg-ocean-100
-              px-4
-              py-3
-              text-sm
-              font-semibold
-              text-ocean-700
+              pb-2.5
+              text-xs
+              font-medium
+              text-ocean-600
               transition
-              hover:bg-ocean-200
+              hover:text-ocean-950
             "
           >
-            <MapPin
-              size={16}
-            />
-
-            Open Maps
-
-            <ExternalLink
-              size={14}
-            />
+            Maps ↗
           </a>
         )}
       </div>
@@ -1402,68 +1364,9 @@ function PlanCard({
 }
 
 /*
- * ============================================
- * SUMMARY CARD
- * ============================================
- */
-
-function SummaryCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-
-  value: number;
-
-  icon: React.ElementType;
-}) {
-  return (
-    <div
-      className="
-        glass-card
-        rounded-[25px]
-        p-4
-        sm:p-5
-      "
-    >
-      <Icon
-        size={19}
-        className="
-          text-ocean-600
-        "
-      />
-
-      <p
-        className="
-          mt-4
-          font-display
-          text-3xl
-          font-semibold
-          text-ocean-950
-        "
-      >
-        {value}
-      </p>
-
-      <p
-        className="
-          mt-1
-          text-xs
-          font-semibold
-          text-ink-soft
-        "
-      >
-        {label}
-      </p>
-    </div>
-  );
-}
-
-/*
- * ============================================
- * STATUS BADGE
- * ============================================
+ * =========================================================
+ * STATUS
+ * =========================================================
  */
 
 function StatusBadge({
@@ -1471,26 +1374,35 @@ function StatusBadge({
 }: {
   status: PlanStatus;
 }) {
-  const config = {
+  const config: Record<
+    PlanStatus,
+    {
+      label: string;
+      className: string;
+    }
+  > = {
     planned: {
-      text: "Planned",
+      label:
+        "Planned",
 
       className:
-        "bg-ocean-100 text-ocean-700",
+        "bg-ocean-50 text-ocean-700",
     },
 
     done: {
-      text: "Done",
+      label:
+        "Done",
 
       className:
-        "bg-emerald-100 text-emerald-700",
+        "bg-emerald-50 text-emerald-700",
     },
 
     cancelled: {
-      text: "Cancelled",
+      label:
+        "Cancelled",
 
       className:
-        "bg-heart-soft text-heart",
+        "bg-heart-soft/70 text-heart",
     },
   };
 
@@ -1504,101 +1416,19 @@ function StatusBadge({
         px-3
         py-1.5
         text-[10px]
-        font-bold
-        uppercase
-        tracking-[0.13em]
+        font-semibold
         ${item.className}
       `}
     >
-      {item.text}
+      {item.label}
     </span>
   );
 }
 
 /*
- * ============================================
- * PLAN INFORMATION
- * ============================================
- */
-
-function PlanInfo({
-  icon: Icon,
-  children,
-}: {
-  icon: React.ElementType;
-
-  children:
-    React.ReactNode;
-}) {
-  return (
-    <div
-      className="
-        flex
-        items-start
-        gap-3
-        text-sm
-        text-ink-soft
-      "
-    >
-      <Icon
-        size={17}
-        className="
-          mt-0.5
-          shrink-0
-          text-ocean-500
-        "
-      />
-
-      <span>
-        {children}
-      </span>
-    </div>
-  );
-}
-
-/*
- * ============================================
- * NEXT PLAN INFO PILL
- * ============================================
- */
-
-function InfoPill({
-  icon: Icon,
-  children,
-}: {
-  icon: React.ElementType;
-
-  children:
-    React.ReactNode;
-}) {
-  return (
-    <div
-      className="
-        flex
-        items-center
-        gap-2
-        rounded-full
-        border
-        border-white/15
-        bg-white/10
-        px-4
-        py-2
-        text-xs
-        font-semibold
-        backdrop-blur-xl
-      "
-    >
-      <Icon size={14} />
-
-      {children}
-    </div>
-  );
-}
-
-/*
- * ============================================
- * FILTER BUTTON
- * ============================================
+ * =========================================================
+ * FILTER
+ * =========================================================
  */
 
 function FilterButton({
@@ -1607,28 +1437,45 @@ function FilterButton({
   children,
 }: {
   active: boolean;
-
-  onClick: () => void;
-
+  onClick:
+    () => void;
   children:
-    React.ReactNode;
+    ReactNode;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={
+        onClick
+      }
       className={`
+        relative
         shrink-0
-        rounded-full
-        px-5
-        py-2.5
+        pb-3.5
         text-sm
-        font-semibold
+        font-medium
         transition
+
         ${
           active
-            ? "bg-ocean-700 text-white shadow-md"
-            : "border border-ocean-100 bg-white/65 text-ink-soft hover:bg-white"
+            ? "text-ocean-950"
+            : "text-ink-soft hover:text-ocean-800"
+        }
+
+        after:absolute
+        after:bottom-0
+        after:left-0
+        after:h-[2px]
+        after:w-full
+        after:origin-left
+        after:rounded-full
+        after:bg-ocean-900
+        after:transition-transform
+
+        ${
+          active
+            ? "after:scale-x-100"
+            : "after:scale-x-0"
         }
       `}
     >
@@ -1638,9 +1485,187 @@ function FilterButton({
 }
 
 /*
- * ============================================
- * SWEETALERT PLAN FORM
- * ============================================
+ * =========================================================
+ * EMPTY
+ * =========================================================
+ */
+
+function EmptyPlans({
+  hasPlans,
+  onCreate,
+}: {
+  hasPlans:
+    boolean;
+
+  onCreate:
+    () => void;
+}) {
+  return (
+    <section
+      className="
+        flex
+        min-h-[420px]
+        flex-col
+        items-center
+        justify-center
+        text-center
+      "
+    >
+      <h2
+        className="
+          font-display
+          text-[30px]
+          font-semibold
+          tracking-[-0.03em]
+          text-ocean-950
+        "
+      >
+        {hasPlans
+          ? "No plans here."
+          : "No plans yet."}
+      </h2>
+
+      {!hasPlans && (
+        <button
+          type="button"
+          onClick={
+            onCreate
+          }
+          className="
+            mt-6
+            rounded-[13px]
+            bg-ocean-950
+            px-5
+            py-2.5
+            text-sm
+            font-semibold
+            text-white
+            transition
+            hover:bg-ocean-800
+          "
+        >
+          Add Plan
+        </button>
+      )}
+    </section>
+  );
+}
+
+/*
+ * =========================================================
+ * LINKS
+ * =========================================================
+ */
+
+function PrimaryLink({
+  href,
+  children,
+}: {
+  href: string;
+  children:
+    ReactNode;
+}) {
+  return (
+    <Link
+      href={
+        href
+      }
+      style={{
+        color:
+          "#ffffff",
+      }}
+      className="
+        group
+        inline-flex
+        items-center
+        gap-2
+        rounded-[13px]
+        bg-ocean-900
+        px-5
+        py-2.5
+        text-sm
+        font-semibold
+        shadow-[0_8px_20px_rgba(8,59,89,0.12)]
+        transition
+        hover:bg-ocean-800
+      "
+    >
+      {children}
+
+      <ArrowRight
+        size={14}
+        className="
+          transition-transform
+          group-hover:translate-x-0.5
+        "
+      />
+    </Link>
+  );
+}
+
+function LightLink({
+  href,
+  children,
+}: {
+  href: string;
+  children:
+    ReactNode;
+}) {
+  return (
+    <Link
+      href={
+        href
+      }
+      style={{
+        color:
+          "#062a3f",
+      }}
+      className="
+        group
+        inline-flex
+        items-center
+        gap-2
+        rounded-[13px]
+        bg-white
+        px-5
+        py-2.5
+        text-sm
+        font-semibold
+        shadow-[0_8px_25px_rgba(0,0,0,0.08)]
+        transition
+        hover:bg-white/90
+      "
+    >
+      {children}
+
+      <ArrowRight
+        size={14}
+        className="
+          transition-transform
+          group-hover:translate-x-0.5
+        "
+      />
+    </Link>
+  );
+}
+
+function MetaDot() {
+  return (
+    <span
+      className="
+        h-[3px]
+        w-[3px]
+        rounded-full
+        bg-white/30
+      "
+    />
+  );
+}
+
+/*
+ * =========================================================
+ * PLAN FORM
+ * =========================================================
  */
 
 async function openPlanForm(
@@ -1648,289 +1673,203 @@ async function openPlanForm(
 ): Promise<
   PlanFormResult | null
 > {
-  const title =
-    plan
-      ? "Edit Plan ♡"
-      : "Add New Plan ♡";
-
   const result =
     await Swal.fire({
-      title,
+      title:
+        plan
+          ? "Edit Plan"
+          : "New Plan",
 
-      width: 650,
+      width:
+        650,
+
+      background:
+        "#fffdf9",
+
+      color:
+        "#123d59",
 
       html: `
-        <div style="
-          text-align:left;
-          display:grid;
-          gap:14px;
-          padding-top:8px;
-        ">
-
-          <div>
-            <label style="
-              display:block;
-              margin-bottom:6px;
-              font-size:13px;
-              font-weight:700;
-              color:#0b4f71;
-            ">
-              Judul Plan *
-            </label>
-
-            <input
-              id="plan-title"
-              class="swal2-input"
-              style="
-                margin:0;
-                width:100%;
-                box-sizing:border-box;
-              "
-              placeholder="Contoh: Date ke pantai"
-              value="${escapeHtml(
-                plan?.title ??
-                  ""
-              )}"
-            />
-          </div>
-
-          <div>
-            <label style="
-              display:block;
-              margin-bottom:6px;
-              font-size:13px;
-              font-weight:700;
-              color:#0b4f71;
-            ">
-              Deskripsi
-            </label>
-
-            <textarea
-              id="plan-description"
-              class="swal2-textarea"
-              style="
-                margin:0;
-                width:100%;
-                min-height:90px;
-                box-sizing:border-box;
-              "
-              placeholder="Mau ngapain aja?"
-            >${escapeHtml(
-              plan?.description ??
-                ""
-            )}</textarea>
-          </div>
-
-          <div style="
+        <div
+          style="
+            text-align:left;
             display:grid;
-            grid-template-columns:
-              repeat(2, minmax(0,1fr));
-            gap:12px;
-          ">
-            <div>
-              <label style="
-                display:block;
-                margin-bottom:6px;
-                font-size:13px;
-                font-weight:700;
-                color:#0b4f71;
-              ">
-                Tanggal *
-              </label>
-
+            gap:16px;
+            padding-top:8px;
+          "
+        >
+          ${formField(
+            "Title",
+            `
               <input
-                id="plan-date"
-                type="date"
+                id="plan-title"
                 class="swal2-input"
-                style="
-                  margin:0;
-                  width:100%;
-                  box-sizing:border-box;
-                "
+                style="${swalInputStyle}"
                 value="${escapeHtml(
-                  plan?.plan_date ??
+                  plan?.title ??
                     ""
                 )}"
               />
-            </div>
+            `
+          )}
 
-            <div>
-              <label style="
-                display:block;
-                margin-bottom:6px;
-                font-size:13px;
-                font-weight:700;
-                color:#0b4f71;
-              ">
-                Jam
-              </label>
+          ${formField(
+            "Description",
+            `
+              <textarea
+                id="plan-description"
+                class="swal2-textarea"
+                style="${swalTextareaStyle}"
+              >${escapeHtml(
+                plan?.description ??
+                  ""
+              )}</textarea>
+            `
+          )}
 
+          <div
+            style="
+              display:grid;
+              grid-template-columns:repeat(2,minmax(0,1fr));
+              gap:12px;
+            "
+          >
+            ${formField(
+              "Date",
+              `
+                <input
+                  id="plan-date"
+                  type="date"
+                  class="swal2-input"
+                  style="${swalInputStyle}"
+                  value="${escapeHtml(
+                    plan?.plan_date ??
+                      ""
+                  )}"
+                />
+              `
+            )}
+
+            ${formField(
+              "Time",
+              `
+                <input
+                  id="plan-time"
+                  type="time"
+                  class="swal2-input"
+                  style="${swalInputStyle}"
+                  value="${escapeHtml(
+                    normalizeTime(
+                      plan?.plan_time
+                    )
+                  )}"
+                />
+              `
+            )}
+          </div>
+
+          ${formField(
+            "Location",
+            `
               <input
-                id="plan-time"
-                type="time"
+                id="plan-location"
                 class="swal2-input"
-                style="
-                  margin:0;
-                  width:100%;
-                  box-sizing:border-box;
-                "
+                style="${swalInputStyle}"
                 value="${escapeHtml(
-                  normalizeTime(
-                    plan?.plan_time
-                  )
+                  plan?.location_name ??
+                    ""
                 )}"
               />
-            </div>
-          </div>
+            `
+          )}
 
-          <div>
-            <label style="
-              display:block;
-              margin-bottom:6px;
-              font-size:13px;
-              font-weight:700;
-              color:#0b4f71;
-            ">
-              Lokasi
-            </label>
-
-            <input
-              id="plan-location"
-              class="swal2-input"
-              style="
-                margin:0;
-                width:100%;
-                box-sizing:border-box;
-              "
-              placeholder="Contoh: Pantai Marina"
-              value="${escapeHtml(
-                plan?.location_name ??
-                  ""
-              )}"
-            />
-          </div>
-
-          <div>
-            <label style="
-              display:block;
-              margin-bottom:6px;
-              font-size:13px;
-              font-weight:700;
-              color:#0b4f71;
-            ">
-              Link Maps
-            </label>
-
-            <input
-              id="plan-maps"
-              class="swal2-input"
-              style="
-                margin:0;
-                width:100%;
-                box-sizing:border-box;
-              "
-              placeholder="https://maps.google.com/..."
-              value="${escapeHtml(
-                plan?.maps_url ??
-                  ""
-              )}"
-            />
-          </div>
-
-          <div style="
-            display:grid;
-            grid-template-columns:
-              repeat(2, minmax(0,1fr));
-            gap:12px;
-          ">
-            <div>
-              <label style="
-                display:block;
-                margin-bottom:6px;
-                font-size:13px;
-                font-weight:700;
-                color:#0b4f71;
-              ">
-                Budget
-              </label>
-
+          ${formField(
+            "Maps",
+            `
               <input
-                id="plan-budget"
-                type="number"
-                min="0"
+                id="plan-maps"
                 class="swal2-input"
-                style="
-                  margin:0;
-                  width:100%;
-                  box-sizing:border-box;
-                "
-                placeholder="100000"
-                value="${
-                  plan?.budget ??
-                  ""
-                }"
+                style="${swalInputStyle}"
+                placeholder="https://..."
+                value="${escapeHtml(
+                  plan?.maps_url ??
+                    ""
+                )}"
               />
-            </div>
+            `
+          )}
 
-            <div>
-              <label style="
-                display:block;
-                margin-bottom:6px;
-                font-size:13px;
-                font-weight:700;
-                color:#0b4f71;
-              ">
-                Status
-              </label>
+          <div
+            style="
+              display:grid;
+              grid-template-columns:repeat(2,minmax(0,1fr));
+              gap:12px;
+            "
+          >
+            ${formField(
+              "Budget",
+              `
+                <input
+                  id="plan-budget"
+                  type="number"
+                  min="0"
+                  class="swal2-input"
+                  style="${swalInputStyle}"
+                  value="${
+                    plan?.budget ??
+                    ""
+                  }"
+                />
+              `
+            )}
 
-              <select
-                id="plan-status"
-                class="swal2-select"
-                style="
-                  margin:0;
-                  width:100%;
-                  height:48px;
-                  box-sizing:border-box;
-                "
-              >
-                <option
-                  value="planned"
-                  ${
-                    !plan ||
-                    plan.status ===
-                      "planned"
-                      ? "selected"
-                      : ""
-                  }
+            ${formField(
+              "Status",
+              `
+                <select
+                  id="plan-status"
+                  class="swal2-select"
+                  style="${swalSelectStyle}"
                 >
-                  Planned
-                </option>
+                  <option
+                    value="planned"
+                    ${
+                      !plan ||
+                      plan.status ===
+                        "planned"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    Planned
+                  </option>
 
-                <option
-                  value="done"
-                  ${
-                    plan?.status ===
-                    "done"
-                      ? "selected"
-                      : ""
-                  }
-                >
-                  Done
-                </option>
+                  <option
+                    value="done"
+                    ${
+                      plan?.status ===
+                      "done"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    Done
+                  </option>
 
-                <option
-                  value="cancelled"
-                  ${
-                    plan?.status ===
-                    "cancelled"
-                      ? "selected"
-                      : ""
-                  }
-                >
-                  Cancelled
-                </option>
-              </select>
-            </div>
+                  <option
+                    value="cancelled"
+                    ${
+                      plan?.status ===
+                      "cancelled"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    Cancelled
+                  </option>
+                </select>
+              `
+            )}
           </div>
         </div>
       `,
@@ -1940,17 +1879,14 @@ async function openPlanForm(
 
       confirmButtonText:
         plan
-          ? "Save Changes"
-          : "Create Plan",
+          ? "Save"
+          : "Create",
 
       cancelButtonText:
         "Cancel",
 
       confirmButtonColor:
-        "#1688b5",
-
-      cancelButtonColor:
-        "#78909c",
+        "#083b59",
 
       focusConfirm:
         false,
@@ -1996,15 +1932,15 @@ async function openPlanForm(
             "plan-status"
           ) as HTMLSelectElement;
 
-        const formTitle =
+        const title =
           titleInput.value.trim();
 
         const planDate =
           dateInput.value;
 
-        if (!formTitle) {
+        if (!title) {
           Swal.showValidationMessage(
-            "Judul plan wajib diisi."
+            "Title is required."
           );
 
           return false;
@@ -2012,7 +1948,7 @@ async function openPlanForm(
 
         if (!planDate) {
           Swal.showValidationMessage(
-            "Tanggal plan wajib diisi."
+            "Date is required."
           );
 
           return false;
@@ -2028,7 +1964,7 @@ async function openPlanForm(
           )
         ) {
           Swal.showValidationMessage(
-            "Link Maps harus berupa URL yang valid."
+            "Maps must be a valid URL."
           );
 
           return false;
@@ -2054,15 +1990,14 @@ async function openPlanForm(
           )
         ) {
           Swal.showValidationMessage(
-            "Budget tidak valid."
+            "Budget is not valid."
           );
 
           return false;
         }
 
         return {
-          title:
-            formTitle,
+          title,
 
           description:
             descriptionInput.value.trim(),
@@ -2097,17 +2032,54 @@ async function openPlanForm(
   );
 }
 
+const swalInputStyle =
+  "margin:0;width:100%;height:46px;box-sizing:border-box;border-radius:12px;border:1px solid #cbeef7;box-shadow:none;";
+
+const swalTextareaStyle =
+  "margin:0;width:100%;min-height:90px;box-sizing:border-box;border-radius:12px;border:1px solid #cbeef7;box-shadow:none;resize:vertical;";
+
+const swalSelectStyle =
+  "margin:0;width:100%;height:46px;box-sizing:border-box;border-radius:12px;border:1px solid #cbeef7;box-shadow:none;";
+
+function formField(
+  label: string,
+  content: string
+) {
+  return `
+    <div>
+      <label
+        style="
+          display:block;
+          margin-bottom:7px;
+          font-size:12px;
+          font-weight:600;
+          color:#123d59;
+        "
+      >
+        ${label}
+      </label>
+
+      ${content}
+    </div>
+  `;
+}
+
 /*
- * ============================================
- * SORT PLANS
- * ============================================
+ * =========================================================
+ * HELPERS
+ * =========================================================
  */
 
 function sortPlans(
   plans: Plan[]
 ) {
-  return [...plans].sort(
-    (a, b) => {
+  return [
+    ...plans,
+  ].sort(
+    (
+      a,
+      b
+    ) => {
       const aTime =
         new Date(
           `${a.plan_date}T${a.plan_time || "00:00"}`
@@ -2118,16 +2090,31 @@ function sortPlans(
           `${b.plan_date}T${b.plan_time || "00:00"}`
         ).getTime();
 
-      return aTime - bTime;
+      return (
+        aTime -
+        bTime
+      );
     }
   );
 }
 
-/*
- * ============================================
- * FORMAT DATE
- * ============================================
- */
+function getDistanceLabel(
+  days: number
+) {
+  if (
+    days === 0
+  ) {
+    return "Today";
+  }
+
+  if (
+    days === 1
+  ) {
+    return "Tomorrow";
+  }
+
+  return `In ${days} days`;
+}
 
 function formatDate(
   value: string
@@ -2135,11 +2122,14 @@ function formatDate(
   return new Intl.DateTimeFormat(
     "id-ID",
     {
-      day: "numeric",
+      day:
+        "numeric",
 
-      month: "long",
+      month:
+        "long",
 
-      year: "numeric",
+      year:
+        "numeric",
     }
   ).format(
     new Date(
@@ -2147,12 +2137,6 @@ function formatDate(
     )
   );
 }
-
-/*
- * ============================================
- * FORMAT TIME
- * ============================================
- */
 
 function formatTime(
   value: string
@@ -2163,33 +2147,25 @@ function formatTime(
   );
 }
 
-/*
- * ============================================
- * FORMAT RUPIAH
- * ============================================
- */
-
 function formatRupiah(
   value: number
 ) {
   return new Intl.NumberFormat(
     "id-ID",
     {
-      style: "currency",
+      style:
+        "currency",
 
-      currency: "IDR",
+      currency:
+        "IDR",
 
       maximumFractionDigits:
         0,
     }
-  ).format(value);
+  ).format(
+    value
+  );
 }
-
-/*
- * ============================================
- * NORMALIZE TIME
- * ============================================
- */
 
 function normalizeTime(
   value:
@@ -2207,18 +2183,14 @@ function normalizeTime(
   );
 }
 
-/*
- * ============================================
- * VALIDATE URL
- * ============================================
- */
-
 function isValidUrl(
   value: string
 ) {
   try {
     const url =
-      new URL(value);
+      new URL(
+        value
+      );
 
     return (
       url.protocol ===
@@ -2230,12 +2202,6 @@ function isValidUrl(
     return false;
   }
 }
-
-/*
- * ============================================
- * ESCAPE HTML
- * ============================================
- */
 
 function escapeHtml(
   value: string
@@ -2261,4 +2227,51 @@ function escapeHtml(
       "'",
       "&#039;"
     );
+}
+
+async function showSuccess(
+  title: string
+) {
+  await Swal.fire({
+    icon:
+      "success",
+
+    title,
+
+    timer:
+      950,
+
+    showConfirmButton:
+      false,
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
+}
+
+async function showError(
+  title: string,
+  message: string
+) {
+  await Swal.fire({
+    icon:
+      "error",
+
+    title,
+
+    text:
+      message,
+
+    confirmButtonColor:
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
 }

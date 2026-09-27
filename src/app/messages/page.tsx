@@ -9,32 +9,35 @@ export default async function MessagesPage() {
   const supabase =
     await createClient();
 
-  /*
-   * =========================================================
-   * AUTH
-   * =========================================================
-   */
+  /* =========================================================
+     AUTH
+  ========================================================= */
 
   const {
-    data: { user },
+    data: {
+      user,
+    },
   } =
     await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(
+      "/login"
+    );
   }
 
-  /*
-   * =========================================================
-   * MY PROFILE
-   * =========================================================
-   */
+  /* =========================================================
+     MY PROFILE
+  ========================================================= */
 
   const {
-    data: profile,
+    data:
+      profile,
   } =
     await supabase
-      .from("profiles")
+      .from(
+        "profiles"
+      )
       .select(
         `
         full_name,
@@ -48,17 +51,18 @@ export default async function MessagesPage() {
       )
       .maybeSingle();
 
-  /*
-   * =========================================================
-   * MY COUPLE MEMBERSHIP
-   * =========================================================
-   */
+  /* =========================================================
+     COUPLE MEMBERSHIP
+  ========================================================= */
 
   const {
-    data: membership,
+    data:
+      membership,
   } =
     await supabase
-      .from("couple_members")
+      .from(
+        "couple_members"
+      )
       .select(
         `
         couple_id
@@ -68,10 +72,14 @@ export default async function MessagesPage() {
         "user_id",
         user.id
       )
-      .limit(1)
+      .limit(
+        1
+      )
       .maybeSingle();
 
-  if (!membership) {
+  if (
+    !membership
+  ) {
     return (
       <main
         className="
@@ -122,17 +130,18 @@ export default async function MessagesPage() {
   const coupleId =
     membership.couple_id;
 
-  /*
-   * =========================================================
-   * COUPLE
-   * =========================================================
-   */
+  /* =========================================================
+     COUPLE
+  ========================================================= */
 
   const {
-    data: couple,
+    data:
+      couple,
   } =
     await supabase
-      .from("couples")
+      .from(
+        "couples"
+      )
       .select(
         `
         id,
@@ -145,17 +154,18 @@ export default async function MessagesPage() {
       )
       .maybeSingle();
 
-  /*
-   * =========================================================
-   * FIND PARTNER
-   * =========================================================
-   */
+  /* =========================================================
+     PARTNER
+  ========================================================= */
 
   const {
-    data: partnerMembership,
+    data:
+      partnerMembership,
   } =
     await supabase
-      .from("couple_members")
+      .from(
+        "couple_members"
+      )
       .select(
         `
         user_id
@@ -169,17 +179,26 @@ export default async function MessagesPage() {
         "user_id",
         user.id
       )
-      .limit(1)
+      .limit(
+        1
+      )
       .maybeSingle();
 
   let partner: {
-    id: string;
-    fullName: string;
-    nickname: string;
+    id:
+      string;
+
+    fullName:
+      string;
+
+    nickname:
+      string;
+
     avatarUrl:
       | string
       | null;
-  } | null = null;
+  } | null =
+    null;
 
   if (
     partnerMembership
@@ -189,7 +208,9 @@ export default async function MessagesPage() {
         partnerProfile,
     } =
       await supabase
-        .from("profiles")
+        .from(
+          "profiles"
+        )
         .select(
           `
           full_name,
@@ -222,27 +243,30 @@ export default async function MessagesPage() {
     };
   }
 
-  /*
-   * =========================================================
-   * MESSAGES
-   *
-   * Ambil 150 pesan terbaru lalu reverse
-   * supaya urutan di client tetap lama → baru.
-   * =========================================================
-   */
+  /* =========================================================
+     MESSAGES
+
+     reply_to_id dan image_path WAJIB ikut di-select.
+  ========================================================= */
 
   const {
-    data: messages,
-    error: messagesError,
+    data:
+      messages,
+    error:
+      messagesError,
   } =
     await supabase
-      .from("messages")
+      .from(
+        "messages"
+      )
       .select(
         `
         id,
         couple_id,
         sender_id,
         content,
+        reply_to_id,
+        image_path,
         edited_at,
         created_at,
         updated_at
@@ -255,10 +279,13 @@ export default async function MessagesPage() {
       .order(
         "created_at",
         {
-          ascending: false,
+          ascending:
+            false,
         }
       )
-      .limit(150);
+      .limit(
+        150
+      );
 
   if (
     messagesError
@@ -270,14 +297,16 @@ export default async function MessagesPage() {
   }
 
   const initialMessages =
-    [...(messages ?? [])]
-      .reverse();
+    [
+      ...(
+        messages ??
+        []
+      ),
+    ].reverse();
 
-  /*
-   * =========================================================
-   * CLIENT
-   * =========================================================
-   */
+  /* =========================================================
+     CLIENT
+  ========================================================= */
 
   return (
     <MessagesClient

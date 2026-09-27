@@ -7,9 +7,9 @@ import Image from "next/image";
 import {
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -26,120 +26,72 @@ import {
 
 import Swal from "sweetalert2";
 
+import CameraCaptureModal from "@/components/gallery/CameraCaptureModal";
 import AppSidebar from "@/components/layout/AppSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+
 import { createClient } from "@/lib/supabase/client";
+
+import {
+  IMAGE_ACCEPT,
+  normalizeImageFile,
+  normalizeImageFiles,
+} from "@/utils/image";
+
+import type {
+  GalleryAlbum,
+  GalleryClientProps,
+  GalleryPhoto,
+  GalleryTab,
+  UploadDestination,
+  UploadGalleryFileOptions,
+  Visibility,
+} from "@/types/gallery";
 
 /*
  * =========================================================
- * TYPES
+ * STYLE
  * =========================================================
  */
 
-type Visibility = "shared" | "private";
+const primaryButtonClass = `
+  inline-flex
+  items-center
+  justify-center
+  rounded-[13px]
+  bg-ocean-900
+  px-5
+  py-2.5
+  text-sm
+  font-semibold
+  text-white
+  shadow-[0_8px_22px_rgba(6,42,63,0.12)]
+  transition
+  duration-200
+  hover:bg-ocean-800
+  active:scale-[0.98]
+  disabled:pointer-events-none
+  disabled:opacity-45
+`;
 
-type GalleryTab =
-  | "photos"
-  | "albums"
-  | "favorites"
-  | "vault";
-
-type UploadDestination = Visibility;
-
-type CameraSide =
-  | "user"
-  | "environment";
-
-type GalleryUser = {
-  id: string;
-  email: string;
-  fullName: string;
-  nickname: string;
-  avatarUrl: string | null;
-};
-
-type GalleryAlbum = {
-  id: string;
-  couple_id: string;
-  created_by: string;
-  owner_id: string;
-  name: string;
-  description: string | null;
-  visibility: Visibility;
-  created_at: string;
-  updated_at: string;
-};
-
-type GalleryPhoto = {
-  id: string;
-  couple_id: string;
-
-  album_id:
-    | string
-    | null;
-
-  uploaded_by: string;
-  owner_id: string;
-
-  storage_bucket: string;
-  storage_path: string;
-
-  title:
-    | string
-    | null;
-
-  caption:
-    | string
-    | null;
-
-  visibility: Visibility;
-
-  source_type:
-    | "upload"
-    | "memory";
-
-  source_memory_photo_id:
-    | string
-    | null;
-
-  is_favorite: boolean;
-
-  created_at: string;
-  updated_at: string;
-
-  signed_url:
-    | string
-    | null;
-};
-
-type GalleryClientProps = {
-  user: GalleryUser;
-  coupleId: string;
-
-  initialAlbums:
-    GalleryAlbum[];
-
-  initialPhotos:
-    GalleryPhoto[];
-};
-
-type UploadGalleryFileOptions = {
-  file: File;
-  userId: string;
-  coupleId: string;
-
-  visibility:
-    Visibility;
-
-  albumId:
-    string | null;
-
-  title?:
-    string | null;
-
-  note?:
-    string | null;
-};
+const inputClass = `
+  w-full
+  rounded-[13px]
+  border
+  border-ocean-100
+  bg-white/75
+  px-4
+  py-3
+  text-sm
+  text-ocean-950
+  outline-none
+  transition
+  placeholder:text-ink-soft/55
+  focus:border-ocean-300
+  focus:bg-white
+  focus:ring-4
+  focus:ring-ocean-100/50
+`;
 
 /*
  * =========================================================
@@ -154,87 +106,40 @@ export default function GalleryClient({
   initialPhotos,
 }: GalleryClientProps) {
   const [albums, setAlbums] =
-    useState<GalleryAlbum[]>(
-      initialAlbums
-    );
+    useState<GalleryAlbum[]>(initialAlbums);
 
   const [photos, setPhotos] =
-    useState<GalleryPhoto[]>(
-      initialPhotos
-    );
+    useState<GalleryPhoto[]>(initialPhotos);
 
   const [activeTab, setActiveTab] =
-    useState<GalleryTab>(
-      "photos"
-    );
+    useState<GalleryTab>("photos");
 
-  const [
-    selectedAlbumId,
-    setSelectedAlbumId,
-  ] =
-    useState<string | null>(
-      null
-    );
+  const [selectedAlbumId, setSelectedAlbumId] =
+    useState<string | null>(null);
 
-  const [
-    activePhotoId,
-    setActivePhotoId,
-  ] =
-    useState<string | null>(
-      null
-    );
+  const [activePhotoId, setActivePhotoId] =
+    useState<string | null>(null);
 
-  const [
-    editingPhoto,
-    setEditingPhoto,
-  ] =
-    useState<GalleryPhoto | null>(
-      null
-    );
+  const [editingPhoto, setEditingPhoto] =
+    useState<GalleryPhoto | null>(null);
 
-  const [
-    uploadOpen,
-    setUploadOpen,
-  ] =
+  const [uploadOpen, setUploadOpen] =
     useState(false);
 
-  const [
-    albumOpen,
-    setAlbumOpen,
-  ] =
+  const [albumOpen, setAlbumOpen] =
     useState(false);
 
-  const [
-    editingAlbum,
-    setEditingAlbum,
-  ] =
-    useState<GalleryAlbum | null>(
-      null
-    );
+  const [editingAlbum, setEditingAlbum] =
+    useState<GalleryAlbum | null>(null);
 
-  const [
-    vaultUnlocked,
-    setVaultUnlocked,
-  ] =
+  const [vaultUnlocked, setVaultUnlocked] =
     useState(false);
 
-  /*
-   * CAMERA
-   */
-
-  const [
-    cameraOpen,
-    setCameraOpen,
-  ] =
+  const [cameraOpen, setCameraOpen] =
     useState(false);
 
-  const [
-    cameraFile,
-    setCameraFile,
-  ] =
-    useState<File | null>(
-      null
-    );
+  const [cameraFile, setCameraFile] =
+    useState<File | null>(null);
 
   /*
    * =========================================================
@@ -242,54 +147,38 @@ export default function GalleryClient({
    * =========================================================
    */
 
-  const sharedPhotos =
-    useMemo(
-      () =>
-        photos.filter(
-          (photo) =>
-            photo.visibility ===
-            "shared"
-        ),
-      [photos]
-    );
+  const sharedPhotos = useMemo(
+    () =>
+      photos.filter(
+        (photo) =>
+          photo.visibility === "shared"
+      ),
+    [photos]
+  );
 
-  const privatePhotos =
-    useMemo(
-      () =>
-        photos.filter(
-          (photo) =>
-            photo.visibility ===
-              "private" &&
-            photo.owner_id ===
-              user.id
-        ),
-      [
-        photos,
-        user.id,
-      ]
-    );
+  const privatePhotos = useMemo(
+    () =>
+      photos.filter(
+        (photo) =>
+          photo.visibility === "private" &&
+          photo.owner_id === user.id
+      ),
+    [photos, user.id]
+  );
 
-  const favoritePhotos =
-    useMemo(
-      () =>
-        sharedPhotos.filter(
-          (photo) =>
-            photo.is_favorite
-        ),
-      [sharedPhotos]
-    );
-
-  /*
-   * =========================================================
-   * CURRENT ALBUM
-   * =========================================================
-   */
+  const favoritePhotos = useMemo(
+    () =>
+      sharedPhotos.filter(
+        (photo) =>
+          photo.is_favorite
+      ),
+    [sharedPhotos]
+  );
 
   const selectedAlbum =
     albums.find(
       (album) =>
-        album.id ===
-        selectedAlbumId
+        album.id === selectedAlbumId
     ) ?? null;
 
   /*
@@ -298,39 +187,32 @@ export default function GalleryClient({
    * =========================================================
    */
 
-  const displayedPhotos =
-    useMemo(() => {
-      if (selectedAlbumId) {
-        return photos.filter(
-          (photo) =>
-            photo.album_id ===
-            selectedAlbumId
-        );
-      }
+  const displayedPhotos = useMemo(() => {
+    if (selectedAlbumId) {
+      return photos.filter(
+        (photo) =>
+          photo.album_id ===
+          selectedAlbumId
+      );
+    }
 
-      if (
-        activeTab ===
-        "favorites"
-      ) {
-        return favoritePhotos;
-      }
+    if (activeTab === "favorites") {
+      return favoritePhotos;
+    }
 
-      if (
-        activeTab ===
-        "vault"
-      ) {
-        return privatePhotos;
-      }
+    if (activeTab === "vault") {
+      return privatePhotos;
+    }
 
-      return sharedPhotos;
-    }, [
-      activeTab,
-      favoritePhotos,
-      photos,
-      privatePhotos,
-      selectedAlbumId,
-      sharedPhotos,
-    ]);
+    return sharedPhotos;
+  }, [
+    activeTab,
+    favoritePhotos,
+    photos,
+    privatePhotos,
+    selectedAlbumId,
+    sharedPhotos,
+  ]);
 
   /*
    * =========================================================
@@ -341,25 +223,21 @@ export default function GalleryClient({
   const activePhotoIndex =
     displayedPhotos.findIndex(
       (photo) =>
-        photo.id ===
-        activePhotoId
+        photo.id === activePhotoId
     );
 
   const activePhoto =
     activePhotoIndex >= 0
-      ? displayedPhotos[
-          activePhotoIndex
-        ]
+      ? displayedPhotos[activePhotoIndex]
       : null;
 
   /*
    * =========================================================
-   * CAMERA DEFAULT DESTINATION
+   * DESTINATION
    * =========================================================
    */
 
-  const cameraDefaultVisibility:
-    Visibility =
+  const cameraDefaultVisibility: Visibility =
     selectedAlbum
       ? selectedAlbum.visibility
       : activeTab === "vault"
@@ -367,55 +245,52 @@ export default function GalleryClient({
         : "shared";
 
   const cameraDefaultAlbumId =
-    selectedAlbum?.id ??
-    null;
+    selectedAlbum?.id ?? null;
+
+  const showPhotoActions =
+    activeTab !== "albums" ||
+    Boolean(selectedAlbum);
 
   /*
    * =========================================================
-   * LIGHTBOX NAVIGATION
+   * LIGHTBOX
    * =========================================================
    */
 
-  const showPreviousPhoto =
-    () => {
-      if (
-        displayedPhotos.length ===
-        0
-      ) {
-        return;
-      }
+  const showPreviousPhoto = () => {
+    if (
+      displayedPhotos.length === 0
+    ) {
+      return;
+    }
 
-      const index =
-        activePhotoIndex <= 0
-          ? displayedPhotos.length -
-            1
-          : activePhotoIndex -
-            1;
+    const index =
+      activePhotoIndex <= 0
+        ? displayedPhotos.length - 1
+        : activePhotoIndex - 1;
 
-      setActivePhotoId(
-        displayedPhotos[index].id
-      );
-    };
+    setActivePhotoId(
+      displayedPhotos[index].id
+    );
+  };
 
-  const showNextPhoto =
-    () => {
-      if (
-        displayedPhotos.length ===
-        0
-      ) {
-        return;
-      }
+  const showNextPhoto = () => {
+    if (
+      displayedPhotos.length === 0
+    ) {
+      return;
+    }
 
-      const index =
-        activePhotoIndex >=
-        displayedPhotos.length - 1
-          ? 0
-          : activePhotoIndex + 1;
+    const index =
+      activePhotoIndex >=
+      displayedPhotos.length - 1
+        ? 0
+        : activePhotoIndex + 1;
 
-      setActivePhotoId(
-        displayedPhotos[index].id
-      );
-    };
+    setActivePhotoId(
+      displayedPhotos[index].id
+    );
+  };
 
   /*
    * =========================================================
@@ -439,14 +314,13 @@ export default function GalleryClient({
 
       const result =
         await Swal.fire({
-          title:
-            "Private Vault",
+          title: "Private Vault",
 
           input:
             "password",
 
           inputPlaceholder:
-            "Password akun",
+            "Password",
 
           showCancelButton:
             true,
@@ -455,25 +329,30 @@ export default function GalleryClient({
             "Unlock",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#0b4f71",
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
 
           inputAttributes: {
             autocomplete:
               "current-password",
           },
 
-          inputValidator: (
-            value
-          ) => {
-            if (!value) {
-              return "Masukkan password.";
-            }
+          inputValidator:
+            (value) => {
+              if (!value) {
+                return "Masukkan password.";
+              }
 
-            return undefined;
-          },
+              return undefined;
+            },
         });
 
       if (
@@ -487,25 +366,31 @@ export default function GalleryClient({
         createClient();
 
       const { error } =
-        await supabase.auth
-          .signInWithPassword({
+        await supabase.auth.signInWithPassword(
+          {
             email:
               user.email,
 
             password:
               result.value,
-          });
+          }
+        );
 
       if (error) {
         await Swal.fire({
-          icon:
-            "error",
+          icon: "error",
 
           title:
             "Password salah",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
         return;
@@ -537,10 +422,6 @@ export default function GalleryClient({
       const supabase =
         createClient();
 
-      /*
-       * Optimistic UI
-       */
-
       setPhotos(
         (current) =>
           current.map(
@@ -549,7 +430,6 @@ export default function GalleryClient({
               photo.id
                 ? {
                     ...item,
-
                     is_favorite:
                       newValue,
                   }
@@ -584,7 +464,7 @@ export default function GalleryClient({
         );
 
         await showError(
-          "Favorite gagal diperbarui",
+          "Gagal memperbarui favorite",
           error.message
         );
       }
@@ -592,7 +472,7 @@ export default function GalleryClient({
 
   /*
    * =========================================================
-   * EDIT PHOTO INFO
+   * PHOTO INFO
    * =========================================================
    */
 
@@ -630,29 +510,32 @@ export default function GalleryClient({
     ) => {
       const result =
         await Swal.fire({
-          icon:
-            "warning",
-
           title:
-            "Hapus foto?",
+            "Delete photo?",
 
           text:
             photo.source_type ===
             "memory"
-              ? "Foto akan dihapus dari Gallery. Foto asli di Memory tetap ada."
-              : "Foto akan dihapus permanen.",
+              ? "The original Memory photo stays."
+              : undefined,
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -677,29 +560,37 @@ export default function GalleryClient({
 
       if (error) {
         await showError(
-          "Foto gagal dihapus",
+          "Photo could not be deleted",
           error.message
         );
 
         return;
       }
 
-      /*
-       * Foto dari memory-photos tidak
-       * boleh dihapus file aslinya.
-       */
-
       if (
         photo.storage_bucket ===
         "gallery-media"
       ) {
-        await supabase.storage
-          .from(
-            "gallery-media"
-          )
-          .remove([
-            photo.storage_path,
-          ]);
+        const {
+          error:
+            storageError,
+        } =
+          await supabase.storage
+            .from(
+              "gallery-media"
+            )
+            .remove([
+              photo.storage_path,
+            ]);
+
+        if (
+          storageError
+        ) {
+          console.error(
+            "Gallery storage cleanup:",
+            storageError
+          );
+        }
       }
 
       setPhotos(
@@ -723,7 +614,7 @@ export default function GalleryClient({
 
   /*
    * =========================================================
-   * MOVE PHOTO TO ALBUM
+   * MOVE TO ALBUM
    * =========================================================
    */
 
@@ -739,16 +630,16 @@ export default function GalleryClient({
             photo.visibility
         );
 
-      const inputOptions:
-        Record<
-          string,
-          string
-        > = {
+      const inputOptions: Record<
+        string,
+        string
+      > = {
         "": "No Album",
       };
 
       for (
-        const album of availableAlbums
+        const album of
+        availableAlbums
       ) {
         inputOptions[
           album.id
@@ -758,8 +649,7 @@ export default function GalleryClient({
 
       const result =
         await Swal.fire({
-          title:
-            "Move to Album",
+          title: "Album",
 
           input:
             "select",
@@ -777,10 +667,16 @@ export default function GalleryClient({
             "Save",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#1688b5",
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -812,7 +708,7 @@ export default function GalleryClient({
 
       if (error) {
         await showError(
-          "Album gagal diperbarui",
+          "Album could not be updated",
           error.message
         );
 
@@ -827,7 +723,6 @@ export default function GalleryClient({
               photo.id
                 ? {
                     ...item,
-
                     album_id:
                       newAlbumId,
                   }
@@ -842,7 +737,7 @@ export default function GalleryClient({
 
   /*
    * =========================================================
-   * OPEN ALBUM
+   * ALBUM
    * =========================================================
    */
 
@@ -864,12 +759,6 @@ export default function GalleryClient({
       );
     };
 
-  /*
-   * =========================================================
-   * DELETE ALBUM
-   * =========================================================
-   */
-
   const handleDeleteAlbum =
     async (
       album:
@@ -877,26 +766,29 @@ export default function GalleryClient({
     ) => {
       const result =
         await Swal.fire({
-          icon:
-            "warning",
-
           title:
-            "Hapus album?",
+            "Delete album?",
 
           text:
-            "Foto di dalam album tidak ikut dihapus.",
+            "Photos will stay in Gallery.",
 
           showCancelButton:
             true,
 
           confirmButtonText:
-            "Hapus",
+            "Delete",
 
           cancelButtonText:
-            "Batal",
+            "Cancel",
 
           confirmButtonColor:
-            "#dc5f72",
+            "#d85f72",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
       if (
@@ -921,7 +813,7 @@ export default function GalleryClient({
 
       if (error) {
         await showError(
-          "Album gagal dihapus",
+          "Album could not be deleted",
           error.message
         );
 
@@ -945,7 +837,6 @@ export default function GalleryClient({
               album.id
                 ? {
                     ...photo,
-
                     album_id:
                       null,
                   }
@@ -965,7 +856,7 @@ export default function GalleryClient({
 
   /*
    * =========================================================
-   * CAMERA CAPTURED
+   * CAMERA
    * =========================================================
    */
 
@@ -983,12 +874,6 @@ export default function GalleryClient({
       );
     };
 
-  /*
-   * =========================================================
-   * CAMERA PHOTO SAVED
-   * =========================================================
-   */
-
   const handleCameraPhotoSaved =
     (
       photo:
@@ -1004,12 +889,6 @@ export default function GalleryClient({
       setCameraFile(
         null
       );
-
-      /*
-       * Kalau foto disimpan ke Vault,
-       * pindah ke tab Vault hanya kalau
-       * Vault memang sudah terbuka.
-       */
 
       if (
         photo.visibility ===
@@ -1028,6 +907,20 @@ export default function GalleryClient({
 
   /*
    * =========================================================
+   * PAGE TITLE
+   * =========================================================
+   */
+
+  const pageTitle =
+    selectedAlbum
+      ? selectedAlbum.name
+      : activeTab ===
+          "vault"
+        ? "Private Vault"
+        : "Gallery";
+
+  /*
+   * =========================================================
    * UI
    * =========================================================
    */
@@ -1036,7 +929,7 @@ export default function GalleryClient({
     <div
       className="
         min-h-[100svh]
-        bg-[linear-gradient(145deg,#f5fbfe_0%,#fffdf8_55%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
@@ -1050,11 +943,12 @@ export default function GalleryClient({
           min-h-[100svh]
           px-4
           pb-28
-          pt-5
+          pt-6
           sm:px-6
           lg:ml-[290px]
           lg:px-8
-          lg:pb-8
+          lg:pb-12
+          lg:pt-9
           xl:px-10
         "
       >
@@ -1062,20 +956,27 @@ export default function GalleryClient({
           className="
             mx-auto
             w-full
-            max-w-[1500px]
+            max-w-[1460px]
           "
         >
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <header
             className="
               flex
+              min-h-[54px]
               items-end
               justify-between
-              gap-4
+              gap-5
             "
           >
-            <div>
+            <div
+              className="
+                min-w-0
+              "
+            >
               {selectedAlbum && (
                 <button
                   type="button"
@@ -1086,11 +987,11 @@ export default function GalleryClient({
                   }
                   className="
                     mb-3
-                    text-sm
-                    font-semibold
+                    text-xs
+                    font-medium
                     text-ink-soft
                     transition
-                    hover:text-ocean-800
+                    hover:text-ocean-900
                   "
                 >
                   ← Albums
@@ -1099,26 +1000,21 @@ export default function GalleryClient({
 
               <h1
                 className="
+                  truncate
                   font-display
-                  text-4xl
+                  text-[34px]
                   font-semibold
+                  leading-none
+                  tracking-[-0.035em]
                   text-ocean-950
+                  sm:text-[40px]
                 "
               >
-                {selectedAlbum
-                  ? selectedAlbum.name
-                  : activeTab ===
-                      "vault"
-                    ? "Private Vault"
-                    : "Gallery"}
+                {pageTitle}
               </h1>
             </div>
 
-            {(activeTab ===
-              "photos" ||
-              activeTab ===
-                "vault" ||
-              selectedAlbum) && (
+            {showPhotoActions && (
               <button
                 type="button"
                 onClick={() =>
@@ -1126,19 +1022,11 @@ export default function GalleryClient({
                     true
                   )
                 }
-                className="
-                  rounded-full
-                  bg-ocean-900
-                  px-5
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-white
-                  transition
-                  hover:bg-ocean-800
-                "
+                className={
+                  primaryButtonClass
+                }
               >
-                + Add Photos
+                Add Photos
               </button>
             )}
 
@@ -1156,34 +1044,30 @@ export default function GalleryClient({
                       true
                     );
                   }}
-                  className="
-                    rounded-full
-                    bg-ocean-900
-                    px-5
-                    py-3
-                    text-sm
-                    font-semibold
-                    text-white
-                    transition
-                    hover:bg-ocean-800
-                  "
+                  className={
+                    primaryButtonClass
+                  }
                 >
-                  + New Album
+                  New Album
                 </button>
               )}
           </header>
 
-          {/* TABS */}
+          {/* =================================================
+              TABS
+          ================================================= */}
 
           {!selectedAlbum && (
             <nav
               className="
-                mt-7
+                mt-8
                 flex
                 gap-7
                 overflow-x-auto
                 border-b
-                border-ocean-100
+                border-ocean-100/80
+                [scrollbar-width:none]
+                [&::-webkit-scrollbar]:hidden
               "
             >
               <TabButton
@@ -1254,7 +1138,9 @@ export default function GalleryClient({
             </nav>
           )}
 
-          {/* CONTENT */}
+          {/* =================================================
+              CONTENT
+          ================================================= */}
 
           {activeTab ===
             "vault" &&
@@ -1269,12 +1155,8 @@ export default function GalleryClient({
               "albums" &&
             !selectedAlbum ? (
             <AlbumsView
-              albums={
-                albums
-              }
-              photos={
-                photos
-              }
+              albums={albums}
+              photos={photos}
               userId={
                 user.id
               }
@@ -1307,13 +1189,13 @@ export default function GalleryClient({
               emptyLabel={
                 activeTab ===
                 "favorites"
-                  ? "Belum ada foto favorit"
+                  ? "No favorites yet."
                   : activeTab ===
                       "vault"
-                    ? "Vault masih kosong"
+                    ? "Vault is empty."
                     : selectedAlbum
-                      ? "Album masih kosong"
-                      : "Belum ada foto"
+                      ? "Album is empty."
+                      : "No photos yet."
               }
               onOpen={(
                 photo
@@ -1328,46 +1210,55 @@ export default function GalleryClient({
       </main>
 
       {/* =====================================================
-          FLOATING CAMERA BUTTON
-          ===================================================== */}
+          CAMERA FAB
+      ====================================================== */}
 
-      <button
-        type="button"
-        onClick={() =>
-          setCameraOpen(
-            true
-          )
-        }
-        aria-label="Open camera"
-        className="
-          fixed
-          bottom-24
-          right-4
-          z-[900]
-          flex
-          h-14
-          w-14
-          items-center
-          justify-center
-          rounded-full
-          bg-ocean-900
-          text-white
-          shadow-[0_12px_35px_rgba(6,42,63,0.28)]
-          transition
-          hover:scale-105
-          hover:bg-ocean-800
-          active:scale-95
-          sm:right-6
-          lg:bottom-7
-          lg:right-7
-        "
-      >
-        <Camera
-          size={22}
-        />
-      </button>
+      {showPhotoActions && (
+        <button
+          type="button"
+          onClick={() =>
+            setCameraOpen(
+              true
+            )
+          }
+          aria-label="Open camera"
+          className="
+            fixed
+            bottom-24
+            right-4
+            z-[900]
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            bg-ocean-950
+            text-white
+            shadow-[0_14px_35px_rgba(6,42,63,0.23)]
+            ring-1
+            ring-white/20
+            transition
+            duration-200
+            hover:-translate-y-0.5
+            hover:bg-ocean-800
+            active:translate-y-0
+            active:scale-95
+            sm:right-6
+            lg:bottom-8
+            lg:right-8
+          "
+        >
+          <Camera
+            size={20}
+            strokeWidth={1.9}
+          />
+        </button>
+      )}
 
-      {/* UPLOAD DEVICE */}
+      {/* =====================================================
+          UPLOAD
+      ====================================================== */}
 
       {uploadOpen && (
         <UploadPhotosModal
@@ -1392,6 +1283,9 @@ export default function GalleryClient({
                 ? "private"
                 : "shared"
           }
+          vaultUnlocked={
+            vaultUnlocked
+          }
           onClose={() =>
             setUploadOpen(
               false
@@ -1414,7 +1308,9 @@ export default function GalleryClient({
         />
       )}
 
-      {/* CAMERA VIEW */}
+      {/* =====================================================
+          CAMERA
+      ====================================================== */}
 
       {cameraOpen && (
         <CameraCaptureModal
@@ -1429,7 +1325,9 @@ export default function GalleryClient({
         />
       )}
 
-      {/* SAVE CAMERA PHOTO */}
+      {/* =====================================================
+          CAMERA RESULT
+      ====================================================== */}
 
       {cameraFile && (
         <CameraPhotoModal
@@ -1465,7 +1363,9 @@ export default function GalleryClient({
         />
       )}
 
-      {/* ALBUM MODAL */}
+      {/* =====================================================
+          ALBUM
+      ====================================================== */}
 
       {albumOpen && (
         <AlbumModal
@@ -1502,7 +1402,9 @@ export default function GalleryClient({
                       album.id
                   );
 
-                if (exists) {
+                if (
+                  exists
+                ) {
                   return current.map(
                     (item) =>
                       item.id ===
@@ -1530,7 +1432,9 @@ export default function GalleryClient({
         />
       )}
 
-      {/* PHOTO INFO */}
+      {/* =====================================================
+          EDIT PHOTO
+      ====================================================== */}
 
       {editingPhoto && (
         <PhotoInfoModal
@@ -1548,7 +1452,9 @@ export default function GalleryClient({
         />
       )}
 
-      {/* LIGHTBOX */}
+      {/* =====================================================
+          LIGHTBOX
+      ====================================================== */}
 
       {activePhoto && (
         <PhotoLightbox
@@ -1609,14 +1515,9 @@ function TabButton({
   onClick,
   children,
 }: {
-  active:
-    boolean;
-
-  onClick:
-    () => void;
-
-  children:
-    React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -1625,16 +1526,35 @@ function TabButton({
         onClick
       }
       className={`
+        relative
         shrink-0
-        border-b-2
-        pb-3
+        pb-3.5
         text-sm
-        font-semibold
+        font-medium
         transition
+        duration-200
+
         ${
           active
-            ? "border-ocean-900 text-ocean-950"
-            : "border-transparent text-ink-soft hover:text-ocean-800"
+            ? "text-ocean-950"
+            : "text-ink-soft hover:text-ocean-800"
+        }
+
+        after:absolute
+        after:bottom-0
+        after:left-0
+        after:h-[2px]
+        after:w-full
+        after:origin-left
+        after:rounded-full
+        after:bg-ocean-900
+        after:transition-transform
+        after:duration-200
+
+        ${
+          active
+            ? "after:scale-x-100"
+            : "after:scale-x-0"
         }
       `}
     >
@@ -1654,33 +1574,20 @@ function PhotoGrid({
   emptyLabel,
   onOpen,
 }: {
-  photos:
-    GalleryPhoto[];
-
-  emptyLabel:
-    string;
-
-  onOpen:
-    (
-      photo:
-        GalleryPhoto
-    ) => void;
+  photos: GalleryPhoto[];
+  emptyLabel: string;
+  onOpen: (
+    photo:
+      GalleryPhoto
+  ) => void;
 }) {
   if (
-    photos.length ===
-    0
+    photos.length === 0
   ) {
     return (
-      <div
-        className="
-          py-24
-          text-center
-          text-sm
-          text-ink-soft
-        "
-      >
+      <EmptyState>
         {emptyLabel}
-      </div>
+      </EmptyState>
     );
   }
 
@@ -1688,18 +1595,17 @@ function PhotoGrid({
     <section
       className="
         mt-6
-        columns-2
-        gap-2
-        sm:columns-3
-        lg:columns-4
-        2xl:columns-5
+        grid
+        grid-cols-2
+        gap-2.5
+        sm:grid-cols-3
+        sm:gap-3
+        xl:grid-cols-4
+        2xl:grid-cols-5
       "
     >
       {photos.map(
-        (
-          photo,
-          index
-        ) => (
+        (photo) => (
           <button
             key={
               photo.id
@@ -1710,27 +1616,22 @@ function PhotoGrid({
                 photo
               )
             }
-            className={`
+            className="
               group
               relative
-              mb-2
-              block
-              w-full
-              break-inside-avoid
+              aspect-[4/5]
               overflow-hidden
-              rounded-[14px]
+              rounded-[17px]
               bg-ocean-50
-
-              ${
-                index % 7 ===
-                0
-                  ? "aspect-[4/5]"
-                  : index % 5 ===
-                      0
-                    ? "aspect-square"
-                    : "aspect-[3/4]"
-              }
-            `}
+              text-left
+              shadow-[0_8px_30px_rgba(8,59,89,0.035)]
+              ring-1
+              ring-ocean-100/60
+              transition
+              duration-300
+              hover:-translate-y-0.5
+              hover:shadow-[0_16px_40px_rgba(8,59,89,0.08)]
+            "
           >
             {photo.signed_url ? (
               <Image
@@ -1747,8 +1648,9 @@ function PhotoGrid({
                 className="
                   object-cover
                   transition
-                  duration-500
-                  group-hover:scale-[1.02]
+                  duration-700
+                  ease-out
+                  group-hover:scale-[1.025]
                 "
               />
             ) : (
@@ -1756,9 +1658,70 @@ function PhotoGrid({
                 className="
                   h-full
                   w-full
-                  bg-ocean-100
+                  bg-[linear-gradient(145deg,#dff5fc,#f7efe3)]
                 "
               />
+            )}
+
+            <div
+              className="
+                absolute
+                inset-0
+                bg-gradient-to-t
+                from-ocean-950/55
+                via-transparent
+                to-transparent
+                opacity-0
+                transition
+                duration-300
+                group-hover:opacity-100
+              "
+            />
+
+            {(photo.title ||
+              photo.source_type ===
+                "memory") && (
+              <div
+                className="
+                  absolute
+                  inset-x-0
+                  bottom-0
+                  translate-y-2
+                  px-4
+                  pb-4
+                  opacity-0
+                  transition
+                  duration-300
+                  group-hover:translate-y-0
+                  group-hover:opacity-100
+                "
+              >
+                {photo.title && (
+                  <p
+                    className="
+                      line-clamp-1
+                      text-sm
+                      font-medium
+                      text-white
+                    "
+                  >
+                    {photo.title}
+                  </p>
+                )}
+
+                {photo.source_type ===
+                  "memory" && (
+                  <p
+                    className="
+                      mt-1
+                      text-[10px]
+                      text-white/55
+                    "
+                  >
+                    Memory
+                  </p>
+                )}
+              </div>
             )}
 
             {photo.is_favorite && (
@@ -1767,35 +1730,22 @@ function PhotoGrid({
                   absolute
                   right-3
                   top-3
-                  text-white
-                  drop-shadow-md
-                "
-              >
-                <Star
-                  size={16}
-                  fill="currentColor"
-                />
-              </span>
-            )}
-
-            {photo.source_type ===
-              "memory" && (
-              <span
-                className="
-                  absolute
-                  bottom-3
-                  left-3
+                  flex
+                  h-8
+                  w-8
+                  items-center
+                  justify-center
                   rounded-full
-                  bg-black/35
-                  px-2.5
-                  py-1
-                  text-[9px]
-                  font-semibold
+                  bg-black/25
                   text-white
                   backdrop-blur-md
                 "
               >
-                Memory
+                <Star
+                  size={14}
+                  fill="currentColor"
+                  strokeWidth={1.5}
+                />
               </span>
             )}
           </button>
@@ -1820,35 +1770,22 @@ function AlbumsView({
   onEdit,
   onDelete,
 }: {
-  albums:
-    GalleryAlbum[];
-
-  photos:
-    GalleryPhoto[];
-
-  userId:
-    string;
-
-  vaultUnlocked:
-    boolean;
-
-  onOpen:
-    (
-      album:
-        GalleryAlbum
-    ) => void;
-
-  onEdit:
-    (
-      album:
-        GalleryAlbum
-    ) => void;
-
-  onDelete:
-    (
-      album:
-        GalleryAlbum
-    ) => void;
+  albums: GalleryAlbum[];
+  photos: GalleryPhoto[];
+  userId: string;
+  vaultUnlocked: boolean;
+  onOpen: (
+    album:
+      GalleryAlbum
+  ) => void;
+  onEdit: (
+    album:
+      GalleryAlbum
+  ) => void;
+  onDelete: (
+    album:
+      GalleryAlbum
+  ) => void;
 }) {
   const visibleAlbums =
     albums.filter(
@@ -1867,25 +1804,19 @@ function AlbumsView({
     0
   ) {
     return (
-      <div
-        className="
-          py-24
-          text-center
-          text-sm
-          text-ink-soft
-        "
-      >
-        Belum ada album
-      </div>
+      <EmptyState>
+        No albums yet.
+      </EmptyState>
     );
   }
 
   return (
     <section
       className="
-        mt-6
+        mt-7
         grid
-        gap-5
+        gap-x-5
+        gap-y-8
         sm:grid-cols-2
         xl:grid-cols-3
       "
@@ -1908,7 +1839,10 @@ function AlbumsView({
               key={
                 album.id
               }
-              className="group"
+              className="
+                group
+                min-w-0
+              "
             >
               <button
                 type="button"
@@ -1923,8 +1857,15 @@ function AlbumsView({
                   aspect-[16/10]
                   w-full
                   overflow-hidden
-                  rounded-[20px]
-                  bg-ocean-100
+                  rounded-[22px]
+                  bg-ocean-50
+                  shadow-[0_12px_35px_rgba(8,59,89,0.045)]
+                  ring-1
+                  ring-ocean-100/60
+                  transition
+                  duration-300
+                  group-hover:-translate-y-0.5
+                  group-hover:shadow-[0_18px_45px_rgba(8,59,89,0.08)]
                 "
               >
                 {cover?.signed_url ? (
@@ -1940,27 +1881,31 @@ function AlbumsView({
                     className="
                       object-cover
                       transition
-                      duration-500
+                      duration-700
+                      ease-out
                       group-hover:scale-[1.02]
                     "
                   />
                 ) : (
                   <div
                     className="
-                      flex
                       h-full
-                      items-center
-                      justify-center
-                      bg-gradient-to-br
-                      from-ocean-100
-                      to-cream
-                      text-sm
-                      text-ink-soft
+                      w-full
+                      bg-[linear-gradient(145deg,#dff5fc_0%,#f7efe3_100%)]
                     "
-                  >
-                    Empty
-                  </div>
+                  />
                 )}
+
+                <div
+                  className="
+                    absolute
+                    inset-0
+                    bg-gradient-to-t
+                    from-ocean-950/25
+                    via-transparent
+                    to-transparent
+                  "
+                />
 
                 {album.visibility ===
                   "private" && (
@@ -1970,11 +1915,11 @@ function AlbumsView({
                       right-3
                       top-3
                       rounded-full
-                      bg-black/35
-                      px-2.5
-                      py-1
-                      text-[9px]
-                      font-semibold
+                      bg-black/25
+                      px-3
+                      py-1.5
+                      text-[10px]
+                      font-medium
                       text-white
                       backdrop-blur-md
                     "
@@ -1986,12 +1931,12 @@ function AlbumsView({
 
               <div
                 className="
-                  mt-3
+                  mt-3.5
                   flex
                   items-start
                   justify-between
-                  gap-3
-                  px-1
+                  gap-4
+                  px-0.5
                 "
               >
                 <button
@@ -2003,62 +1948,106 @@ function AlbumsView({
                   }
                   className="
                     min-w-0
+                    flex-1
                     text-left
                   "
                 >
                   <h2
                     className="
                       truncate
+                      font-display
+                      text-[20px]
                       font-semibold
+                      tracking-[-0.02em]
                       text-ocean-950
                     "
                   >
                     {album.name}
                   </h2>
 
-                  <p
+                  <div
                     className="
                       mt-1
+                      flex
+                      items-center
+                      gap-2
                       text-xs
                       text-ink-soft
                     "
                   >
-                    {
-                      albumPhotos.length
-                    }{" "}
-                    photos
-                  </p>
+                    <span>
+                      {
+                        albumPhotos.length
+                      }{" "}
+                      {albumPhotos.length ===
+                      1
+                        ? "photo"
+                        : "photos"}
+                    </span>
+
+                    {album.description && (
+                      <>
+                        <span
+                          className="
+                            h-[3px]
+                            w-[3px]
+                            rounded-full
+                            bg-ocean-300
+                          "
+                        />
+
+                        <span
+                          className="
+                            line-clamp-1
+                          "
+                        >
+                          {
+                            album.description
+                          }
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </button>
 
                 <button
                   type="button"
+                  aria-label="Album options"
                   onClick={async () => {
                     const result =
-                      await Swal.fire({
-                        title:
-                          album.name,
+                      await Swal.fire(
+                        {
+                          title:
+                            album.name,
 
-                        showCancelButton:
-                          true,
+                          showCancelButton:
+                            true,
 
-                        showDenyButton:
-                          true,
+                          showDenyButton:
+                            true,
 
-                        confirmButtonText:
-                          "Edit",
+                          confirmButtonText:
+                            "Edit",
 
-                        denyButtonText:
-                          "Delete",
+                          denyButtonText:
+                            "Delete",
 
-                        cancelButtonText:
-                          "Close",
+                          cancelButtonText:
+                            "Close",
 
-                        confirmButtonColor:
-                          "#1688b5",
+                          confirmButtonColor:
+                            "#083b59",
 
-                        denyButtonColor:
-                          "#dc5f72",
-                      });
+                          denyButtonColor:
+                            "#d85f72",
+
+                          background:
+                            "#fffdf9",
+
+                          color:
+                            "#123d59",
+                        }
+                      );
 
                     if (
                       result.isConfirmed
@@ -2078,15 +2067,16 @@ function AlbumsView({
                   }}
                   className="
                     flex
-                    h-8
-                    w-8
+                    h-9
+                    w-9
                     shrink-0
                     items-center
                     justify-center
                     rounded-full
                     text-ink-soft
                     transition
-                    hover:bg-ocean-50
+                    hover:bg-white
+                    hover:text-ocean-900
                   "
                 >
                   <MoreHorizontal
@@ -2118,7 +2108,7 @@ function VaultLocked({
     <section
       className="
         flex
-        min-h-[55vh]
+        min-h-[58vh]
         items-center
         justify-center
       "
@@ -2128,20 +2118,35 @@ function VaultLocked({
           text-center
         "
       >
-        <LockKeyhole
-          size={28}
+        <div
           className="
             mx-auto
-            text-ocean-700
+            flex
+            h-12
+            w-12
+            items-center
+            justify-center
+            rounded-full
+            border
+            border-ocean-100
+            bg-white/70
+            text-ocean-800
+            shadow-[0_10px_30px_rgba(8,59,89,0.05)]
           "
-        />
+        >
+          <LockKeyhole
+            size={19}
+            strokeWidth={1.7}
+          />
+        </div>
 
         <h2
           className="
             mt-5
             font-display
-            text-3xl
+            text-[28px]
             font-semibold
+            tracking-[-0.025em]
             text-ocean-950
           "
         >
@@ -2153,18 +2158,12 @@ function VaultLocked({
           onClick={
             onUnlock
           }
-          className="
+          className={`
+            ${primaryButtonClass}
             mt-6
-            rounded-full
-            bg-ocean-900
-            px-6
-            py-3
-            text-sm
-            font-semibold
-            text-white
-          "
+          `}
         >
-          Enter Vault
+          Unlock
         </button>
       </div>
     </section>
@@ -2173,7 +2172,7 @@ function VaultLocked({
 
 /*
  * =========================================================
- * DEVICE UPLOAD
+ * UPLOAD
  * =========================================================
  */
 
@@ -2183,32 +2182,25 @@ function UploadPhotosModal({
   albums,
   defaultAlbumId,
   defaultVisibility,
+  vaultUnlocked,
   onClose,
   onUploaded,
 }: {
-  userId:
-    string;
-
-  coupleId:
-    string;
-
-  albums:
-    GalleryAlbum[];
-
+  userId: string;
+  coupleId: string;
+  albums: GalleryAlbum[];
   defaultAlbumId:
     string | null;
-
   defaultVisibility:
     UploadDestination;
-
+  vaultUnlocked:
+    boolean;
   onClose:
     () => void;
-
-  onUploaded:
-    (
-      photos:
-        GalleryPhoto[]
-    ) => void;
+  onUploaded: (
+    photos:
+      GalleryPhoto[]
+  ) => void;
 }) {
   const [files, setFiles] =
     useState<File[]>([]);
@@ -2236,6 +2228,12 @@ function UploadPhotosModal({
   ] =
     useState(false);
 
+  const [
+    isPreparingFiles,
+    setIsPreparingFiles,
+  ] =
+    useState(false);
+
   const availableAlbums =
     albums.filter(
       (album) =>
@@ -2243,42 +2241,78 @@ function UploadPhotosModal({
         visibility
     );
 
-  /*
-   * DEVICE FILES
-   */
-
   const handleFiles =
-    (
+    async (
       event:
         ChangeEvent<HTMLInputElement>
     ) => {
+      const input =
+        event.currentTarget;
+
       const selected =
         Array.from(
-          event.target.files ??
-            []
+          input.files ??
+          []
         );
 
+      /*
+       * Clear immediately so the same file can be
+       * selected again after an error/removal.
+       */
+      input.value =
+        "";
+
       if (
-        selected.length ===
-        0
+        selected.length === 0
       ) {
         return;
       }
 
-      setFiles(
-        (current) => [
-          ...current,
-          ...selected,
-        ]
+      setIsPreparingFiles(
+        true
       );
 
-      event.target.value =
-        "";
-    };
+      try {
+        /*
+         * HEIC / HEIF is converted to JPEG here.
+         * Other supported image formats pass through.
+         *
+         * Normalizing before setFiles also means the
+         * preview grid receives browser-displayable files.
+         */
+        const normalized =
+          await normalizeImageFiles(
+            selected,
+            {
+              maxSizeMB:
+                8,
 
-  /*
-   * REMOVE
-   */
+              heicQuality:
+                0.88,
+            }
+          );
+
+        setFiles(
+          (current) => [
+            ...current,
+            ...normalized,
+          ]
+        );
+      } catch (error) {
+        await showError(
+          "Photo could not be added",
+
+          error instanceof
+            Error
+            ? error.message
+            : "One of the selected photos is invalid."
+        );
+      } finally {
+        setIsPreparingFiles(
+          false
+        );
+      }
+    };
 
   const handleRemoveFile =
     (
@@ -2298,10 +2332,6 @@ function UploadPhotosModal({
       );
     };
 
-  /*
-   * UPLOAD
-   */
-
   const handleUpload =
     async (
       event:
@@ -2310,47 +2340,19 @@ function UploadPhotosModal({
       event.preventDefault();
 
       if (
-        files.length ===
-        0
+        files.length === 0
+      ) {
+        return;
+      }
+
+      if (
+        visibility ===
+          "private" &&
+        !vaultUnlocked
       ) {
         await showWarning(
-          "Belum ada foto",
-          "Pilih foto terlebih dahulu."
-        );
-
-        return;
-      }
-
-      const invalid =
-        files.find(
-          (file) =>
-            !file.type.startsWith(
-              "image/"
-            )
-        );
-
-      if (invalid) {
-        await showWarning(
-          "File tidak valid",
-          "Semua file harus berupa gambar."
-        );
-
-        return;
-      }
-
-      const oversized =
-        files.find(
-          (file) =>
-            file.size >
-            8 *
-              1024 *
-              1024
-        );
-
-      if (oversized) {
-        await showWarning(
-          "Foto terlalu besar",
-          "Maksimal 8 MB per foto."
+          "Vault locked",
+          "Unlock the Vault first."
         );
 
         return;
@@ -2366,28 +2368,28 @@ function UploadPhotosModal({
 
       try {
         for (
-          const file of files
+          const file of
+          files
         ) {
           const photo =
-            await uploadGalleryFile({
-              file,
+            await uploadGalleryFile(
+              {
+                file,
+                userId,
+                coupleId,
+                visibility,
 
-              userId,
+                albumId:
+                  albumId ||
+                  null,
 
-              coupleId,
+                title:
+                  null,
 
-              visibility,
-
-              albumId:
-                albumId ||
-                null,
-
-              title:
-                null,
-
-              note:
-                null,
-            });
+                note:
+                  null,
+              }
+            );
 
           created.push(
             photo
@@ -2399,11 +2401,12 @@ function UploadPhotosModal({
         );
       } catch (error) {
         await showError(
-          "Upload gagal",
+          "Upload failed",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan."
+            : "Something went wrong."
         );
       } finally {
         setIsUploading(
@@ -2418,7 +2421,8 @@ function UploadPhotosModal({
         onClose
       }
       locked={
-        isUploading
+        isUploading ||
+        isPreparingFiles
       }
     >
       <form
@@ -2439,12 +2443,10 @@ function UploadPhotosModal({
             sm:p-6
           "
         >
-          {/* DEVICE ONLY */}
-
           <label
             className="
               flex
-              min-h-[150px]
+              min-h-[165px]
               cursor-pointer
               flex-col
               items-center
@@ -2453,17 +2455,19 @@ function UploadPhotosModal({
               border
               border-dashed
               border-ocean-200
-              bg-ocean-50/40
-              px-5
+              bg-ocean-50/45
+              px-6
               text-center
               transition
+              hover:border-ocean-300
               hover:bg-ocean-50
             "
           >
             <Plus
-              size={22}
+              size={20}
+              strokeWidth={1.8}
               className="
-                text-ocean-600
+                text-ocean-700
               "
             />
 
@@ -2475,7 +2479,9 @@ function UploadPhotosModal({
                 text-ocean-950
               "
             >
-              Pilih Foto
+              {isPreparingFiles
+                ? "Preparing photos..."
+                : "Select photos"}
             </p>
 
             <p
@@ -2485,16 +2491,23 @@ function UploadPhotosModal({
                 text-ink-soft
               "
             >
-              {files.length >
-              0
-                ? `${files.length} dipilih`
-                : "Dari perangkat"}
+              {isPreparingFiles
+                ? "HEIC / HEIF photos are converted automatically."
+                : files.length > 0
+                  ? `${files.length} selected`
+                  : "JPG, PNG, WebP, HEIC, and HEIF · max 8 MB each"}
             </p>
 
             <input
               type="file"
               multiple
-              accept="image/*"
+              accept={
+                IMAGE_ACCEPT
+              }
+              disabled={
+                isUploading ||
+                isPreparingFiles
+              }
               onChange={
                 handleFiles
               }
@@ -2502,10 +2515,7 @@ function UploadPhotosModal({
             />
           </label>
 
-          {/* PREVIEW */}
-
-          {files.length >
-            0 && (
+          {files.length > 0 && (
             <div
               className="
                 mt-5
@@ -2521,14 +2531,13 @@ function UploadPhotosModal({
                 <p
                   className="
                     text-xs
-                    font-semibold
-                    text-ocean-900
+                    text-ink-soft
                   "
                 >
                   {
                     files.length
                   }{" "}
-                  foto
+                  photos
                 </p>
 
                 <button
@@ -2540,7 +2549,10 @@ function UploadPhotosModal({
                   }
                   className="
                     text-xs
-                    text-ink-soft
+                    font-medium
+                    text-ocean-700
+                    transition
+                    hover:text-ocean-950
                   "
                 >
                   Clear
@@ -2578,8 +2590,6 @@ function UploadPhotosModal({
             </div>
           )}
 
-          {/* DESTINATION */}
-
           <div
             className="
               mt-6
@@ -2588,19 +2598,9 @@ function UploadPhotosModal({
               sm:grid-cols-2
             "
           >
-            <div>
-              <label
-                className="
-                  mb-2
-                  block
-                  text-xs
-                  font-semibold
-                  text-ocean-900
-                "
-              >
-                Location
-              </label>
-
+            <Field
+              label="Save to"
+            >
               <select
                 value={
                   visibility
@@ -2620,38 +2620,28 @@ function UploadPhotosModal({
                     ""
                   );
                 }}
-                className="
-                  love-input
-                  w-full
-                  rounded-[14px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                className={
+                  inputClass
+                }
               >
                 <option value="shared">
                   Gallery
                 </option>
 
-                <option value="private">
+                <option
+                  value="private"
+                  disabled={
+                    !vaultUnlocked
+                  }
+                >
                   Private Vault
                 </option>
               </select>
-            </div>
+            </Field>
 
-            <div>
-              <label
-                className="
-                  mb-2
-                  block
-                  text-xs
-                  font-semibold
-                  text-ocean-900
-                "
-              >
-                Album
-              </label>
-
+            <Field
+              label="Album"
+            >
               <select
                 value={
                   albumId
@@ -2660,24 +2650,22 @@ function UploadPhotosModal({
                   event
                 ) =>
                   setAlbumId(
-                    event.target.value
+                    event.target
+                      .value
                   )
                 }
-                className="
-                  love-input
-                  w-full
-                  rounded-[14px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                className={
+                  inputClass
+                }
               >
                 <option value="">
                   No Album
                 </option>
 
                 {availableAlbums.map(
-                  (album) => (
+                  (
+                    album
+                  ) => (
                     <option
                       key={
                         album.id
@@ -2693,34 +2681,28 @@ function UploadPhotosModal({
                   )
                 )}
               </select>
-            </div>
+            </Field>
           </div>
 
           <button
             type="submit"
             disabled={
               isUploading ||
+              isPreparingFiles ||
               files.length ===
                 0
             }
-            className="
+            className={`
+              ${primaryButtonClass}
               mt-6
               w-full
-              rounded-[15px]
-              bg-ocean-900
-              px-5
-              py-3
-              text-sm
-              font-semibold
-              text-white
-              transition
-              hover:bg-ocean-800
-              disabled:opacity-40
-            "
+            `}
           >
-            {isUploading
-              ? "Uploading..."
-              : `Upload${files.length > 0 ? ` ${files.length}` : ""}`}
+            {isPreparingFiles
+              ? "Preparing..."
+              : isUploading
+                ? "Uploading..."
+                : "Upload"}
           </button>
         </div>
       </form>
@@ -2739,7 +2721,6 @@ function SelectedPhoto({
   onRemove,
 }: {
   file: File;
-
   onRemove:
     () => void;
 }) {
@@ -2795,19 +2776,22 @@ function SelectedPhoto({
         onClick={
           onRemove
         }
+        aria-label="Remove photo"
         className="
           absolute
           right-1.5
           top-1.5
           flex
-          h-6
-          w-6
+          h-7
+          w-7
           items-center
           justify-center
           rounded-full
-          bg-black/55
+          bg-black/40
           text-white
           backdrop-blur-md
+          transition
+          hover:bg-black/60
         "
       >
         <X
@@ -2820,639 +2804,7 @@ function SelectedPhoto({
 
 /*
  * =========================================================
- * CAMERA
- * =========================================================
- */
-
-function CameraCaptureModal({
-  onClose,
-  onCapture,
-}: {
-  onClose:
-    () => void;
-
-  onCapture:
-    (
-      file:
-        File
-    ) => void;
-}) {
-  const videoRef =
-    useRef<HTMLVideoElement | null>(
-      null
-    );
-
-  const canvasRef =
-    useRef<HTMLCanvasElement | null>(
-      null
-    );
-
-  const streamRef =
-    useRef<MediaStream | null>(
-      null
-    );
-
-  const [
-    cameraSide,
-    setCameraSide,
-  ] =
-    useState<CameraSide>(
-      "environment"
-    );
-
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true);
-
-  const [
-    cameraError,
-    setCameraError,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  /*
-   * STREAM
-   */
-
-  useEffect(() => {
-    let cancelled =
-      false;
-
-    const stopStream =
-      () => {
-        streamRef.current
-          ?.getTracks()
-          .forEach(
-            (track) =>
-              track.stop()
-          );
-
-        streamRef.current =
-          null;
-      };
-
-    const startCamera =
-      async () => {
-        stopStream();
-
-        setLoading(
-          true
-        );
-
-        setCameraError(
-          null
-        );
-
-        try {
-          if (
-            !navigator.mediaDevices
-              ?.getUserMedia
-          ) {
-            throw new Error(
-              "Browser tidak mendukung kamera."
-            );
-          }
-
-          let stream:
-            MediaStream;
-
-          try {
-            stream =
-              await navigator.mediaDevices.getUserMedia(
-                {
-                  audio:
-                    false,
-
-                  video: {
-                    facingMode: {
-                      exact:
-                        cameraSide,
-                    },
-
-                    width: {
-                      ideal:
-                        1920,
-                    },
-
-                    height: {
-                      ideal:
-                        1080,
-                    },
-                  },
-                }
-              );
-          } catch {
-            stream =
-              await navigator.mediaDevices.getUserMedia(
-                {
-                  audio:
-                    false,
-
-                  video: {
-                    facingMode: {
-                      ideal:
-                        cameraSide,
-                    },
-
-                    width: {
-                      ideal:
-                        1920,
-                    },
-
-                    height: {
-                      ideal:
-                        1080,
-                    },
-                  },
-                }
-              );
-          }
-
-          if (cancelled) {
-            stream
-              .getTracks()
-              .forEach(
-                (track) =>
-                  track.stop()
-              );
-
-            return;
-          }
-
-          streamRef.current =
-            stream;
-
-          if (
-            videoRef.current
-          ) {
-            videoRef.current.srcObject =
-              stream;
-
-            await videoRef.current.play();
-          }
-        } catch (error) {
-          if (cancelled) {
-            return;
-          }
-
-          console.error(
-            "Camera error:",
-            error
-          );
-
-          let message =
-            "Kamera tidak dapat dibuka.";
-
-          if (
-            error instanceof
-            DOMException
-          ) {
-            if (
-              error.name ===
-              "NotAllowedError"
-            ) {
-              message =
-                "Izin kamera ditolak.";
-            }
-
-            if (
-              error.name ===
-              "NotFoundError"
-            ) {
-              message =
-                "Kamera tidak ditemukan.";
-            }
-
-            if (
-              error.name ===
-              "NotReadableError"
-            ) {
-              message =
-                "Kamera sedang digunakan aplikasi lain.";
-            }
-          }
-
-          setCameraError(
-            message
-          );
-        } finally {
-          if (!cancelled) {
-            setLoading(
-              false
-            );
-          }
-        }
-      };
-
-    void startCamera();
-
-    return () => {
-      cancelled =
-        true;
-
-      stopStream();
-    };
-  }, [cameraSide]);
-
-  /*
-   * STOP
-   */
-
-  const stopCamera =
-    () => {
-      streamRef.current
-        ?.getTracks()
-        .forEach(
-          (track) =>
-            track.stop()
-        );
-
-      streamRef.current =
-        null;
-    };
-
-  /*
-   * CAPTURE
-   */
-
-  const handleCapture =
-    () => {
-      const video =
-        videoRef.current;
-
-      const canvas =
-        canvasRef.current;
-
-      if (
-        !video ||
-        !canvas ||
-        video.videoWidth ===
-          0 ||
-        video.videoHeight ===
-          0
-      ) {
-        return;
-      }
-
-      canvas.width =
-        video.videoWidth;
-
-      canvas.height =
-        video.videoHeight;
-
-      const context =
-        canvas.getContext(
-          "2d"
-        );
-
-      if (!context) {
-        return;
-      }
-
-      context.save();
-
-      if (
-        cameraSide ===
-        "user"
-      ) {
-        context.translate(
-          canvas.width,
-          0
-        );
-
-        context.scale(
-          -1,
-          1
-        );
-      }
-
-      context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      context.restore();
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            return;
-          }
-
-          const file =
-            new File(
-              [blob],
-              `camera-${Date.now()}.jpg`,
-              {
-                type:
-                  "image/jpeg",
-
-                lastModified:
-                  Date.now(),
-              }
-            );
-
-          stopCamera();
-
-          onCapture(
-            file
-          );
-        },
-        "image/jpeg",
-        0.92
-      );
-    };
-
-  return (
-    <div
-      className="
-        fixed
-        inset-0
-        z-[1700]
-        flex
-        items-center
-        justify-center
-        bg-black
-        sm:bg-black/90
-        sm:p-5
-      "
-    >
-      <div
-        className="
-          relative
-          flex
-          h-[100svh]
-          w-full
-          max-w-[900px]
-          flex-col
-          overflow-hidden
-          bg-black
-          sm:h-[90svh]
-          sm:rounded-[26px]
-        "
-      >
-        {/* TOP */}
-
-        <div
-          className="
-            absolute
-            inset-x-0
-            top-0
-            z-30
-            flex
-            items-center
-            justify-between
-            bg-gradient-to-b
-            from-black/70
-            via-black/20
-            to-transparent
-            px-4
-            pb-12
-            pt-4
-          "
-        >
-          <div
-            className="
-              flex
-              rounded-full
-              bg-black/35
-              p-1
-              backdrop-blur-xl
-            "
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setCameraSide(
-                  "user"
-                )
-              }
-              className={`
-                rounded-full
-                px-4
-                py-2
-                text-xs
-                font-semibold
-
-                ${
-                  cameraSide ===
-                  "user"
-                    ? "bg-white text-black"
-                    : "text-white"
-                }
-              `}
-            >
-              Depan
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setCameraSide(
-                  "environment"
-                )
-              }
-              className={`
-                rounded-full
-                px-4
-                py-2
-                text-xs
-                font-semibold
-
-                ${
-                  cameraSide ===
-                  "environment"
-                    ? "bg-white text-black"
-                    : "text-white"
-                }
-              `}
-            >
-              Belakang
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              stopCamera();
-              onClose();
-            }}
-            className="
-              flex
-              h-10
-              w-10
-              items-center
-              justify-center
-              rounded-full
-              bg-black/35
-              text-white
-              backdrop-blur-xl
-            "
-          >
-            <X
-              size={18}
-            />
-          </button>
-        </div>
-
-        {/* VIEW */}
-
-        <div
-          className="
-            relative
-            min-h-0
-            flex-1
-            overflow-hidden
-            bg-black
-          "
-        >
-          <video
-            ref={
-              videoRef
-            }
-            autoPlay
-            muted
-            playsInline
-            className={`
-              h-full
-              w-full
-              object-cover
-
-              ${
-                cameraSide ===
-                "user"
-                  ? "-scale-x-100"
-                  : ""
-              }
-            `}
-          />
-
-          {loading && (
-            <div
-              className="
-                absolute
-                inset-0
-                flex
-                items-center
-                justify-center
-                bg-black
-                text-sm
-                text-white/60
-              "
-            >
-              Membuka kamera...
-            </div>
-          )}
-
-          {cameraError && (
-            <div
-              className="
-                absolute
-                inset-0
-                flex
-                items-center
-                justify-center
-                bg-black
-                px-8
-                text-center
-              "
-            >
-              <div>
-                <p
-                  className="
-                    text-sm
-                    font-semibold
-                    text-white
-                  "
-                >
-                  Kamera tidak dapat dibuka
-                </p>
-
-                <p
-                  className="
-                    mt-2
-                    text-xs
-                    text-white/55
-                  "
-                >
-                  {
-                    cameraError
-                  }
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SHUTTER */}
-
-        <div
-          className="
-            flex
-            shrink-0
-            items-center
-            justify-center
-            bg-black
-            py-7
-          "
-        >
-          <button
-            type="button"
-            onClick={
-              handleCapture
-            }
-            disabled={
-              loading ||
-              Boolean(
-                cameraError
-              )
-            }
-            className="
-              flex
-              h-[76px]
-              w-[76px]
-              items-center
-              justify-center
-              rounded-full
-              border-[4px]
-              border-white
-              transition
-              active:scale-95
-              disabled:opacity-30
-            "
-          >
-            <span
-              className="
-                h-[60px]
-                w-[60px]
-                rounded-full
-                bg-white
-              "
-            />
-          </button>
-        </div>
-
-        <canvas
-          ref={
-            canvasRef
-          }
-          className="hidden"
-        />
-      </div>
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * CAMERA SAVE PHOTO
+ * CAMERA PHOTO
  * =========================================================
  */
 
@@ -3470,27 +2822,19 @@ function CameraPhotoModal({
   file: File;
   userId: string;
   coupleId: string;
-
-  albums:
-    GalleryAlbum[];
-
+  albums: GalleryAlbum[];
   defaultAlbumId:
     string | null;
-
   defaultVisibility:
     Visibility;
-
   vaultUnlocked:
     boolean;
-
   onClose:
     () => void;
-
-  onSaved:
-    (
-      photo:
-        GalleryPhoto
-    ) => void;
+  onSaved: (
+    photo:
+      GalleryPhoto
+  ) => void;
 }) {
   const [
     previewUrl,
@@ -3570,8 +2914,8 @@ function CameraPhotoModal({
         !vaultUnlocked
       ) {
         await showWarning(
-          "Vault terkunci",
-          "Buka Private Vault terlebih dahulu jika ingin menyimpan foto ke Vault."
+          "Vault locked",
+          "Unlock the Vault first."
         );
 
         return;
@@ -3583,36 +2927,38 @@ function CameraPhotoModal({
 
       try {
         const photo =
-          await uploadGalleryFile({
-            file,
-            userId,
-            coupleId,
+          await uploadGalleryFile(
+            {
+              file,
+              userId,
+              coupleId,
+              visibility,
 
-            visibility,
+              albumId:
+                albumId ||
+                null,
 
-            albumId:
-              albumId ||
-              null,
+              title:
+                title.trim() ||
+                null,
 
-            title:
-              title.trim() ||
-              null,
-
-            note:
-              note.trim() ||
-              null,
-          });
+              note:
+                note.trim() ||
+                null,
+            }
+          );
 
         onSaved(
           photo
         );
       } catch (error) {
         await showError(
-          "Foto gagal disimpan",
+          "Photo could not be saved",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan."
+            : "Something went wrong."
         );
       } finally {
         setSaving(
@@ -3648,12 +2994,9 @@ function CameraPhotoModal({
             sm:p-6
           "
         >
-          {/* PREVIEW */}
-
           <div
             className="
               relative
-              mx-auto
               aspect-[4/3]
               w-full
               overflow-hidden
@@ -3676,205 +3019,147 @@ function CameraPhotoModal({
             )}
           </div>
 
-          {/* TITLE */}
-
           <div
             className="
-              mt-5
+              mt-6
+              space-y-4
             "
           >
-            <label
-              className="
-                mb-2
-                block
-                text-xs
-                font-semibold
-                text-ocean-900
-              "
+            <Field
+              label="Title"
             >
-              Title
-            </label>
-
-            <input
-              type="text"
-              value={
-                title
-              }
-              onChange={(
-                event
-              ) =>
-                setTitle(
-                  event.target.value
-                )
-              }
-              placeholder="Optional"
-              className="
-                love-input
-                w-full
-                rounded-[14px]
-                px-4
-                py-3
-                text-sm
-              "
-            />
-          </div>
-
-          {/* NOTE */}
-
-          <div
-            className="
-              mt-4
-            "
-          >
-            <label
-              className="
-                mb-2
-                block
-                text-xs
-                font-semibold
-                text-ocean-900
-              "
-            >
-              Note
-            </label>
-
-            <textarea
-              value={
-                note
-              }
-              onChange={(
-                event
-              ) =>
-                setNote(
-                  event.target.value
-                )
-              }
-              rows={3}
-              placeholder="Optional"
-              className="
-                love-input
-                w-full
-                resize-none
-                rounded-[14px]
-                px-4
-                py-3
-                text-sm
-              "
-            />
-          </div>
-
-          {/* LOCATION */}
-
-          <div
-            className="
-              mt-4
-              grid
-              gap-4
-              sm:grid-cols-2
-            "
-          >
-            <div>
-              <label
-                className="
-                  mb-2
-                  block
-                  text-xs
-                  font-semibold
-                  text-ocean-900
-                "
-              >
-                Location
-              </label>
-
-              <select
+              <input
+                type="text"
                 value={
-                  visibility
-                }
-                onChange={(
-                  event
-                ) => {
-                  setVisibility(
-                    event.target
-                      .value as Visibility
-                  );
-
-                  setAlbumId(
-                    ""
-                  );
-                }}
-                className="
-                  love-input
-                  w-full
-                  rounded-[14px]
-                  px-4
-                  py-3
-                  text-sm
-                "
-              >
-                <option value="shared">
-                  Gallery
-                </option>
-
-                <option value="private">
-                  Private Vault
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                className="
-                  mb-2
-                  block
-                  text-xs
-                  font-semibold
-                  text-ocean-900
-                "
-              >
-                Album
-              </label>
-
-              <select
-                value={
-                  albumId
+                  title
                 }
                 onChange={(
                   event
                 ) =>
-                  setAlbumId(
-                    event.target.value
+                  setTitle(
+                    event.target
+                      .value
                   )
                 }
-                className="
-                  love-input
-                  w-full
-                  rounded-[14px]
-                  px-4
-                  py-3
-                  text-sm
-                "
-              >
-                <option value="">
-                  No Album
-                </option>
+                placeholder="Optional"
+                className={
+                  inputClass
+                }
+              />
+            </Field>
 
-                {availableAlbums.map(
-                  (album) => (
-                    <option
-                      key={
-                        album.id
-                      }
-                      value={
-                        album.id
-                      }
-                    >
-                      {
-                        album.name
-                      }
-                    </option>
+            <Field
+              label="Note"
+            >
+              <textarea
+                value={
+                  note
+                }
+                onChange={(
+                  event
+                ) =>
+                  setNote(
+                    event.target
+                      .value
                   )
-                )}
-              </select>
+                }
+                rows={3}
+                placeholder="Optional"
+                className={`
+                  ${inputClass}
+                  resize-none
+                `}
+              />
+            </Field>
+
+            <div
+              className="
+                grid
+                gap-4
+                sm:grid-cols-2
+              "
+            >
+              <Field
+                label="Save to"
+              >
+                <select
+                  value={
+                    visibility
+                  }
+                  onChange={(
+                    event
+                  ) => {
+                    setVisibility(
+                      event.target
+                        .value as Visibility
+                    );
+
+                    setAlbumId(
+                      ""
+                    );
+                  }}
+                  className={
+                    inputClass
+                  }
+                >
+                  <option value="shared">
+                    Gallery
+                  </option>
+
+                  <option
+                    value="private"
+                    disabled={
+                      !vaultUnlocked
+                    }
+                  >
+                    Private Vault
+                  </option>
+                </select>
+              </Field>
+
+              <Field
+                label="Album"
+              >
+                <select
+                  value={
+                    albumId
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setAlbumId(
+                      event.target
+                        .value
+                    )
+                  }
+                  className={
+                    inputClass
+                  }
+                >
+                  <option value="">
+                    No Album
+                  </option>
+
+                  {availableAlbums.map(
+                    (
+                      album
+                    ) => (
+                      <option
+                        key={
+                          album.id
+                        }
+                        value={
+                          album.id
+                        }
+                      >
+                        {
+                          album.name
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+              </Field>
             </div>
           </div>
 
@@ -3883,22 +3168,15 @@ function CameraPhotoModal({
             disabled={
               saving
             }
-            className="
+            className={`
+              ${primaryButtonClass}
               mt-6
               w-full
-              rounded-[15px]
-              bg-ocean-900
-              px-5
-              py-3
-              text-sm
-              font-semibold
-              text-white
-              disabled:opacity-50
-            "
+            `}
           >
             {saving
               ? "Saving..."
-              : "Save Photo"}
+              : "Save"}
           </button>
         </div>
       </form>
@@ -3908,7 +3186,7 @@ function CameraPhotoModal({
 
 /*
  * =========================================================
- * EDIT PHOTO INFO
+ * PHOTO INFO
  * =========================================================
  */
 
@@ -3917,17 +3195,13 @@ function PhotoInfoModal({
   onClose,
   onSaved,
 }: {
-  photo:
-    GalleryPhoto;
-
+  photo: GalleryPhoto;
   onClose:
     () => void;
-
-  onSaved:
-    (
-      photo:
-        GalleryPhoto
-    ) => void;
+  onSaved: (
+    photo:
+      GalleryPhoto
+  ) => void;
 }) {
   const [
     title,
@@ -4007,11 +3281,12 @@ function PhotoInfoModal({
         });
       } catch (error) {
         await showError(
-          "Info foto gagal disimpan",
+          "Info could not be saved",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan."
+            : "Something went wrong."
         );
       } finally {
         setSaving(
@@ -4043,23 +3318,14 @@ function PhotoInfoModal({
 
         <div
           className="
+            space-y-4
             p-5
             sm:p-6
           "
         >
-          <div>
-            <label
-              className="
-                mb-2
-                block
-                text-xs
-                font-semibold
-                text-ocean-900
-              "
-            >
-              Title
-            </label>
-
+          <Field
+            label="Title"
+          >
             <input
               type="text"
               value={
@@ -4069,38 +3335,20 @@ function PhotoInfoModal({
                 event
               ) =>
                 setTitle(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               placeholder="Optional"
-              className="
-                love-input
-                w-full
-                rounded-[14px]
-                px-4
-                py-3
-                text-sm
-              "
+              className={
+                inputClass
+              }
             />
-          </div>
+          </Field>
 
-          <div
-            className="
-              mt-4
-            "
+          <Field
+            label="Note"
           >
-            <label
-              className="
-                mb-2
-                block
-                text-xs
-                font-semibold
-                text-ocean-900
-              "
-            >
-              Note
-            </label>
-
             <textarea
               value={
                 note
@@ -4109,40 +3357,29 @@ function PhotoInfoModal({
                 event
               ) =>
                 setNote(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               rows={5}
               placeholder="Optional"
-              className="
-                love-input
-                w-full
+              className={`
+                ${inputClass}
                 resize-none
-                rounded-[14px]
-                px-4
-                py-3
-                text-sm
-              "
+              `}
             />
-          </div>
+          </Field>
 
           <button
             type="submit"
             disabled={
               saving
             }
-            className="
-              mt-6
+            className={`
+              ${primaryButtonClass}
+              mt-2
               w-full
-              rounded-[15px]
-              bg-ocean-900
-              px-5
-              py-3
-              text-sm
-              font-semibold
-              text-white
-              disabled:opacity-50
-            "
+            `}
           >
             {saving
               ? "Saving..."
@@ -4168,28 +3405,23 @@ function AlbumModal({
   onClose,
   onSaved,
 }: {
-  coupleId:
-    string;
-
-  userId:
-    string;
-
+  coupleId: string;
+  userId: string;
   editingAlbum:
     GalleryAlbum | null;
-
   vaultUnlocked:
     boolean;
-
   onClose:
     () => void;
-
-  onSaved:
-    (
-      album:
-        GalleryAlbum
-    ) => void;
+  onSaved: (
+    album:
+      GalleryAlbum
+  ) => void;
 }) {
-  const [name, setName] =
+  const [
+    name,
+    setName,
+  ] =
     useState(
       editingAlbum?.name ??
       ""
@@ -4200,7 +3432,8 @@ function AlbumModal({
     setDescription,
   ] =
     useState(
-      editingAlbum?.description ??
+      editingAlbum
+        ?.description ??
       ""
     );
 
@@ -4209,11 +3442,15 @@ function AlbumModal({
     setVisibility,
   ] =
     useState<Visibility>(
-      editingAlbum?.visibility ??
-      "shared"
+      editingAlbum
+        ?.visibility ??
+        "shared"
     );
 
-  const [saving, setSaving] =
+  const [
+    saving,
+    setSaving,
+  ] =
     useState(false);
 
   const handleSubmit =
@@ -4235,8 +3472,8 @@ function AlbumModal({
         !vaultUnlocked
       ) {
         await showWarning(
-          "Vault terkunci",
-          "Buka Vault terlebih dahulu untuk membuat album private."
+          "Vault locked",
+          "Unlock the Vault first."
         );
 
         return;
@@ -4250,7 +3487,9 @@ function AlbumModal({
         createClient();
 
       try {
-        if (editingAlbum) {
+        if (
+          editingAlbum
+        ) {
           const {
             data,
             error,
@@ -4330,11 +3569,12 @@ function AlbumModal({
         );
       } catch (error) {
         await showError(
-          "Album gagal disimpan",
+          "Album could not be saved",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan."
+            : "Something went wrong."
         );
       } finally {
         setSaving(
@@ -4370,24 +3610,14 @@ function AlbumModal({
 
         <div
           className="
-            space-y-5
+            space-y-4
             p-5
             sm:p-6
           "
         >
-          <div>
-            <label
-              className="
-                mb-2
-                block
-                text-xs
-                font-semibold
-                text-ocean-900
-              "
-            >
-              Name
-            </label>
-
+          <Field
+            label="Name"
+          >
             <input
               type="text"
               value={
@@ -4397,33 +3627,19 @@ function AlbumModal({
                 event
               ) =>
                 setName(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
-              className="
-                love-input
-                w-full
-                rounded-[14px]
-                px-4
-                py-3
-                text-sm
-              "
+              className={
+                inputClass
+              }
             />
-          </div>
+          </Field>
 
-          <div>
-            <label
-              className="
-                mb-2
-                block
-                text-xs
-                font-semibold
-                text-ocean-900
-              "
-            >
-              Description
-            </label>
-
+          <Field
+            label="Description"
+          >
             <textarea
               value={
                 description
@@ -4432,36 +3648,22 @@ function AlbumModal({
                 event
               ) =>
                 setDescription(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               rows={3}
-              className="
-                love-input
-                w-full
+              className={`
+                ${inputClass}
                 resize-none
-                rounded-[14px]
-                px-4
-                py-3
-                text-sm
-              "
+              `}
             />
-          </div>
+          </Field>
 
           {!editingAlbum && (
-            <div>
-              <label
-                className="
-                  mb-2
-                  block
-                  text-xs
-                  font-semibold
-                  text-ocean-900
-                "
-              >
-                Visibility
-              </label>
-
+            <Field
+              label="Visibility"
+            >
               <select
                 value={
                   visibility
@@ -4474,24 +3676,24 @@ function AlbumModal({
                       .value as Visibility
                   )
                 }
-                className="
-                  love-input
-                  w-full
-                  rounded-[14px]
-                  px-4
-                  py-3
-                  text-sm
-                "
+                className={
+                  inputClass
+                }
               >
                 <option value="shared">
                   Shared
                 </option>
 
-                <option value="private">
+                <option
+                  value="private"
+                  disabled={
+                    !vaultUnlocked
+                  }
+                >
                   Private
                 </option>
               </select>
-            </div>
+            </Field>
           )}
 
           <button
@@ -4500,17 +3702,11 @@ function AlbumModal({
               saving ||
               !name.trim()
             }
-            className="
+            className={`
+              ${primaryButtonClass}
+              mt-2
               w-full
-              rounded-[15px]
-              bg-ocean-900
-              px-5
-              py-3
-              text-sm
-              font-semibold
-              text-white
-              disabled:opacity-50
-            "
+            `}
           >
             {saving
               ? "Saving..."
@@ -4540,33 +3736,21 @@ function PhotoLightbox({
   onEdit,
   onDelete,
 }: {
-  photo:
-    GalleryPhoto;
-
-  index:
-    number;
-
-  total:
-    number;
-
+  photo: GalleryPhoto;
+  index: number;
+  total: number;
   onClose:
     () => void;
-
   onPrevious:
     () => void;
-
   onNext:
     () => void;
-
   onFavorite:
     () => void;
-
   onMove:
     () => void;
-
   onEdit:
     () => void;
-
   onDelete:
     () => void;
 }) {
@@ -4621,269 +3805,339 @@ function PhotoLightbox({
         fixed
         inset-0
         z-[1500]
-        flex
-        items-center
-        justify-center
-        bg-black/90
-        p-3
+        bg-[#04141f]/95
+        backdrop-blur-sm
       "
     >
-      {/* CLOSE */}
-
-      <button
-        type="button"
-        onClick={
-          onClose
-        }
-        className="
-          absolute
-          right-5
-          top-5
-          z-30
-          flex
-          h-10
-          w-10
-          items-center
-          justify-center
-          rounded-full
-          bg-white/10
-          text-white
-          backdrop-blur-md
-        "
-      >
-        <X
-          size={19}
-        />
-      </button>
-
-      {/* COUNTER */}
-
       <div
         className="
-          absolute
-          left-5
-          top-5
-          z-30
-          text-xs
-          text-white/60
+          grid
+          h-[100svh]
+          grid-rows-[minmax(0,1fr)_auto]
+          lg:grid-cols-[minmax(0,1fr)_360px]
+          lg:grid-rows-1
         "
       >
-        {index + 1} /{" "}
-        {total}
-      </div>
+        {/* IMAGE */}
 
-      {/* NAV */}
-
-      {total > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={
-              onPrevious
-            }
-            className="
-              absolute
-              left-3
-              top-1/2
-              z-30
-              flex
-              h-11
-              w-11
-              -translate-y-1/2
-              items-center
-              justify-center
-              rounded-full
-              bg-black/30
-              text-white
-              backdrop-blur-md
-              sm:left-6
-            "
-          >
-            <ChevronLeft
-              size={24}
-            />
-          </button>
-
-          <button
-            type="button"
-            onClick={
-              onNext
-            }
-            className="
-              absolute
-              right-3
-              top-1/2
-              z-30
-              flex
-              h-11
-              w-11
-              -translate-y-1/2
-              items-center
-              justify-center
-              rounded-full
-              bg-black/30
-              text-white
-              backdrop-blur-md
-              sm:right-6
-            "
-          >
-            <ChevronRight
-              size={24}
-            />
-          </button>
-        </>
-      )}
-
-      {/* IMAGE */}
-
-      <div
-        className="
-          relative
-          h-[72svh]
-          w-full
-          max-w-[1200px]
-        "
-      >
-        {photo.signed_url && (
-          <Image
-            src={
-              photo.signed_url
-            }
-            alt={
-              photo.title ||
-              photo.caption ||
-              "Photo"
-            }
-            fill
-            unoptimized
-            priority
-            className="
-              object-contain
-            "
-          />
-        )}
-      </div>
-
-      {/* TITLE / NOTE */}
-
-      {(photo.title ||
-        photo.caption) && (
         <div
           className="
-            absolute
-            bottom-[78px]
-            left-1/2
-            z-30
-            w-[calc(100%-32px)]
-            max-w-xl
-            -translate-x-1/2
-            rounded-[18px]
-            bg-black/45
-            px-5
-            py-4
-            text-white
-            backdrop-blur-xl
+            relative
+            min-h-0
+            overflow-hidden
           "
         >
-          {photo.title && (
-            <h2
-              className="
-                font-display
-                text-xl
-                font-semibold
-              "
-            >
-              {photo.title}
-            </h2>
+          <div
+            className="
+              absolute
+              left-5
+              top-5
+              z-30
+              rounded-full
+              bg-black/20
+              px-3
+              py-1.5
+              text-[11px]
+              text-white/60
+              backdrop-blur-md
+            "
+          >
+            {index + 1} /{" "}
+            {total}
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              onClose
+            }
+            aria-label="Close photo"
+            className="
+              absolute
+              right-5
+              top-5
+              z-40
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-full
+              bg-black/25
+              text-white
+              backdrop-blur-md
+              transition
+              hover:bg-black/40
+            "
+          >
+            <X
+              size={18}
+            />
+          </button>
+
+          {total > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={
+                  onPrevious
+                }
+                aria-label="Previous photo"
+                className="
+                  absolute
+                  left-3
+                  top-1/2
+                  z-30
+                  flex
+                  h-11
+                  w-11
+                  -translate-y-1/2
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-black/25
+                  text-white
+                  backdrop-blur-md
+                  transition
+                  hover:bg-black/40
+                  sm:left-6
+                "
+              >
+                <ChevronLeft
+                  size={22}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  onNext
+                }
+                aria-label="Next photo"
+                className="
+                  absolute
+                  right-3
+                  top-1/2
+                  z-30
+                  flex
+                  h-11
+                  w-11
+                  -translate-y-1/2
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-black/25
+                  text-white
+                  backdrop-blur-md
+                  transition
+                  hover:bg-black/40
+                  sm:right-6
+                  lg:right-6
+                "
+              >
+                <ChevronRight
+                  size={22}
+                />
+              </button>
+            </>
           )}
 
-          {photo.caption && (
-            <p
-              className="
-                mt-1
-                whitespace-pre-line
-                text-xs
-                leading-5
-                text-white/70
-              "
-            >
-              {photo.caption}
-            </p>
-          )}
+          <div
+            className="
+              absolute
+              inset-4
+              sm:inset-8
+              lg:inset-10
+            "
+          >
+            {photo.signed_url && (
+              <Image
+                src={
+                  photo.signed_url
+                }
+                alt={
+                  photo.title ||
+                  photo.caption ||
+                  "Photo"
+                }
+                fill
+                unoptimized
+                priority
+                className="
+                  object-contain
+                "
+              />
+            )}
+          </div>
         </div>
-      )}
 
-      {/* ACTIONS */}
+        {/* INFO */}
 
-      <div
-        className="
-          absolute
-          bottom-5
-          left-1/2
-          z-30
-          flex
-          max-w-[calc(100%-24px)]
-          -translate-x-1/2
-          items-center
-          gap-1
-          overflow-x-auto
-          rounded-full
-          bg-black/45
-          p-2
-          backdrop-blur-xl
-        "
-      >
-        <LightboxAction
-          onClick={
-            onFavorite
-          }
+        <aside
+          className="
+            max-h-[40svh]
+            overflow-y-auto
+            border-t
+            border-white/10
+            bg-[#071a27]
+            px-6
+            py-5
+            text-white
+            lg:max-h-none
+            lg:border-l
+            lg:border-t-0
+            lg:px-7
+            lg:py-8
+          "
         >
-          {photo.is_favorite
-            ? "Unfavorite"
-            : "Favorite"}
-        </LightboxAction>
+          <div
+            className="
+              flex
+              h-full
+              flex-col
+            "
+          >
+            <div>
+              {photo.title ? (
+                <h2
+                  className="
+                    font-display
+                    text-2xl
+                    font-semibold
+                    leading-tight
+                    tracking-[-0.025em]
+                    text-white
+                  "
+                >
+                  {photo.title}
+                </h2>
+              ) : (
+                <p
+                  className="
+                    text-xs
+                    font-medium
+                    text-white/40
+                  "
+                >
+                  Photo
+                </p>
+              )}
 
-        <LightboxAction
-          onClick={
-            onEdit
-          }
-        >
-          Edit Info
-        </LightboxAction>
+              {photo.caption && (
+                <p
+                  className="
+                    mt-4
+                    whitespace-pre-line
+                    text-sm
+                    leading-6
+                    text-white/55
+                  "
+                >
+                  {
+                    photo.caption
+                  }
+                </p>
+              )}
 
-        <LightboxAction
-          onClick={
-            onMove
-          }
-        >
-          Album
-        </LightboxAction>
+              {photo.source_type ===
+                "memory" && (
+                <p
+                  className="
+                    mt-5
+                    text-[11px]
+                    text-white/35
+                  "
+                >
+                  From Memory
+                </p>
+              )}
+            </div>
 
-        <LightboxAction
-          onClick={
-            onDelete
-          }
-          danger
-        >
-          Delete
-        </LightboxAction>
+            <div
+              className="
+                mt-6
+                border-t
+                border-white/10
+                pt-5
+                lg:mt-auto
+              "
+            >
+              <div
+                className="
+                  flex
+                  flex-wrap
+                  gap-2
+                "
+              >
+                <LightboxAction
+                  onClick={
+                    onFavorite
+                  }
+                  active={
+                    photo.is_favorite
+                  }
+                >
+                  {photo.is_favorite
+                    ? "Favorited"
+                    : "Favorite"}
+                </LightboxAction>
+
+                <LightboxAction
+                  onClick={
+                    onEdit
+                  }
+                >
+                  Edit
+                </LightboxAction>
+
+                <LightboxAction
+                  onClick={
+                    onMove
+                  }
+                >
+                  Album
+                </LightboxAction>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  onDelete
+                }
+                className="
+                  mt-5
+                  text-xs
+                  font-medium
+                  text-red-300
+                  transition
+                  hover:text-red-200
+                "
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );
 }
 
+/*
+ * =========================================================
+ * LIGHTBOX ACTION
+ * =========================================================
+ */
+
 function LightboxAction({
   children,
   onClick,
-  danger = false,
+  active = false,
 }: {
-  children:
-    React.ReactNode;
-
+  children: ReactNode;
   onClick:
     () => void;
-
-  danger?:
+  active?:
     boolean;
 }) {
   return (
@@ -4893,19 +4147,18 @@ function LightboxAction({
         onClick
       }
       className={`
-        whitespace-nowrap
         rounded-full
+        border
         px-4
         py-2
         text-xs
-        font-semibold
+        font-medium
         transition
-        hover:bg-white/10
 
         ${
-          danger
-            ? "text-red-300"
-            : "text-white"
+          active
+            ? "border-white/30 bg-white text-ocean-950"
+            : "border-white/15 text-white/75 hover:border-white/25 hover:bg-white/10 hover:text-white"
         }
       `}
     >
@@ -4916,7 +4169,7 @@ function LightboxAction({
 
 /*
  * =========================================================
- * MODAL SHELL
+ * MODAL
  * =========================================================
  */
 
@@ -4925,15 +4178,48 @@ function ModalShell({
   onClose,
   locked = false,
 }: {
-  children:
-    React.ReactNode;
-
+  children: ReactNode;
   onClose:
     () => void;
-
   locked?:
     boolean;
 }) {
+  useEffect(() => {
+    if (
+      locked
+    ) {
+      return;
+    }
+
+    const handleKey =
+      (
+        event:
+          globalThis.KeyboardEvent
+      ) => {
+        if (
+          event.key ===
+          "Escape"
+        ) {
+          onClose();
+        }
+      };
+
+    window.addEventListener(
+      "keydown",
+      handleKey
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKey
+      );
+    };
+  }, [
+    locked,
+    onClose,
+  ]);
+
   return (
     <div
       className="
@@ -4943,9 +4229,9 @@ function ModalShell({
         flex
         items-center
         justify-center
-        bg-ocean-950/35
+        bg-ocean-950/45
         p-4
-        backdrop-blur-sm
+        backdrop-blur-[6px]
       "
       onMouseDown={(
         event
@@ -4965,9 +4251,11 @@ function ModalShell({
           w-full
           max-w-[620px]
           overflow-y-auto
-          rounded-[26px]
+          rounded-[28px]
+          border
+          border-white/60
           bg-[#fffdf9]
-          shadow-2xl
+          shadow-[0_30px_100px_rgba(6,42,63,0.24)]
         "
       >
         {children}
@@ -4976,13 +4264,17 @@ function ModalShell({
   );
 }
 
+/*
+ * =========================================================
+ * MODAL HEADER
+ * =========================================================
+ */
+
 function ModalHeader({
   title,
   onClose,
 }: {
-  title:
-    string;
-
+  title: string;
   onClose:
     () => void;
 }) {
@@ -4993,7 +4285,7 @@ function ModalHeader({
         items-center
         justify-between
         border-b
-        border-ocean-100
+        border-ocean-100/80
         px-5
         py-4
         sm:px-6
@@ -5002,8 +4294,9 @@ function ModalHeader({
       <h2
         className="
           font-display
-          text-2xl
+          text-[24px]
           font-semibold
+          tracking-[-0.025em]
           text-ocean-950
         "
       >
@@ -5015,6 +4308,7 @@ function ModalHeader({
         onClick={
           onClose
         }
+        aria-label="Close"
         className="
           flex
           h-9
@@ -5023,11 +4317,13 @@ function ModalHeader({
           justify-center
           rounded-full
           text-ink-soft
+          transition
           hover:bg-ocean-50
+          hover:text-ocean-950
         "
       >
         <X
-          size={17}
+          size={16}
         />
       </button>
     </div>
@@ -5036,7 +4332,68 @@ function ModalHeader({
 
 /*
  * =========================================================
- * STORAGE UPLOAD HELPER
+ * FIELD
+ * =========================================================
+ */
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children:
+    ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        className="
+          mb-2
+          block
+          text-xs
+          font-medium
+          text-ocean-900
+        "
+      >
+        {label}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * EMPTY
+ * =========================================================
+ */
+
+function EmptyState({
+  children,
+}: {
+  children:
+    ReactNode;
+}) {
+  return (
+    <div
+      className="
+        flex
+        min-h-[48vh]
+        items-center
+        justify-center
+        text-sm
+        text-ink-soft
+      "
+    >
+      {children}
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * UPLOAD
  * =========================================================
  */
 
@@ -5049,26 +4406,26 @@ async function uploadGalleryFile({
   title = null,
   note = null,
 }: UploadGalleryFileOptions): Promise<GalleryPhoto> {
-  if (
-    !file.type.startsWith(
-      "image/"
-    )
-  ) {
-    throw new Error(
-      "File harus berupa gambar."
-    );
-  }
 
-  if (
-    file.size >
-    8 *
-      1024 *
-      1024
-  ) {
-    throw new Error(
-      "Maksimal ukuran foto 8 MB."
+  /*
+   * Final normalization guard.
+   *
+   * UploadPhotosModal already normalizes selected files so
+   * HEIC previews work immediately, but keeping this guard
+   * here makes every caller (including camera/future flows)
+   * use one image policy.
+   */
+  const normalizedFile =
+    await normalizeImageFile(
+      file,
+      {
+        maxSizeMB:
+          8,
+
+        heicQuality:
+          0.88,
+      }
     );
-  }
 
   const supabase =
     createClient();
@@ -5078,7 +4435,7 @@ async function uploadGalleryFile({
 
   const extension =
     getExtension(
-      file.name
+      normalizedFile.name
     );
 
   const storagePath =
@@ -5086,10 +4443,6 @@ async function uploadGalleryFile({
     "private"
       ? `private/${userId}/${photoId}/photo-${Date.now()}.${extension}`
       : `shared/${coupleId}/${photoId}/photo-${Date.now()}.${extension}`;
-
-  /*
-   * STORAGE
-   */
 
   const {
     error:
@@ -5101,28 +4454,27 @@ async function uploadGalleryFile({
       )
       .upload(
         storagePath,
-        file,
+        normalizedFile,
         {
           upsert:
             false,
 
           contentType:
-            file.type,
+            normalizedFile.type ||
+            "image/jpeg",
 
           cacheControl:
             "3600",
         }
       );
 
-  if (uploadError) {
+  if (
+    uploadError
+  ) {
     throw new Error(
       uploadError.message
     );
   }
-
-  /*
-   * DATABASE
-   */
 
   const {
     data,
@@ -5174,7 +4526,9 @@ async function uploadGalleryFile({
       .select()
       .single();
 
-  if (databaseError) {
+  if (
+    databaseError
+  ) {
     await supabase.storage
       .from(
         "gallery-media"
@@ -5188,13 +4542,10 @@ async function uploadGalleryFile({
     );
   }
 
-  /*
-   * SIGNED URL
-   */
-
   const {
     data:
       signedData,
+
     error:
       signedError,
   } =
@@ -5207,7 +4558,9 @@ async function uploadGalleryFile({
         60 * 60
       );
 
-  if (signedError) {
+  if (
+    signedError
+  ) {
     console.error(
       "Signed URL error:",
       signedError
@@ -5221,7 +4574,8 @@ async function uploadGalleryFile({
     >),
 
     signed_url:
-      signedData?.signedUrl ??
+      signedData
+        ?.signedUrl ??
       null,
   };
 }
@@ -5255,7 +4609,6 @@ function getExtension(
 async function showWarning(
   title:
     string,
-
   message:
     string
 ) {
@@ -5269,14 +4622,19 @@ async function showWarning(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }
 
 async function showError(
   title:
     string,
-
   message:
     string
 ) {
@@ -5290,6 +4648,12 @@ async function showError(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }

@@ -4,21 +4,20 @@
 
 import dynamic from "next/dynamic";
 
-import {
-  MapPin,
-  RotateCcw,
-} from "lucide-react";
-
 type MemoryLocationPickerProps = {
-  latitude: number | null;
-  longitude: number | null;
+  latitude:
+    number | null;
+
+  longitude:
+    number | null;
 
   onChange: (
     latitude: number,
     longitude: number
   ) => void;
 
-  onClear: () => void;
+  onClear:
+    () => void;
 };
 
 const MemoryLocationPickerMap =
@@ -28,19 +27,18 @@ const MemoryLocationPickerMap =
         "@/components/memories/MemoryLocationPickerMap"
       ),
     {
-      ssr: false,
+      ssr:
+        false,
 
       loading: () => (
         <div
           className="
             flex
-            h-[320px]
+            h-[330px]
             items-center
             justify-center
-            rounded-[20px]
             bg-ocean-50
-            text-sm
-            font-semibold
+            text-xs
             text-ink-soft
           "
         >
@@ -57,119 +55,20 @@ export default function MemoryLocationPicker({
   onClear,
 }: MemoryLocationPickerProps) {
   const hasLocation =
-    latitude !== null &&
-    longitude !== null;
+    latitude !==
+      null &&
+    longitude !==
+      null;
 
   return (
     <div
       className="
         overflow-hidden
-        rounded-[22px]
-        border
-        border-ocean-100
+        border-t
+        border-ocean-100/80
         bg-white
       "
     >
-      {/* HEADER */}
-
-      <div
-        className="
-          flex
-          flex-col
-          gap-3
-          border-b
-          border-ocean-100
-          px-4
-          py-4
-          sm:flex-row
-          sm:items-center
-          sm:justify-between
-        "
-      >
-        <div
-          className="
-            flex
-            items-center
-            gap-3
-          "
-        >
-          <div
-            className="
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-[13px]
-              bg-ocean-100
-              text-ocean-700
-            "
-          >
-            <MapPin
-              size={18}
-            />
-          </div>
-
-          <div>
-            <p
-              className="
-                text-sm
-                font-bold
-                text-ocean-950
-              "
-            >
-              Choose Location
-            </p>
-
-            <p
-              className="
-                mt-0.5
-                text-[11px]
-                text-ink-soft
-              "
-            >
-              Klik titik pada peta.
-            </p>
-          </div>
-        </div>
-
-        {hasLocation && (
-          <button
-            type="button"
-            onClick={
-              onClear
-            }
-            className="
-              flex
-              items-center
-              justify-center
-              gap-2
-              rounded-[13px]
-              border
-              border-ocean-100
-              bg-white
-              px-3
-              py-2
-              text-xs
-              font-semibold
-              text-ink-soft
-              transition
-              hover:bg-ocean-50
-              hover:text-ocean-700
-            "
-          >
-            <RotateCcw
-              size={14}
-            />
-
-            Clear Pin
-          </button>
-        )}
-      </div>
-
-      {/* MAP */}
-
       <MemoryLocationPickerMap
         latitude={
           latitude
@@ -182,78 +81,55 @@ export default function MemoryLocationPicker({
         }
       />
 
-      {/* COORDINATE */}
-
       <div
         className="
-          grid
-          gap-2
+          flex
+          min-h-[48px]
+          items-center
+          justify-between
+          gap-4
           border-t
-          border-ocean-100
-          bg-ocean-50/60
-          p-3
-          sm:grid-cols-2
+          border-ocean-100/80
+          bg-white
+          px-4
+          py-3
         "
       >
-        <CoordinateCard
-          label="Latitude"
-          value={
-            latitude
-          }
-        />
+        <p
+          className="
+            truncate
+            text-[10px]
+            text-ink-soft
+          "
+        >
+          {hasLocation
+            ? `${latitude.toFixed(
+                6
+              )}, ${longitude.toFixed(
+                6
+              )}`
+            : "Tap the map to place a pin"}
+        </p>
 
-        <CoordinateCard
-          label="Longitude"
-          value={
-            longitude
-          }
-        />
+        {hasLocation && (
+          <button
+            type="button"
+            onClick={
+              onClear
+            }
+            className="
+              shrink-0
+              text-xs
+              font-semibold
+              text-ocean-700
+              transition
+              hover:text-ocean-950
+            "
+          >
+            Clear
+          </button>
+        )}
       </div>
-    </div>
-  );
-}
-
-function CoordinateCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | null;
-}) {
-  return (
-    <div
-      className="
-        rounded-[13px]
-        bg-white
-        px-3
-        py-2.5
-      "
-    >
-      <p
-        className="
-          text-[9px]
-          font-bold
-          uppercase
-          tracking-[0.12em]
-          text-ink-soft/60
-        "
-      >
-        {label}
-      </p>
-
-      <p
-        className="
-          mt-1
-          truncate
-          text-xs
-          font-semibold
-          text-ocean-800
-        "
-      >
-        {value !== null
-          ? value.toFixed(6)
-          : "Not selected"}
-      </p>
     </div>
   );
 }

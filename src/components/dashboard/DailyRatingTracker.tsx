@@ -21,20 +21,41 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 
+import {
+  getLastSevenDays,
+  getTodayInJakarta,
+} from "@/utils/date";
+
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 type RatingRow = {
   id: string;
+
   couple_id: string;
+
   user_id: string;
+
   rating: number;
+
   rating_date: string;
+
   created_at: string;
+
   updated_at: string;
 };
 
 type ProfileRow = {
   id: string;
+
   full_name: string;
-  nickname: string | null;
+
+  nickname:
+    | string
+    | null;
 };
 
 type MemberRow = {
@@ -43,10 +64,23 @@ type MemberRow = {
 
 type ChartPoint = {
   date: string;
+
   label: string;
-  mine: number | null;
-  partner: number | null;
+
+  mine:
+    | number
+    | null;
+
+  partner:
+    | number
+    | null;
 };
+
+/*
+ * =========================================================
+ * COMPONENT
+ * =========================================================
+ */
 
 export default function DailyRatingTracker() {
   const supabase =
@@ -59,7 +93,9 @@ export default function DailyRatingTracker() {
     ratings,
     setRatings,
   ] =
-    useState<RatingRow[]>([]);
+    useState<
+      RatingRow[]
+    >([]);
 
   const [
     currentUserId,
@@ -101,21 +137,24 @@ export default function DailyRatingTracker() {
     savingRating,
     setSavingRating,
   ] =
-    useState<number | null>(
-      null
-    );
+    useState<
+      number | null
+    >(null);
 
   const [
     errorMessage,
     setErrorMessage,
   ] =
-    useState<string | null>(
-      null
-    );
+    useState<
+      string | null
+    >(null);
 
   /*
    * =========================================================
    * DATE
+   *
+   * Semua helper sekarang dari:
+   * src/utils/date.ts
    * =========================================================
    */
 
@@ -144,17 +183,14 @@ export default function DailyRatingTracker() {
   const loadRatings =
     useCallback(
       async (
-        showLoading = false
+        showLoading =
+          false
       ) => {
         if (showLoading) {
-          setLoading(
-            true
-          );
+          setLoading(true);
         }
 
-        setErrorMessage(
-          null
-        );
+        setErrorMessage(null);
 
         try {
           /*
@@ -215,9 +251,7 @@ export default function DailyRatingTracker() {
             );
           }
 
-          if (
-            !membership
-          ) {
+          if (!membership) {
             throw new Error(
               "Couple belum terhubung."
             );
@@ -303,9 +337,9 @@ export default function DailyRatingTracker() {
                 )
                 .select(
                   `
-                  id,
-                  full_name,
-                  nickname
+                    id,
+                    full_name,
+                    nickname
                   `
                 )
                 .in(
@@ -357,7 +391,7 @@ export default function DailyRatingTracker() {
           }
 
           /*
-           * LAST 7 DAYS
+           * RATINGS
            */
 
           const firstDate =
@@ -376,13 +410,13 @@ export default function DailyRatingTracker() {
               )
               .select(
                 `
-                id,
-                couple_id,
-                user_id,
-                rating,
-                rating_date,
-                created_at,
-                updated_at
+                  id,
+                  couple_id,
+                  user_id,
+                  rating,
+                  rating_date,
+                  created_at,
+                  updated_at
                 `
               )
               .eq(
@@ -432,9 +466,7 @@ export default function DailyRatingTracker() {
               : "Rating gagal dimuat."
           );
         } finally {
-          setLoading(
-            false
-          );
+          setLoading(false);
         }
       },
       [
@@ -445,7 +477,9 @@ export default function DailyRatingTracker() {
     );
 
   /*
+   * =========================================================
    * INITIAL LOAD
+   * =========================================================
    */
 
   useEffect(() => {
@@ -473,12 +507,8 @@ export default function DailyRatingTracker() {
         .on(
           "postgres_changes",
           {
-            event:
-              "*",
-
-            schema:
-              "public",
-
+            event: "*",
+            schema: "public",
             table:
               "daily_ratings",
 
@@ -504,7 +534,7 @@ export default function DailyRatingTracker() {
 
   /*
    * =========================================================
-   * TODAY RATINGS
+   * TODAY
    * =========================================================
    */
 
@@ -583,19 +613,18 @@ export default function DailyRatingTracker() {
 
   /*
    * =========================================================
-   * SAVE RATING
+   * SAVE
    * =========================================================
    */
 
   const handleRate =
     async (
-      value:
-        number
+      value: number
     ) => {
       if (
         !coupleId ||
         !currentUserId ||
-        savingRating
+        savingRating !== null
       ) {
         return;
       }
@@ -604,11 +633,11 @@ export default function DailyRatingTracker() {
         value
       );
 
-      /*
-       * Optimistic update.
-       */
+      setErrorMessage(
+        null
+      );
 
-      const oldRatings =
+      const previousRatings =
         ratings;
 
       const existing =
@@ -619,6 +648,11 @@ export default function DailyRatingTracker() {
             rating.rating_date ===
               today
         );
+
+      /*
+       * Optimistic update jika
+       * rating hari ini sudah ada.
+       */
 
       if (existing) {
         setRatings(
@@ -667,13 +701,13 @@ export default function DailyRatingTracker() {
             )
             .select(
               `
-              id,
-              couple_id,
-              user_id,
-              rating,
-              rating_date,
-              created_at,
-              updated_at
+                id,
+                couple_id,
+                user_id,
+                rating,
+                rating_date,
+                created_at,
+                updated_at
               `
             )
             .single();
@@ -705,7 +739,7 @@ export default function DailyRatingTracker() {
         );
       } catch (error) {
         setRatings(
-          oldRatings
+          previousRatings
         );
 
         console.error(
@@ -728,113 +762,46 @@ export default function DailyRatingTracker() {
 
   /*
    * =========================================================
-   * UI
+   * LOADING
    * =========================================================
    */
 
   if (loading) {
     return (
-      <section
-        className="
-          rounded-[28px]
-          border
-          border-ocean-100/80
-          bg-white/70
-          p-5
-          sm:p-6
-        "
-      >
-        <div
-          className="
-            h-5
-            w-20
-            animate-pulse
-            rounded-full
-            bg-ocean-100
-          "
-        />
+      <section className="rounded-[28px] border border-ocean-100/80 bg-white/70 p-5 sm:p-6">
+        <div className="h-5 w-20 animate-pulse rounded-full bg-ocean-100" />
 
-        <div
-          className="
-            mt-5
-            h-[260px]
-            animate-pulse
-            rounded-[20px]
-            bg-ocean-50
-          "
-        />
+        <div className="mt-5 h-[260px] animate-pulse rounded-[20px] bg-ocean-50" />
       </section>
     );
   }
 
+  /*
+   * =========================================================
+   * UI
+   * =========================================================
+   */
+
   return (
-    <section
-      className="
-        overflow-hidden
-        rounded-[28px]
-        border
-        border-ocean-100/80
-        bg-white/75
-        shadow-[0_15px_50px_rgba(8,59,89,0.06)]
-        backdrop-blur-xl
-      "
-    >
+    <section className="overflow-hidden rounded-[28px] border border-ocean-100/80 bg-white/75 shadow-[0_15px_50px_rgba(8,59,89,0.06)] backdrop-blur-xl">
       {/* TODAY */}
 
-      <div
-        className="
-          p-5
-          sm:p-6
-        "
-      >
-        <div
-          className="
-            flex
-            flex-col
-            gap-5
-            lg:flex-row
-            lg:items-start
-            lg:justify-between
-          "
-        >
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2
-              className="
-                font-display
-                text-2xl
-                font-semibold
-                text-ocean-950
-              "
-            >
+            <h2 className="font-display text-2xl font-semibold text-ocean-950">
               Today
             </h2>
 
-            <p
-              className="
-                mt-1
-                text-sm
-                text-ink-soft
-              "
-            >
+            <p className="mt-1 text-sm text-ink-soft">
               {myName}
             </p>
 
-            {/* RATING BUTTONS */}
-
-            <div
-              className="
-                mt-4
-                flex
-                gap-2
-              "
-            >
-              {[
-                1,
-                2,
-                3,
-                4,
-                5,
-              ].map(
+            <div className="mt-4 grid max-w-[520px] grid-cols-5 gap-2 sm:grid-cols-10">
+              {Array.from(
+  { length: 10 },
+  (_, index) => index + 1
+).map(
                 (value) => {
                   const active =
                     myTodayRating ===
@@ -846,12 +813,10 @@ export default function DailyRatingTracker() {
 
                   return (
                     <button
-                      key={
-                        value
-                      }
+                      key={value}
                       type="button"
                       onClick={() =>
-                        handleRate(
+                        void handleRate(
                           value
                         )
                       }
@@ -860,15 +825,8 @@ export default function DailyRatingTracker() {
                         null
                       }
                       className={`
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-full
-                        text-sm
-                        font-semibold
-                        transition
+                        flex h-11 w-11 items-center justify-center
+                        rounded-full text-sm font-semibold transition
 
                         ${
                           active
@@ -891,18 +849,9 @@ export default function DailyRatingTracker() {
             </div>
           </div>
 
-          {/* TODAY VALUES */}
-
-          <div
-            className="
-              flex
-              gap-3
-            "
-          >
+          <div className="flex gap-3">
             <RatingValue
-              name={
-                myName
-              }
+              name={myName}
               value={
                 myTodayRating
               }
@@ -920,120 +869,44 @@ export default function DailyRatingTracker() {
         </div>
 
         {errorMessage && (
-          <p
-            className="
-              mt-4
-              text-xs
-              text-heart
-            "
-          >
+          <p className="mt-4 text-xs text-heart">
             {errorMessage}
           </p>
         )}
       </div>
 
-      {/* DIVIDER */}
-
-      <div
-        className="
-          border-t
-          border-ocean-100/80
-        "
-      />
+      <div className="border-t border-ocean-100/80" />
 
       {/* CHART */}
 
-      <div
-        className="
-          p-5
-          sm:p-6
-        "
-      >
-        <div
-          className="
-            flex
-            flex-wrap
-            items-center
-            justify-between
-            gap-3
-          "
-        >
-          <h3
-            className="
-              font-display
-              text-xl
-              font-semibold
-              text-ocean-950
-            "
-          >
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-display text-xl font-semibold text-ocean-950">
             Last 7 Days
           </h3>
 
-          <div
-            className="
-              flex
-              items-center
-              gap-4
-              text-[11px]
-              font-medium
-              text-ink-soft
-            "
-          >
-            <span
-              className="
-                flex
-                items-center
-                gap-2
-              "
-            >
-              <span
-                className="
-                  h-2
-                  w-2
-                  rounded-full
-                  bg-[#0b4f71]
-                "
-              />
+          <div className="flex items-center gap-4 text-[11px] font-medium text-ink-soft">
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#0b4f71]" />
 
               {myName}
             </span>
 
-            <span
-              className="
-                flex
-                items-center
-                gap-2
-              "
-            >
-              <span
-                className="
-                  h-2
-                  w-2
-                  rounded-full
-                  bg-[#ef7890]
-                "
-              />
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#ef7890]" />
 
               {partnerName}
             </span>
           </div>
         </div>
 
-        <div
-          className="
-            mt-5
-            h-[260px]
-            w-full
-          "
-        >
+        <div className="mt-5 h-[260px] w-full">
           <ResponsiveContainer
             width="100%"
             height="100%"
           >
             <LineChart
-              data={
-                chartData
-              }
+              data={chartData}
               margin={{
                 top: 8,
                 right: 8,
@@ -1042,58 +915,46 @@ export default function DailyRatingTracker() {
               }}
             >
               <CartesianGrid
-                vertical={
-                  false
-                }
+                vertical={false}
                 stroke="#dcecf3"
                 strokeDasharray="3 5"
               />
 
               <XAxis
                 dataKey="label"
-                axisLine={
-                  false
-                }
-                tickLine={
-                  false
-                }
+                axisLine={false}
+                tickLine={false}
                 tick={{
                   fill:
                     "#648196",
 
-                  fontSize:
-                    11,
+                  fontSize: 11,
                 }}
                 dy={8}
               />
 
               <YAxis
-                domain={[
-                  1,
-                  5,
-                ]}
-                ticks={[
-                  1,
-                  2,
-                  3,
-                  4,
-                  5,
-                ]}
-                allowDecimals={
-                  false
-                }
-                axisLine={
-                  false
-                }
-                tickLine={
-                  false
-                }
+  domain={[1, 10]}
+  ticks={[
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+  ]}
+                allowDecimals={false}
+                axisLine={false}
+                tickLine={false}
                 tick={{
                   fill:
                     "#8aa2b2",
 
-                  fontSize:
-                    10,
+                  fontSize: 10,
                 }}
               />
 
@@ -1119,28 +980,25 @@ export default function DailyRatingTracker() {
                   value,
                   name
                 ) => {
+                  const label =
+                    name === "mine"
+                      ? myName
+                      : partnerName;
+
                   if (
-                    value ===
-                      null ||
+                    value === null ||
                     value ===
                       undefined
                   ) {
                     return [
                       "—",
-                      name ===
-                      "mine"
-                        ? myName
-                        : partnerName,
+                      label,
                     ];
                   }
 
                   return [
-                    `${value}/5`,
-
-                    name ===
-                    "mine"
-                      ? myName
-                      : partnerName,
+                    `${value}/10`,
+                    label,
                   ];
                 }}
               />
@@ -1148,17 +1006,16 @@ export default function DailyRatingTracker() {
               <Line
                 type="monotone"
                 dataKey="mine"
+                name="mine"
                 stroke="#0b4f71"
                 strokeWidth={2.5}
-                connectNulls={
-                  false
-                }
+                connectNulls={false}
                 dot={{
                   r: 3.5,
                   fill:
                     "#0b4f71",
-                  strokeWidth:
-                    0,
+
+                  strokeWidth: 0,
                 }}
                 activeDot={{
                   r: 5,
@@ -1168,17 +1025,16 @@ export default function DailyRatingTracker() {
               <Line
                 type="monotone"
                 dataKey="partner"
+                name="partner"
                 stroke="#ef7890"
                 strokeWidth={2.5}
-                connectNulls={
-                  false
-                }
+                connectNulls={false}
                 dot={{
                   r: 3.5,
                   fill:
                     "#ef7890",
-                  strokeWidth:
-                    0,
+
+                  strokeWidth: 0,
                 }}
                 activeDot={{
                   r: 5,
@@ -1194,7 +1050,7 @@ export default function DailyRatingTracker() {
 
 /*
  * =========================================================
- * TODAY VALUE
+ * RATING VALUE
  * =========================================================
  */
 
@@ -1202,56 +1058,24 @@ function RatingValue({
   name,
   value,
 }: {
-  name:
-    string;
+  name: string;
 
   value:
-    number | null;
+    | number
+    | null;
 }) {
   return (
-    <div
-      className="
-        min-w-[100px]
-        rounded-[18px]
-        bg-ocean-50/70
-        px-4
-        py-3
-      "
-    >
-      <p
-        className="
-          max-w-[110px]
-          truncate
-          text-[11px]
-          font-medium
-          text-ink-soft
-        "
-      >
+    <div className="min-w-[100px] rounded-[18px] bg-ocean-50/70 px-4 py-3">
+      <p className="max-w-[110px] truncate text-[11px] font-medium text-ink-soft">
         {name}
       </p>
 
-      <p
-        className="
-          mt-1
-          text-xl
-          font-semibold
-          text-ocean-950
-        "
-      >
-        {value ??
-          "—"}
+      <p className="mt-1 text-xl font-semibold text-ocean-950">
+        {value ?? "—"}
 
-        {value !==
-          null && (
-          <span
-            className="
-              ml-0.5
-              text-xs
-              font-medium
-              text-ink-soft
-            "
-          >
-            /5
+        {value !== null && (
+          <span className="ml-0.5 text-xs font-medium text-ink-soft">
+            /10
           </span>
         )}
       </p>
@@ -1267,10 +1091,10 @@ function RatingValue({
 
 function getProfileName(
   profile:
-    ProfileRow | undefined,
+    | ProfileRow
+    | undefined,
 
-  fallback:
-    string
+  fallback: string
 ) {
   if (
     profile?.nickname?.trim()
@@ -1285,122 +1109,4 @@ function getProfileName(
   }
 
   return fallback;
-}
-
-/*
- * =========================================================
- * JAKARTA DATE
- * =========================================================
- */
-
-function getTodayInJakarta() {
-  return new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone:
-        "Asia/Jakarta",
-
-      year:
-        "numeric",
-
-      month:
-        "2-digit",
-
-      day:
-        "2-digit",
-    }
-  ).format(
-    new Date()
-  );
-}
-
-/*
- * =========================================================
- * LAST 7 DAYS
- * =========================================================
- */
-
-function getLastSevenDays(
-  today:
-    string
-) {
-  const [
-    year,
-    month,
-    day,
-  ] =
-    today
-      .split("-")
-      .map(Number);
-
-  const baseDate =
-    new Date(
-      Date.UTC(
-        year,
-        month - 1,
-        day
-      )
-    );
-
-  return Array.from(
-    {
-      length: 7,
-    },
-    (
-      _,
-      index
-    ) => {
-      const date =
-        new Date(
-          baseDate
-        );
-
-      date.setUTCDate(
-        date.getUTCDate() -
-          (6 - index)
-      );
-
-      const dateKey =
-        [
-          date.getUTCFullYear(),
-          String(
-            date.getUTCMonth() +
-              1
-          ).padStart(
-            2,
-            "0"
-          ),
-          String(
-            date.getUTCDate()
-          ).padStart(
-            2,
-            "0"
-          ),
-        ].join("-");
-
-      const label =
-        new Intl.DateTimeFormat(
-          "id-ID",
-          {
-            weekday:
-              "short",
-
-            day:
-              "numeric",
-
-            timeZone:
-              "UTC",
-          }
-        ).format(
-          date
-        );
-
-      return {
-        date:
-          dateKey,
-
-        label,
-      };
-    }
-  );
 }

@@ -6,383 +6,321 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
 import {
   ArrowRight,
-  CalendarDays,
-  Camera,
   Eye,
   EyeOff,
-  Heart,
   Lock,
   Mail,
-  MapPin,
-  Music2,
-  Sparkles,
 } from "lucide-react";
+
 import Swal from "sweetalert2";
 
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  const [email, setEmail] =
+  const [
+    email,
+    setEmail,
+  ] =
     useState("");
 
-  const [password, setPassword] =
+  const [
+    password,
+    setPassword,
+  ] =
     useState("");
 
-  const [showPassword, setShowPassword] =
+  const [
+    showPassword,
+    setShowPassword,
+  ] =
     useState(false);
 
-  const [rememberMe, setRememberMe] =
-    useState(true);
-
-  const [isLoading, setIsLoading] =
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
     useState(false);
 
-  const handleLogin = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+  const handleLogin =
+    async (
+      event:
+        React.FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
 
-    if (!email.trim() || !password) {
-      await Swal.fire({
-        icon: "warning",
-        title: "Belum lengkap ♡",
-        text: "Isi email dan password terlebih dahulu.",
-        confirmButtonText: "Oke",
-        confirmButtonColor: "#1688b5",
-      });
+      const cleanEmail =
+        email.trim();
 
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const supabase = createClient();
-
-      const {
-        data,
-        error,
-      } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-      if (error) {
-        let message =
-          "Email atau password tidak sesuai.";
-
-        if (
-          error.message
-            .toLowerCase()
-            .includes("email not confirmed")
-        ) {
-          message =
-            "Email ini belum dikonfirmasi. Silakan cek email terlebih dahulu.";
-        }
-
+      if (
+        !cleanEmail ||
+        !password
+      ) {
         await Swal.fire({
-          icon: "error",
-          title: "Login gagal",
-          text: message,
-          confirmButtonText: "Coba lagi",
-          confirmButtonColor: "#1688b5",
+          icon:
+            "warning",
+
+          title:
+            "Incomplete",
+
+          text:
+            "Enter your email and password.",
+
+          confirmButtonText:
+            "OK",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
         });
 
         return;
       }
 
-      if (!data.user) {
-        await Swal.fire({
-          icon: "error",
-          title: "Login gagal",
-          text: "User tidak ditemukan.",
-          confirmButtonText: "Oke",
-          confirmButtonColor: "#1688b5",
-        });
-
-        return;
-      }
-
-      await Swal.fire({
-        icon: "success",
-        title: "Welcome Back ♡",
-        text: "Selamat datang kembali di Love4ever.",
-        timer: 1300,
-        showConfirmButton: false,
-      });
-
-      router.replace("/dashboard");
-      router.refresh();
-    } catch (error) {
-      console.error(
-        "Login error:",
-        error
+      setIsLoading(
+        true
       );
 
-      await Swal.fire({
-        icon: "error",
-        title: "Terjadi kesalahan",
-        text: "Tidak dapat terhubung ke server. Coba lagi sebentar.",
-        confirmButtonText: "Oke",
-        confirmButtonColor: "#1688b5",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const supabase =
+          createClient();
+
+        const {
+          data,
+          error,
+        } =
+          await supabase.auth
+            .signInWithPassword({
+              email:
+                cleanEmail,
+
+              password,
+            });
+
+        if (error) {
+          let message =
+            "Email or password is incorrect.";
+
+          if (
+            error.message
+              .toLowerCase()
+              .includes(
+                "email not confirmed"
+              )
+          ) {
+            message =
+              "Please confirm your email first.";
+          }
+
+          await Swal.fire({
+            icon:
+              "error",
+
+            title:
+              "Unable to sign in",
+
+            text:
+              message,
+
+            confirmButtonText:
+              "Try again",
+
+            confirmButtonColor:
+              "#083b59",
+
+            background:
+              "#fffdf9",
+
+            color:
+              "#123d59",
+          });
+
+          return;
+        }
+
+        if (!data.user) {
+          await Swal.fire({
+            icon:
+              "error",
+
+            title:
+              "Unable to sign in",
+
+            text:
+              "User not found.",
+
+            confirmButtonText:
+              "OK",
+
+            confirmButtonColor:
+              "#083b59",
+
+            background:
+              "#fffdf9",
+
+            color:
+              "#123d59",
+          });
+
+          return;
+        }
+
+        router.replace(
+          "/dashboard"
+        );
+
+        router.refresh();
+      } catch (error) {
+        console.error(
+          "Login error:",
+          error
+        );
+
+        await Swal.fire({
+          icon:
+            "error",
+
+          title:
+            "Connection error",
+
+          text:
+            "Please try again in a moment.",
+
+          confirmButtonText:
+            "OK",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+      } finally {
+        setIsLoading(
+          false
+        );
+      }
+    };
 
   return (
-    <main className="relative min-h-[100svh] overflow-hidden bg-[#f9fcfd]">
+    <main
+      className="
+        min-h-[100svh]
+        bg-[#f7f7f4]
+        text-ocean-950
+      "
+    >
       <div
         className="
-          absolute inset-0
-          bg-[radial-gradient(circle_at_10%_10%,rgba(103,197,226,0.28),transparent_30%),radial-gradient(circle_at_90%_15%,rgba(244,219,184,0.38),transparent_30%),linear-gradient(145deg,#f3fbff_0%,#fffdf8_48%,#f6eee4_100%)]
-        "
-      />
-
-      <div
-        className="
-          absolute
-          -left-28
-          top-20
-          h-80
-          w-80
-          rounded-full
-          bg-ocean-300/20
-          blur-3xl
-        "
-      />
-
-      <div
-        className="
-          absolute
-          -right-28
-          bottom-12
-          h-96
-          w-96
-          rounded-full
-          bg-cream-deep/40
-          blur-3xl
-        "
-      />
-
-      <div
-        className="
-          relative
-          z-10
           mx-auto
           grid
           min-h-[100svh]
           max-w-[1600px]
-          lg:grid-cols-[1.05fr_0.95fr]
+          lg:grid-cols-[1.08fr_0.92fr]
         "
       >
-        {/* LEFT DESKTOP */}
+        {/* IMAGE */}
 
         <section
           className="
-            relative
             hidden
-            overflow-hidden
-            p-8
-            lg:flex
-            xl:p-12
+            p-6
+            lg:block
+            xl:p-8
           "
         >
           <div
             className="
-              love-gradient
               relative
-              flex
-              w-full
-              flex-col
+              h-full
+              min-h-[calc(100svh-64px)]
               overflow-hidden
-              rounded-[42px]
-              p-10
-              text-white
-              shadow-love-lg
-              xl:p-14
+              rounded-[32px]
+              bg-ocean-950
             "
           >
-            <div
+            <Image
+              src="/images/login.jpg"
+              alt="Love4ever"
+              fill
+              priority
               className="
-                absolute
-                -right-24
-                -top-20
-                h-80
-                w-80
-                rounded-full
-                bg-white/10
-                blur-xl
+                object-cover
               "
             />
 
             <div
               className="
                 absolute
-                -bottom-36
-                -left-24
-                h-[420px]
-                w-[420px]
-                rounded-full
-                bg-ocean-300/20
-                blur-2xl
+                inset-0
+                bg-[linear-gradient(180deg,rgba(6,42,63,0.04)_20%,rgba(6,42,63,0.72)_100%)]
               "
             />
 
-            <div className="relative z-10 flex items-center gap-4">
-              <Image
-                src="/icons/love4ever-logo.png"
-                alt="Love4ever"
-                width={70}
-                height={70}
-                priority
-                className="
-                  h-16
-                  w-16
-                  rounded-[20px]
-                  border
-                  border-white/30
-                  object-cover
-                  shadow-lg
-                "
-              />
-
-              <div>
-                <h1 className="font-display text-3xl font-semibold">
-                  Love4ever
-                </h1>
-
-                <p className="mt-1 text-sm text-white/70">
-                  Every memory, every plan, forever.
-                </p>
-              </div>
-            </div>
-
             <div
               className="
-                relative
-                z-10
-                my-auto
-                max-w-2xl
-                py-12
+                absolute
+                bottom-0
+                left-0
+                right-0
+                flex
+                items-end
+                justify-between
+                gap-6
+                p-8
+                text-white
+                xl:p-10
               "
             >
-              <div
-                className="
-                  mb-6
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-full
-                  border
-                  border-white/20
-                  bg-white/10
-                  px-4
-                  py-2
-                  text-sm
-                  backdrop-blur-xl
-                "
-              >
-                <Sparkles size={16} />
+              <div>
+                <p
+                  className="
+                    font-display
+                    text-[32px]
+                    font-semibold
+                    tracking-[-0.035em]
+                  "
+                >
+                  Love4ever
+                </p>
 
-                Our little world
+                <p
+                  className="
+                    mt-1
+                    text-xs
+                    text-white/58
+                  "
+                >
+                  Izac & Lian
+                </p>
               </div>
-
-              <h2
-                className="
-                  font-display
-                  text-5xl
-                  font-semibold
-                  leading-[1.05]
-                  xl:text-7xl
-                "
-              >
-                Welcome back
-                <br />
-                to our story.
-              </h2>
 
               <p
                 className="
-                  mt-6
-                  max-w-xl
-                  text-base
-                  leading-8
-                  text-white/75
-                  xl:text-lg
+                  text-[10px]
+                  text-white/45
                 "
               >
-                Semua kenangan, rencana kecil, lagu,
-                tempat, pesan, dan cerita kita tersimpan
-                dalam satu ruang yang hanya milik kita.
+                07.10.2024
               </p>
-
-              <div
-                className="
-                  mt-10
-                  grid
-                  grid-cols-2
-                  gap-3
-                  xl:grid-cols-4
-                "
-              >
-                <Feature
-                  icon={Camera}
-                  label="Memories"
-                />
-
-                <Feature
-                  icon={CalendarDays}
-                  label="Plans"
-                />
-
-                <Feature
-                  icon={MapPin}
-                  label="Places"
-                />
-
-                <Feature
-                  icon={Music2}
-                  label="Music"
-                />
-              </div>
-            </div>
-
-            <div
-              className="
-                relative
-                z-10
-                flex
-                items-center
-                justify-between
-                border-t
-                border-white/15
-                pt-6
-                text-sm
-                text-white/65
-              "
-            >
-              <span>Izac & Lian</span>
-
-              <div className="flex items-center gap-2">
-                <Heart
-                  size={15}
-                  fill="currentColor"
-                />
-
-                7 October 2024
-              </div>
             </div>
           </div>
         </section>
 
-        {/* LOGIN */}
+        {/* FORM */}
 
         <section
           className="
@@ -391,423 +329,374 @@ export default function LoginPage() {
             items-center
             justify-center
             px-5
-            py-8
+            py-10
             sm:px-8
-            lg:px-10
-            xl:px-16
+            lg:px-14
+            xl:px-20
           "
         >
-          <div className="w-full max-w-[520px]">
+          <div
+            className="
+              w-full
+              max-w-[430px]
+            "
+          >
             <div
               className="
-                mb-8
-                flex
-                items-center
-                justify-center
-                gap-3
+                mb-10
                 lg:hidden
               "
             >
-              <Image
-                src="/icons/love4ever-logo.png"
-                alt="Love4ever"
-                width={58}
-                height={58}
-                priority
+              <p
                 className="
-                  h-14
-                  w-14
-                  rounded-2xl
-                  object-cover
-                  shadow-lg
-                "
-              />
-
-              <div>
-                <h1
-                  className="
-                    font-display
-                    text-2xl
-                    font-semibold
-                    text-ocean-950
-                  "
-                >
-                  Love4ever
-                </h1>
-
-                <p className="text-xs text-ink-soft">
-                  Izac & Lian
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="
-                glass-card-strong
-                rounded-[32px]
-                p-6
-                sm:p-8
-                xl:p-10
-              "
-            >
-              <div>
-                <div
-                  className="
-                    mb-4
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-ocean-100
-                    text-ocean-700
-                  "
-                >
-                  <Heart
-                    size={22}
-                    fill="currentColor"
-                  />
-                </div>
-
-                <h2
-                  className="
-                    font-display
-                    text-4xl
-                    font-semibold
-                    text-ocean-950
-                    sm:text-5xl
-                  "
-                >
-                  Welcome Back
-                </h2>
-
-                <p
-                  className="
-                    mt-3
-                    text-sm
-                    leading-7
-                    text-ink-soft
-                    sm:text-base
-                  "
-                >
-                  Masuk dan lanjutkan cerita kecil kita.
-                </p>
-              </div>
-
-              <form
-                onSubmit={handleLogin}
-                className="mt-8 space-y-5"
-              >
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="
-                      mb-2
-                      block
-                      text-sm
-                      font-semibold
-                      text-ocean-900
-                    "
-                  >
-                    Email
-                  </label>
-
-                  <div className="relative">
-                    <Mail
-                      size={19}
-                      className="
-                        absolute
-                        left-4
-                        top-1/2
-                        -translate-y-1/2
-                        text-ocean-600
-                      "
-                    />
-
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={email}
-                      onChange={(event) =>
-                        setEmail(
-                          event.target.value
-                        )
-                      }
-                      placeholder="your@email.com"
-                      autoComplete="email"
-                      className="
-                        love-input
-                        rounded-2xl
-                        py-4
-                        pl-12
-                        pr-4
-                        text-sm
-                        text-ocean-950
-                      "
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="password"
-                    className="
-                      mb-2
-                      block
-                      text-sm
-                      font-semibold
-                      text-ocean-900
-                    "
-                  >
-                    Password
-                  </label>
-
-                  <div className="relative">
-                    <Lock
-                      size={19}
-                      className="
-                        absolute
-                        left-4
-                        top-1/2
-                        -translate-y-1/2
-                        text-ocean-600
-                      "
-                    />
-
-                    <input
-                      id="password"
-                      name="password"
-                      type={
-                        showPassword
-                          ? "text"
-                          : "password"
-                      }
-                      value={password}
-                      onChange={(event) =>
-                        setPassword(
-                          event.target.value
-                        )
-                      }
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                      className="
-                        love-input
-                        rounded-2xl
-                        py-4
-                        pl-12
-                        pr-12
-                        text-sm
-                        text-ocean-950
-                      "
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowPassword(
-                          (current) =>
-                            !current
-                        )
-                      }
-                      className="
-                        absolute
-                        right-4
-                        top-1/2
-                        -translate-y-1/2
-                        text-ink-soft
-                        transition
-                        hover:text-ocean-700
-                      "
-                      aria-label={
-                        showPassword
-                          ? "Hide password"
-                          : "Show password"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff size={19} />
-                      ) : (
-                        <Eye size={19} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-4
-                  "
-                >
-                  <label
-                    className="
-                      flex
-                      cursor-pointer
-                      items-center
-                      gap-2
-                      text-sm
-                      text-ink-soft
-                    "
-                  >
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(event) =>
-                        setRememberMe(
-                          event.target.checked
-                        )
-                      }
-                      className="
-                        h-4
-                        w-4
-                        accent-[#1688b5]
-                      "
-                    />
-
-                    Remember me
-                  </label>
-
-                  <button
-                    type="button"
-                    className="
-                      text-sm
-                      font-semibold
-                      text-ocean-700
-                      transition
-                      hover:text-ocean-900
-                    "
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="
-                    love-button
-                    flex
-                    w-full
-                    items-center
-                    justify-center
-                    gap-3
-                    rounded-2xl
-                    py-4
-                    font-semibold
-                    disabled:cursor-not-allowed
-                    disabled:opacity-70
-                  "
-                >
-                  {isLoading ? (
-                    <>
-                      <span
-                        className="
-                          h-5
-                          w-5
-                          animate-spin
-                          rounded-full
-                          border-2
-                          border-white/30
-                          border-t-white
-                        "
-                      />
-
-                      Entering...
-                    </>
-                  ) : (
-                    <>
-                      Login to Love4ever
-
-                      <ArrowRight size={19} />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <div
-                className="
-                  my-7
-                  flex
-                  items-center
-                  gap-4
+                  font-display
+                  text-xl
+                  font-semibold
+                  tracking-[-0.02em]
                 "
               >
-                <div className="h-px flex-1 bg-ocean-100" />
+                Love4ever
+              </p>
 
-                <Heart
-                  size={13}
-                  className="text-ocean-300"
-                  fill="currentColor"
-                />
-
-                <div className="h-px flex-1 bg-ocean-100" />
-              </div>
-
-              <p className="text-center text-sm text-ink-soft">
-                Belum punya akun?{" "}
-                <Link
-                  href="/register"
-                  className="
-                    font-bold
-                    text-ocean-700
-                    transition
-                    hover:text-ocean-950
-                  "
-                >
-                  Create account
-                </Link>
+              <p
+                className="
+                  mt-1
+                  text-[10px]
+                  text-ink-soft
+                "
+              >
+                Izac & Lian
               </p>
             </div>
 
-            <p
+            <div>
+              <h1
+                className="
+                  font-display
+                  text-[42px]
+                  font-semibold
+                  leading-none
+                  tracking-[-0.045em]
+                  text-ocean-950
+                  sm:text-[48px]
+                "
+              >
+                Welcome back
+              </h1>
+
+              <p
+                className="
+                  mt-4
+                  text-sm
+                  text-ink-soft
+                "
+              >
+                Sign in to Love4ever.
+              </p>
+            </div>
+
+            <form
+              onSubmit={
+                handleLogin
+              }
               className="
-                mt-5
-                text-center
-                text-xs
-                leading-6
-                text-ink-soft/70
+                mt-9
+                space-y-5
               "
             >
-              Made with ♡ for Izac & Lian
-            </p>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="
+                    mb-2
+                    block
+                    text-xs
+                    font-semibold
+                    text-ocean-900
+                  "
+                >
+                  Email
+                </label>
+
+                <div
+                  className="
+                    relative
+                  "
+                >
+                  <Mail
+                    size={16}
+                    strokeWidth={1.8}
+                    className="
+                      absolute
+                      left-4
+                      top-1/2
+                      -translate-y-1/2
+                      text-ink-soft/55
+                    "
+                  />
+
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={
+                      email
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setEmail(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Email"
+                    autoComplete="email"
+                    disabled={
+                      isLoading
+                    }
+                    className="
+                      w-full
+                      rounded-[14px]
+                      border
+                      border-ocean-100
+                      bg-white
+                      py-3.5
+                      pl-11
+                      pr-4
+                      text-sm
+                      text-ocean-950
+                      outline-none
+                      transition
+                      placeholder:text-ink-soft/35
+                      focus:border-ocean-300
+                      focus:ring-4
+                      focus:ring-ocean-100/40
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
+                    "
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="
+                    mb-2
+                    block
+                    text-xs
+                    font-semibold
+                    text-ocean-900
+                  "
+                >
+                  Password
+                </label>
+
+                <div
+                  className="
+                    relative
+                  "
+                >
+                  <Lock
+                    size={16}
+                    strokeWidth={1.8}
+                    className="
+                      absolute
+                      left-4
+                      top-1/2
+                      -translate-y-1/2
+                      text-ink-soft/55
+                    "
+                  />
+
+                  <input
+                    id="password"
+                    name="password"
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    value={
+                      password
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setPassword(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    disabled={
+                      isLoading
+                    }
+                    className="
+                      w-full
+                      rounded-[14px]
+                      border
+                      border-ocean-100
+                      bg-white
+                      py-3.5
+                      pl-11
+                      pr-12
+                      text-sm
+                      text-ocean-950
+                      outline-none
+                      transition
+                      placeholder:text-ink-soft/35
+                      focus:border-ocean-300
+                      focus:ring-4
+                      focus:ring-ocean-100/40
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
+                    "
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword(
+                        (
+                          current
+                        ) =>
+                          !current
+                      )
+                    }
+                    disabled={
+                      isLoading
+                    }
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                    className="
+                      absolute
+                      right-3
+                      top-1/2
+                      flex
+                      h-8
+                      w-8
+                      -translate-y-1/2
+                      items-center
+                      justify-center
+                      rounded-full
+                      text-ink-soft/55
+                      transition
+                      hover:bg-ocean-50
+                      hover:text-ocean-900
+                    "
+                  >
+                    {showPassword ? (
+                      <EyeOff
+                        size={16}
+                      />
+                    ) : (
+                      <Eye
+                        size={16}
+                      />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  isLoading
+                }
+                className="
+                  group
+                  flex
+                  w-full
+                  items-center
+                  justify-center
+                  gap-2.5
+                  rounded-[14px]
+                  bg-ocean-950
+                  px-5
+                  py-3.5
+                  text-sm
+                  font-semibold
+                  text-white
+                  transition
+                  hover:bg-ocean-800
+                  active:scale-[0.99]
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+              >
+                {isLoading ? (
+                  <>
+                    <span
+                      className="
+                        h-4
+                        w-4
+                        animate-spin
+                        rounded-full
+                        border-2
+                        border-white/25
+                        border-t-white
+                      "
+                    />
+
+                    Signing in
+                  </>
+                ) : (
+                  <>
+                    Sign in
+
+                    <ArrowRight
+                      size={15}
+                      className="
+                        transition-transform
+                        group-hover:translate-x-0.5
+                      "
+                    />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div
+              className="
+                mt-7
+                flex
+                items-center
+                justify-between
+                gap-4
+                border-t
+                border-ocean-100
+                pt-6
+              "
+            >
+              <p
+                className="
+                  text-xs
+                  text-ink-soft
+                "
+              >
+                New here?
+              </p>
+
+              <Link
+                href="/register"
+                className="
+                  text-xs
+                  font-semibold
+                  text-ocean-800
+                  transition
+                  hover:text-ocean-950
+                "
+              >
+                Create account
+              </Link>
+            </div>
           </div>
         </section>
       </div>
     </main>
-  );
-}
-
-function Feature({
-  icon: Icon,
-  label,
-}: {
-  icon: React.ElementType;
-  label: string;
-}) {
-  return (
-    <div
-      className="
-        rounded-2xl
-        border
-        border-white/15
-        bg-white/10
-        px-4
-        py-4
-        backdrop-blur-lg
-      "
-    >
-      <Icon
-        size={20}
-        className="mb-3 text-white"
-      />
-
-      <p className="text-sm font-semibold">
-        {label}
-      </p>
-    </div>
   );
 }

@@ -23,7 +23,7 @@ import type {
 
 /*
  * =========================================================
- * CUSTOM MARKER
+ * MARKER
  * =========================================================
  */
 
@@ -35,45 +35,38 @@ const memoryIcon =
     html: `
       <div
         style="
-          width:38px;
-          height:38px;
+          width:32px;
+          height:32px;
           display:flex;
           align-items:center;
           justify-content:center;
-          border-radius:14px 14px 14px 4px;
-          transform:rotate(-45deg);
-          background:linear-gradient(
-            135deg,
-            #0b4f71,
-            #2ca6cf
-          );
+          border-radius:50%;
+          background:#062a3f;
           border:3px solid white;
           box-shadow:
-            0 8px 22px
-            rgba(11,79,113,.28);
+            0 7px 22px
+            rgba(6,42,63,.25);
         "
       >
         <div
           style="
-            transform:rotate(45deg);
-            color:white;
-            font-size:17px;
-            line-height:1;
+            width:7px;
+            height:7px;
+            border-radius:50%;
+            background:white;
           "
-        >
-          ♥
-        </div>
+        ></div>
       </div>
     `,
 
     iconSize:
-      [38, 38],
+      [32, 32],
 
     iconAnchor:
-      [19, 38],
+      [16, 16],
 
     popupAnchor:
-      [0, -36],
+      [0, -17],
   });
 
 /*
@@ -111,14 +104,12 @@ export default function MemoryMapInner({
       className="
         relative
         z-0
-        h-[420px]
+        h-[430px]
         overflow-hidden
-        rounded-[24px]
-        border
-        border-white/80
+        border-t
+        border-ocean-100/70
         bg-ocean-50
-        shadow-sm
-        sm:h-[470px]
+        sm:h-[480px]
       "
     >
       <MapContainer
@@ -162,35 +153,20 @@ export default function MemoryMapInner({
             >
               <Popup
                 maxWidth={
-                  280
+                  290
                 }
               >
                 <div
-                  style={{
-                    minWidth:
-                      210,
-                  }}
+                  className="
+                    min-w-[210px]
+                    py-1
+                  "
                 >
                   <p
-                    style={{
-                      margin:
-                        0,
-
-                      fontSize:
-                        11,
-
-                      fontWeight:
-                        700,
-
-                      letterSpacing:
-                        "0.08em",
-
-                      textTransform:
-                        "uppercase",
-
-                      color:
-                        "#648196",
-                    }}
+                    className="
+                      text-[10px]
+                      text-ink-soft
+                    "
                   >
                     {formatDate(
                       memory.memory_date
@@ -198,19 +174,13 @@ export default function MemoryMapInner({
                   </p>
 
                   <h3
-                    style={{
-                      margin:
-                        "6px 0 0",
-
-                      color:
-                        "#062a3f",
-
-                      fontSize:
-                        18,
-
-                      fontWeight:
-                        700,
-                    }}
+                    className="
+                      mt-1
+                      font-display
+                      text-lg
+                      font-semibold
+                      text-ocean-950
+                    "
                   >
                     {
                       memory.title
@@ -219,21 +189,13 @@ export default function MemoryMapInner({
 
                   {memory.location_name && (
                     <p
-                      style={{
-                        margin:
-                          "7px 0 0",
-
-                        color:
-                          "#1688b5",
-
-                        fontSize:
-                          12,
-
-                        fontWeight:
-                          600,
-                      }}
+                      className="
+                        mt-2
+                        text-xs
+                        font-medium
+                        text-ocean-700
+                      "
                     >
-                      📍{" "}
                       {
                         memory.location_name
                       }
@@ -242,57 +204,56 @@ export default function MemoryMapInner({
 
                   {memory.story && (
                     <p
-                      style={{
-                        margin:
-                          "9px 0 0",
-
-                        color:
-                          "#648196",
-
-                        fontSize:
-                          12,
-
-                        lineHeight:
-                          1.6,
-                      }}
+                      className="
+                        mt-2
+                        text-xs
+                        leading-5
+                        text-ink-soft
+                      "
                     >
                       {truncate(
                         memory.story,
-                        120
+                        105
                       )}
                     </p>
                   )}
 
-                  {memory.maps_url && (
+                  <div
+                    className="
+                      mt-3
+                      flex
+                      items-center
+                      gap-4
+                    "
+                  >
                     <a
-                      href={
-                        memory.maps_url
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display:
-                          "inline-block",
-
-                        marginTop:
-                          12,
-
-                        color:
-                          "#116b91",
-
-                        fontSize:
-                          12,
-
-                        fontWeight:
-                          700,
-
-                        textDecoration:
-                          "none",
-                      }}
+                      href={`/memories/${memory.id}`}
+                      className="
+                        text-xs
+                        font-semibold
+                        text-ocean-800
+                      "
                     >
-                      Open Maps ↗
+                      Open
                     </a>
-                  )}
+
+                    {memory.maps_url && (
+                      <a
+                        href={
+                          memory.maps_url
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="
+                          text-xs
+                          font-medium
+                          text-ocean-600
+                        "
+                      >
+                        Maps ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>
@@ -309,39 +270,27 @@ export default function MemoryMapInner({
             inset-x-4
             bottom-4
             z-[500]
-            rounded-[18px]
+            mx-auto
+            max-w-sm
+            rounded-[16px]
             border
-            border-white/80
+            border-white/70
             bg-white/90
-            px-5
-            py-4
+            px-4
+            py-3
             text-center
-            shadow-lg
+            shadow-[0_12px_35px_rgba(8,59,89,0.10)]
             backdrop-blur-xl
           "
         >
           <p
             className="
-              text-sm
-              font-bold
+              text-xs
+              font-medium
               text-ocean-950
             "
           >
-            Belum ada memory
-            dengan pin lokasi
-          </p>
-
-          <p
-            className="
-              mt-1
-              text-xs
-              leading-5
-              text-ink-soft
-            "
-          >
-            Edit atau tambah
-            memory lalu isi
-            koordinat lokasinya.
+            No pinned memories.
           </p>
         </div>
       )}
@@ -351,7 +300,7 @@ export default function MemoryMapInner({
 
 /*
  * =========================================================
- * AUTO MAP POSITION
+ * FIT
  * =========================================================
  */
 
@@ -385,6 +334,7 @@ function FitMapToMemories({
         [
           memories[0]
             .latitude,
+
           memories[0]
             .longitude,
         ],
@@ -471,5 +421,5 @@ function truncate(
   return `${value.slice(
     0,
     limit
-  )}...`;
+  )}…`;
 }

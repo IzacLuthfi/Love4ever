@@ -7,29 +7,28 @@ import Link from "next/link";
 
 import {
   type ChangeEvent,
-  type ElementType,
   type FormEvent,
+  type ReactNode,
+  useMemo,
   useState,
 } from "react";
 
 import {
-  CalendarDays,
+  ArrowRight,
   Camera,
-  ChevronLeft,
-  Heart,
-  Images,
-  NotebookPen,
-  Save,
   Settings,
-  Sparkles,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
 
 import AppSidebar from "@/components/layout/AppSidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
-import { createClient } from "@/lib/supabase/client";
 
+import { createClient } from "@/lib/supabase/client";
+import {
+  IMAGE_ACCEPT,
+  normalizeImageFile,
+} from "@/utils/image";
 /*
  * =========================================================
  * TYPES
@@ -50,6 +49,7 @@ type ProfileData = {
     | null;
 
   bio: string;
+
   createdAt: string;
 };
 
@@ -84,6 +84,31 @@ type ProfileClientProps = {
 
 /*
  * =========================================================
+ * STYLES
+ * =========================================================
+ */
+
+const inputClass = `
+  w-full
+  rounded-[14px]
+  border
+  border-ocean-100
+  bg-white/75
+  px-4
+  py-3
+  text-sm
+  text-ocean-950
+  outline-none
+  transition
+  placeholder:text-ink-soft/45
+  focus:border-ocean-300
+  focus:bg-white
+  focus:ring-4
+  focus:ring-ocean-100/45
+`;
+
+/*
+ * =========================================================
  * COMPONENT
  * =========================================================
  */
@@ -94,11 +119,17 @@ export default function ProfileClient({
   couple,
   stats,
 }: ProfileClientProps) {
+  /*
+   * =========================================================
+   * PROFILE STATE
+   * =========================================================
+   */
+
   const [
     profile,
     setProfile,
   ] =
-    useState(
+    useState<ProfileData>(
       initialProfile
     );
 
@@ -140,14 +171,33 @@ export default function ProfileClient({
 
   /*
    * =========================================================
-   * SIDEBAR USER
+   * DERIVED
    * =========================================================
    */
 
-  const sidebarUser = {
-    id:
-      user.id,
+  const displayName =
+    profile.nickname?.trim() ||
+    profile.fullName?.trim() ||
+    "Profile";
 
+  const hasChanges =
+    useMemo(() => {
+      return (
+        fullName.trim() !==
+          profile.fullName.trim() ||
+        nickname.trim() !==
+          profile.nickname.trim() ||
+        bio.trim() !==
+          profile.bio.trim()
+      );
+    }, [
+      fullName,
+      nickname,
+      bio,
+      profile,
+    ]);
+
+  const sidebarUser = {
     email:
       user.email,
 
@@ -157,7 +207,7 @@ export default function ProfileClient({
     nickname:
       profile.nickname ||
       profile.fullName ||
-      "Love",
+      "Profile",
 
     avatarUrl:
       profile.avatarUrl,
@@ -176,18 +226,28 @@ export default function ProfileClient({
     ) => {
       event.preventDefault();
 
+      if (
+        isSaving ||
+        !hasChanges
+      ) {
+        return;
+      }
+
       const cleanName =
         fullName.trim();
 
       const cleanNickname =
         nickname.trim();
 
+      const cleanBio =
+        bio.trim();
+
       if (
         !cleanName
       ) {
         await showWarning(
-          "Nama belum diisi",
-          "Full name wajib diisi."
+          "Name required",
+          "Full name cannot be empty."
         );
 
         return;
@@ -206,7 +266,9 @@ export default function ProfileClient({
           error,
         } =
           await supabase
-            .from("profiles")
+            .from(
+              "profiles"
+            )
             .update({
               full_name:
                 cleanName,
@@ -216,7 +278,7 @@ export default function ProfileClient({
                 null,
 
               bio:
-                bio.trim() ||
+                cleanBio ||
                 null,
             })
             .eq(
@@ -227,60 +289,56 @@ export default function ProfileClient({
             .single();
 
         if (error) {
-          await showError(
-            "Profile gagal disimpan",
+          throw new Error(
             error.message
           );
-
-          return;
         }
 
+        const nextProfile:
+          ProfileData = {
+          ...profile,
+
+          fullName:
+            data.full_name ??
+            "",
+
+          nickname:
+            data.nickname ??
+            "",
+
+          bio:
+            data.bio ??
+            "",
+        };
+
         setProfile(
-          (current) => ({
-            ...current,
-
-            fullName:
-              data.full_name ??
-              "",
-
-            nickname:
-              data.nickname ??
-              "",
-
-            bio:
-              data.bio ??
-              "",
-          })
+          nextProfile
         );
 
         setFullName(
-          data.full_name ??
-          ""
+          nextProfile.fullName
         );
 
         setNickname(
-          data.nickname ??
-          ""
+          nextProfile.nickname
         );
 
         setBio(
-          data.bio ??
-          ""
+          nextProfile.bio
         );
 
-        await Swal.fire({
-          icon:
-            "success",
+        await showSuccess(
+          "Profile updated"
+        );
+      } catch (error) {
+        await showError(
+          "Profile could not be saved",
 
-          title:
-            "Profile diperbarui",
-
-          timer:
-            1000,
-
-          showConfirmButton:
-            false,
-        });
+          error instanceof
+            Error
+            ? error.message
+            : "Something went wrong."
+        );
       } finally {
         setIsSaving(
           false
@@ -290,7 +348,7 @@ export default function ProfileClient({
 
   /*
    * =========================================================
-   * AVATAR
+   * AVATAR UPLOAD
    * =========================================================
    */
 
@@ -299,56 +357,59 @@ export default function ProfileClient({
       event:
         ChangeEvent<HTMLInputElement>
     ) => {
-      const file =
-        event.target.files?.[0];
+      const rawFile =
+  event.target.files?.[0];
 
-      if (!file) {
-        return;
+if (!rawFile) {
+  return;
+}
+
+setIsUploading(
+  true
+);
+
+let file:
+  File;
+
+try {
+  file =
+    await normalizeImageFile(
+      rawFile,
+      {
+        maxSizeMB:
+          8,
+
+        heicQuality:
+          0.88,
       }
+    );
+} catch (error) {
+  await showError(
+    "Image could not be used",
 
-      if (
-        !file.type.startsWith(
-          "image/"
-        )
-      ) {
-        await showWarning(
-          "File tidak valid",
-          "Avatar harus berupa file gambar."
-        );
+    error instanceof
+      Error
+      ? error.message
+      : "Invalid image."
+  );
 
-        event.target.value =
-          "";
+  setIsUploading(
+    false
+  );
 
-        return;
-      }
+  event.target.value =
+    "";
 
-      if (
-        file.size >
-        8 *
-          1024 *
-          1024
-      ) {
-        await showWarning(
-          "Gambar terlalu besar",
-          "Ukuran maksimal avatar adalah 8 MB."
-        );
-
-        event.target.value =
-          "";
-
-        return;
-      }
-
-      setIsUploading(
-        true
-      );
+  return;
+}
 
       const supabase =
         createClient();
 
       let newPath:
         | string
-        | null = null;
+        | null =
+        null;
 
       try {
         const extension =
@@ -396,7 +457,7 @@ export default function ProfileClient({
         }
 
         /*
-         * Public URL.
+         * Current project uses public avatar URLs.
          */
 
         const {
@@ -415,7 +476,7 @@ export default function ProfileClient({
           publicUrlData.publicUrl;
 
         /*
-         * Save URL into profiles.
+         * Save URL.
          */
 
         const {
@@ -423,7 +484,9 @@ export default function ProfileClient({
             profileError,
         } =
           await supabase
-            .from("profiles")
+            .from(
+              "profiles"
+            )
             .update({
               avatar_url:
                 newUrl,
@@ -462,8 +525,7 @@ export default function ProfileClient({
         );
 
         /*
-         * Remove previous avatar
-         * if it belongs to our bucket.
+         * Remove previous avatar.
          */
 
         const oldPath =
@@ -476,35 +538,56 @@ export default function ProfileClient({
           oldPath !==
             newPath
         ) {
+          const {
+            error:
+              cleanupError,
+          } =
+            await supabase.storage
+              .from(
+                "profile-avatars"
+              )
+              .remove([
+                oldPath,
+              ]);
+
+          if (
+            cleanupError
+          ) {
+            console.error(
+              "Avatar cleanup:",
+              cleanupError
+            );
+          }
+        }
+
+        await showSuccess(
+          "Avatar updated"
+        );
+      } catch (error) {
+        /*
+         * Remove newly uploaded file
+         * if something failed later.
+         */
+
+        if (
+          newPath
+        ) {
           await supabase.storage
             .from(
               "profile-avatars"
             )
             .remove([
-              oldPath,
+              newPath,
             ]);
         }
 
-        await Swal.fire({
-          icon:
-            "success",
-
-          title:
-            "Avatar diperbarui",
-
-          timer:
-            900,
-
-          showConfirmButton:
-            false,
-        });
-      } catch (error) {
         await showError(
-          "Avatar gagal diperbarui",
+          "Avatar could not be updated",
+
           error instanceof
             Error
             ? error.message
-            : "Terjadi kesalahan saat upload."
+            : "Something went wrong."
         );
       } finally {
         setIsUploading(
@@ -518,6 +601,27 @@ export default function ProfileClient({
 
   /*
    * =========================================================
+   * RESET FORM
+   * =========================================================
+   */
+
+  const handleReset =
+    () => {
+      setFullName(
+        profile.fullName
+      );
+
+      setNickname(
+        profile.nickname
+      );
+
+      setBio(
+        profile.bio
+      );
+    };
+
+  /*
+   * =========================================================
    * UI
    * =========================================================
    */
@@ -526,7 +630,7 @@ export default function ProfileClient({
     <div
       className="
         min-h-[100svh]
-        bg-[radial-gradient(circle_at_10%_0%,rgba(103,197,226,0.22),transparent_26%),radial-gradient(circle_at_90%_10%,rgba(244,219,184,0.32),transparent_28%),linear-gradient(145deg,#f5fbfe_0%,#fffdf8_48%,#f7efe5_100%)]
+        bg-[linear-gradient(145deg,#f5fbfd_0%,#fffdf9_52%,#f8f2e9_100%)]
       "
     >
       <AppSidebar
@@ -542,12 +646,12 @@ export default function ProfileClient({
           min-h-[100svh]
           px-4
           pb-28
-          pt-4
+          pt-6
           sm:px-6
-          sm:pt-6
           lg:ml-[290px]
-          lg:px-7
-          lg:pb-8
+          lg:px-8
+          lg:pb-14
+          lg:pt-9
           xl:px-10
         "
       >
@@ -555,10 +659,12 @@ export default function ProfileClient({
           className="
             mx-auto
             w-full
-            max-w-[1300px]
+            max-w-[1380px]
           "
         >
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <header
             className="
@@ -568,112 +674,103 @@ export default function ProfileClient({
               gap-5
             "
           >
-            <div>
-              <Link
-                href="/dashboard"
-                className="
-                  mb-3
-                  inline-flex
-                  items-center
-                  gap-2
-                  text-sm
-                  font-semibold
-                  text-ink-soft
-                  transition
-                  hover:text-ocean-700
-                "
-              >
-                <ChevronLeft
-                  size={17}
-                />
-
-                Dashboard
-              </Link>
-
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.22em]
-                  text-ocean-500
-                "
-              >
-                Account
-              </p>
-
-              <h1
-                className="
-                  mt-1
-                  font-display
-                  text-3xl
-                  font-semibold
-                  text-ocean-950
-                  sm:text-4xl
-                "
-              >
-                Profile
-              </h1>
-            </div>
+            <h1
+              className="
+                font-display
+                text-[34px]
+                font-semibold
+                leading-none
+                tracking-[-0.035em]
+                text-ocean-950
+                sm:text-[40px]
+              "
+            >
+              Profile
+            </h1>
 
             <Link
               href="/settings"
               className="
-                hidden
+                group
+                inline-flex
                 items-center
                 gap-2
-                rounded-[15px]
+                rounded-[13px]
                 border
                 border-ocean-100
                 bg-white/70
                 px-4
-                py-3
+                py-2.5
                 text-sm
                 font-semibold
-                text-ocean-700
+                text-ocean-800
                 transition
                 hover:bg-white
-                sm:flex
               "
             >
               <Settings
-                size={16}
+                size={14}
+                strokeWidth={1.8}
               />
 
               Settings
+
+              <ArrowRight
+                size={13}
+                className="
+                  transition-transform
+                  group-hover:translate-x-0.5
+                "
+              />
             </Link>
           </header>
 
-          {/* HERO */}
+          {/* =================================================
+              PROFILE HERO
+          ================================================= */}
 
           <section
             className="
               relative
-              mt-7
+              mt-8
               overflow-hidden
               rounded-[32px]
-              bg-gradient-to-br
-              from-ocean-950
-              via-ocean-800
-              to-ocean-500
-              p-6
+              bg-ocean-950
               text-white
-              shadow-love-lg
-              sm:p-8
+              shadow-[0_24px_65px_rgba(6,42,63,0.12)]
             "
           >
+            {/* DECORATION */}
+
             <div
               className="
+                pointer-events-none
                 absolute
-                -right-20
-                -top-24
+                -right-24
+                -top-28
+                h-80
+                w-80
+                rounded-full
+                bg-ocean-400/10
+                blur-[90px]
+              "
+            />
+
+            <div
+              className="
+                pointer-events-none
+                absolute
+                -bottom-36
+                left-[18%]
                 h-72
                 w-72
                 rounded-full
-                bg-white/[0.08]
-                blur-3xl
+                bg-white/[0.05]
+                blur-[90px]
               "
             />
+
+            {/* PROFILE */}
 
             <div
               className="
@@ -682,8 +779,11 @@ export default function ProfileClient({
                 flex
                 flex-col
                 gap-6
+                p-6
                 sm:flex-row
                 sm:items-center
+                sm:p-8
+                lg:p-10
               "
             >
               {/* AVATAR */}
@@ -694,543 +794,665 @@ export default function ProfileClient({
                   h-28
                   w-28
                   shrink-0
-                  overflow-hidden
-                  rounded-[30px]
-                  border
-                  border-white/20
-                  bg-white/10
-                  shadow-xl
+                  sm:h-32
+                  sm:w-32
                 "
               >
-                {profile.avatarUrl ? (
-                  <Image
-                    src={
-                      profile.avatarUrl
-                    }
-                    alt={
-                      profile.nickname ||
-                      profile.fullName
-                    }
-                    fill
-                    unoptimized
-                    className="
-                      object-cover
-                    "
-                  />
-                ) : (
-                  <div
-                    className="
-                      flex
-                      h-full
-                      w-full
-                      items-center
-                      justify-center
-                      font-display
-                      text-4xl
-                      font-semibold
-                    "
-                  >
-                    {getInitials(
-                      profile.fullName ||
-                      profile.nickname
-                    )}
-                  </div>
-                )}
+                <div
+                  className="
+                    relative
+                    h-full
+                    w-full
+                    overflow-hidden
+                    rounded-[30px]
+                    border
+                    border-white/15
+                    bg-white/10
+                    shadow-[0_18px_40px_rgba(0,0,0,0.16)]
+                  "
+                >
+                  {profile.avatarUrl ? (
+                    <Image
+                      src={
+                        profile.avatarUrl
+                      }
+                      alt={
+                        displayName
+                      }
+                      fill
+                      unoptimized
+                      priority
+                      className="
+                        object-cover
+                      "
+                    />
+                  ) : (
+                    <div
+                      className="
+                        flex
+                        h-full
+                        w-full
+                        items-center
+                        justify-center
+                        bg-[linear-gradient(145deg,#0b4f71,#1688b5)]
+                        font-display
+                        text-[34px]
+                        font-semibold
+                        text-white
+                      "
+                    >
+                      {getInitials(
+                        profile.fullName ||
+                        profile.nickname
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* CAMERA */}
 
                 <label
                   className="
                     absolute
-                    inset-x-2
-                    bottom-2
+                    -bottom-2
+                    -right-2
                     flex
+                    h-10
+                    w-10
                     cursor-pointer
                     items-center
                     justify-center
-                    gap-1.5
-                    rounded-[10px]
-                    bg-black/40
-                    px-2
-                    py-2
-                    text-[10px]
-                    font-semibold
-                    text-white
-                    backdrop-blur-xl
+                    rounded-[13px]
+                    border
+                    border-white/20
+                    bg-white
+                    text-ocean-950
+                    shadow-[0_8px_24px_rgba(0,0,0,0.18)]
+                    transition
+                    hover:scale-[1.03]
+                    active:scale-[0.97]
                   "
+                  aria-label="Change avatar"
                 >
                   <Camera
-                    size={12}
+                    size={15}
+                    strokeWidth={1.8}
                   />
-
-                  {isUploading
-                    ? "Uploading..."
-                    : "Change"}
 
                   <input
-                    type="file"
-                    accept="image/*"
-                    disabled={
-                      isUploading
-                    }
-                    onChange={
-                      handleAvatarUpload
-                    }
-                    className="hidden"
-                  />
+  type="file"
+  accept={
+    IMAGE_ACCEPT
+  }
+  disabled={
+    isUploading
+  }
+  onChange={
+    handleAvatarUpload
+  }
+  className="hidden"
+/>
                 </label>
               </div>
+
+              {/* IDENTITY */}
 
               <div
                 className="
                   min-w-0
+                  flex-1
                 "
               >
                 <p
                   className="
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-[0.18em]
-                    text-white/55
+                    text-xs
+                    font-medium
+                    text-white/40
                   "
                 >
-                  My Profile
+                  {isUploading
+                    ? "Updating photo..."
+                    : profile.fullName}
                 </p>
 
                 <h2
                   className="
-                    mt-1
+                    mt-2
+                    break-words
                     font-display
-                    text-4xl
+                    text-[42px]
                     font-semibold
-                    sm:text-5xl
+                    leading-none
+                    tracking-[-0.045em]
+                    sm:text-[50px]
+                    lg:text-[58px]
                   "
                 >
-                  {profile.nickname ||
-                    profile.fullName ||
-                    "Love"}
+                  {displayName}
                 </h2>
 
-                <p
-                  className="
-                    mt-2
-                    text-sm
-                    text-white/60
-                  "
-                >
-                  {
-                    profile.fullName
-                  }
-                </p>
+                {profile.bio && (
+                  <p
+                    className="
+                      mt-5
+                      max-w-2xl
+                      whitespace-pre-line
+                      text-sm
+                      leading-7
+                      text-white/55
+                    "
+                  >
+                    {profile.bio}
+                  </p>
+                )}
 
                 {couple && (
                   <div
                     className="
-                      mt-4
-                      inline-flex
+                      mt-5
+                      flex
+                      flex-wrap
                       items-center
-                      gap-2
-                      rounded-full
-                      border
-                      border-white/15
-                      bg-white/10
-                      px-4
-                      py-2
+                      gap-x-2
+                      gap-y-1
                       text-xs
-                      text-white/75
-                      backdrop-blur-xl
+                      text-white/40
                     "
                   >
-                    <Heart
-                      size={13}
-                    />
+                    <span>
+                      {couple.name}
+                    </span>
 
-                    {couple.name}
+                    <MetaDot />
+
+                    <span>
+                      Since{" "}
+                      {formatDateOnly(
+                        couple.anniversaryDate
+                      )}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* STATS */}
+
+            <div
+              className="
+                relative
+                z-10
+                grid
+                grid-cols-2
+                border-t
+                border-white/10
+                sm:grid-cols-4
+              "
+            >
+              <HeroStat
+                value={
+                  stats.plans
+                }
+                label="Plans"
+              />
+
+              <HeroStat
+                value={
+                  stats.memories
+                }
+                label="Memories"
+              />
+
+              <HeroStat
+                value={
+                  stats.photos
+                }
+                label="Photos"
+              />
+
+              <HeroStat
+                value={
+                  stats.notes
+                }
+                label="Notes"
+              />
+            </div>
           </section>
 
-          {/* STATS */}
-
-          <section
-            className="
-              mt-5
-              grid
-              grid-cols-2
-              gap-3
-              lg:grid-cols-4
-            "
-          >
-            <StatCard
-              icon={
-                CalendarDays
-              }
-              value={
-                stats.plans
-              }
-              label="Plans"
-            />
-
-            <StatCard
-              icon={
-                Heart
-              }
-              value={
-                stats.memories
-              }
-              label="Memories"
-            />
-
-            <StatCard
-              icon={
-                Images
-              }
-              value={
-                stats.photos
-              }
-              label="Photos"
-            />
-
-            <StatCard
-              icon={
-                NotebookPen
-              }
-              value={
-                stats.notes
-              }
-              label="Notes"
-            />
-          </section>
-
-          {/* FORM */}
+          {/* =================================================
+              CONTENT
+          ================================================= */}
 
           <section
             className="
               mt-5
               grid
               gap-5
-              xl:grid-cols-[1fr_0.42fr]
+              xl:grid-cols-[1.15fr_0.55fr]
             "
           >
+            {/* =================================================
+                PROFILE FORM
+            ================================================= */}
+
             <form
               onSubmit={
                 handleSave
               }
               className="
-                glass-card
-                rounded-[30px]
-                p-5
-                sm:p-7
+                overflow-hidden
+                rounded-[28px]
+                border
+                border-ocean-100/70
+                bg-white/80
+                shadow-[0_14px_45px_rgba(8,59,89,0.04)]
+                backdrop-blur-xl
               "
             >
+              {/* FORM HEADER */}
+
               <div
                 className="
                   flex
                   items-center
-                  gap-3
+                  justify-between
+                  gap-4
+                  border-b
+                  border-ocean-100/70
+                  px-6
+                  py-5
+                  sm:px-8
                 "
               >
-                <div
-                  className="
-                    flex
-                    h-11
-                    w-11
-                    items-center
-                    justify-center
-                    rounded-[15px]
-                    bg-ocean-100
-                    text-ocean-700
-                  "
-                >
-                  <Sparkles
-                    size={19}
-                  />
-                </div>
-
                 <div>
-                  <p
-                    className="
-                      text-[10px]
-                      font-bold
-                      uppercase
-                      tracking-[0.18em]
-                      text-ocean-500
-                    "
-                  >
-                    Information
-                  </p>
-
                   <h2
                     className="
                       font-display
-                      text-2xl
+                      text-[25px]
                       font-semibold
+                      tracking-[-0.025em]
                       text-ocean-950
                     "
                   >
-                    Edit Profile
+                    Profile Details
                   </h2>
+
+                  {hasChanges && (
+                    <p
+                      className="
+                        mt-1
+                        text-[10px]
+                        text-ocean-600
+                      "
+                    >
+                      Unsaved changes
+                    </p>
+                  )}
                 </div>
+
+                {hasChanges && (
+                  <button
+                    type="button"
+                    onClick={
+                      handleReset
+                    }
+                    disabled={
+                      isSaving
+                    }
+                    className="
+                      text-xs
+                      font-semibold
+                      text-ink-soft
+                      transition
+                      hover:text-ocean-900
+                      disabled:opacity-40
+                    "
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
+
+              {/* FIELDS */}
 
               <div
                 className="
-                  mt-7
-                  grid
-                  gap-5
+                  p-6
+                  sm:p-8
                 "
               >
                 <div
                   className="
                     grid
-                    gap-4
-                    sm:grid-cols-2
+                    gap-5
                   "
                 >
-                  <Field
-                    label="Full Name"
+                  <div
+                    className="
+                      grid
+                      gap-5
+                      sm:grid-cols-2
+                    "
                   >
-                    <input
-                      type="text"
+                    <Field
+                      label="Full Name"
+                    >
+                      <input
+                        type="text"
+                        value={
+                          fullName
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setFullName(
+                            event.target
+                              .value
+                          )
+                        }
+                        autoComplete="name"
+                        className={
+                          inputClass
+                        }
+                      />
+                    </Field>
+
+                    <Field
+                      label="Nickname"
+                    >
+                      <input
+                        type="text"
+                        value={
+                          nickname
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setNickname(
+                            event.target
+                              .value
+                          )
+                        }
+                        className={
+                          inputClass
+                        }
+                      />
+                    </Field>
+                  </div>
+
+                  <Field
+                    label="Bio"
+                  >
+                    <textarea
                       value={
-                        fullName
+                        bio
                       }
                       onChange={(
                         event
                       ) =>
-                        setFullName(
-                          event.target.value
+                        setBio(
+                          event.target
+                            .value
                         )
                       }
-                      className="
-                        love-input
-                        w-full
-                        rounded-[15px]
-                        px-4
-                        py-3
-                        text-sm
-                      "
+                      rows={6}
+                      placeholder="Write something about yourself..."
+                      className={`
+                        ${inputClass}
+                        resize-none
+                        leading-7
+                      `}
                     />
                   </Field>
 
                   <Field
-                    label="Nickname"
+                    label="Email"
                   >
                     <input
-                      type="text"
+                      type="email"
                       value={
-                        nickname
+                        user.email
                       }
-                      onChange={(
-                        event
-                      ) =>
-                        setNickname(
-                          event.target.value
-                        )
-                      }
+                      disabled
                       className="
-                        love-input
                         w-full
-                        rounded-[15px]
+                        cursor-not-allowed
+                        rounded-[14px]
+                        border
+                        border-ocean-100
+                        bg-ocean-50/45
                         px-4
                         py-3
                         text-sm
+                        text-ink-soft
+                        outline-none
                       "
                     />
                   </Field>
                 </div>
 
-                <Field
-                  label="Bio"
-                >
-                  <textarea
-                    value={
-                      bio
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setBio(
-                        event.target.value
-                      )
-                    }
-                    rows={5}
-                    placeholder="Write something about yourself..."
-                    className="
-                      love-input
-                      w-full
-                      resize-none
-                      rounded-[15px]
-                      px-4
-                      py-3
-                      text-sm
-                    "
-                  />
-                </Field>
+                {/* SAVE */}
 
-                <Field
-                  label="Email"
-                >
-                  <input
-                    type="email"
-                    value={
-                      user.email
-                    }
-                    disabled
-                    className="
-                      love-input
-                      w-full
-                      cursor-not-allowed
-                      rounded-[15px]
-                      px-4
-                      py-3
-                      text-sm
-                      opacity-60
-                    "
-                  />
-                </Field>
-              </div>
-
-              <div
-                className="
-                  mt-7
-                  flex
-                  justify-end
-                "
-              >
-                <button
-                  type="submit"
-                  disabled={
-                    isSaving
-                  }
+                <div
                   className="
-                    love-button
+                    mt-7
                     flex
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-[15px]
-                    px-5
-                    py-3
-                    text-sm
-                    font-semibold
-                    disabled:opacity-60
+                    justify-end
                   "
                 >
-                  <Save
-                    size={16}
-                  />
-
-                  {isSaving
-                    ? "Saving..."
-                    : "Save Profile"}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      isSaving ||
+                      !hasChanges
+                    }
+                    className="
+                      inline-flex
+                      min-w-[130px]
+                      items-center
+                      justify-center
+                      rounded-[13px]
+                      bg-ocean-950
+                      px-5
+                      py-3
+                      text-sm
+                      font-semibold
+                      text-white
+                      shadow-[0_8px_22px_rgba(6,42,63,0.12)]
+                      transition
+                      hover:bg-ocean-800
+                      active:scale-[0.98]
+                      disabled:pointer-events-none
+                      disabled:opacity-35
+                    "
+                  >
+                    {isSaving
+                      ? "Saving..."
+                      : hasChanges
+                        ? "Save Changes"
+                        : "Saved"}
+                  </button>
+                </div>
               </div>
             </form>
 
-            {/* ACCOUNT */}
+            {/* =================================================
+                ACCOUNT
+            ================================================= */}
 
             <aside
               className="
-                glass-card
-                rounded-[30px]
-                p-5
-                sm:p-6
+                overflow-hidden
+                rounded-[28px]
+                border
+                border-ocean-100/70
+                bg-white/80
+                shadow-[0_14px_45px_rgba(8,59,89,0.04)]
+                backdrop-blur-xl
               "
             >
-              <p
+              <div
                 className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-[0.18em]
-                  text-ocean-500
+                  border-b
+                  border-ocean-100/70
+                  px-6
+                  py-5
                 "
               >
-                Account
-              </p>
-
-              <h2
-                className="
-                  mt-1
-                  font-display
-                  text-2xl
-                  font-semibold
-                  text-ocean-950
-                "
-              >
-                Details
-              </h2>
+                <h2
+                  className="
+                    font-display
+                    text-[25px]
+                    font-semibold
+                    tracking-[-0.025em]
+                    text-ocean-950
+                  "
+                >
+                  Account
+                </h2>
+              </div>
 
               <div
                 className="
-                  mt-6
-                  space-y-5
+                  p-6
                 "
               >
-                <AccountRow
-                  label="Member Since"
-                  value={
-                    formatDate(
+                <div
+                  className="
+                    divide-y
+                    divide-ocean-100/80
+                  "
+                >
+                  <AccountRow
+                    label="Member Since"
+                    value={formatDate(
                       profile.createdAt
-                    )
-                  }
-                />
+                    )}
+                  />
 
-                {couple && (
-                  <>
-                    <AccountRow
-                      label="Couple"
-                      value={
-                        couple.name
-                      }
-                    />
+                  {couple && (
+                    <>
+                      <AccountRow
+                        label="Space"
+                        value={
+                          couple.name
+                        }
+                      />
 
-                    <AccountRow
-                      label="Anniversary"
-                      value={
-                        formatDateOnly(
+                      <AccountRow
+                        label="Anniversary"
+                        value={formatDateOnly(
                           couple.anniversaryDate
-                        )
-                      }
-                    />
-                  </>
-                )}
+                        )}
+                      />
+                    </>
+                  )}
+
+                  <AccountRow
+                    label="Email"
+                    value={
+                      user.email
+                    }
+                  />
+                </div>
+
+                <Link
+                  href="/settings"
+                  className="
+                    group
+                    mt-7
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-[14px]
+                    bg-ocean-950
+                    px-5
+                    py-3.5
+                    text-sm
+                    font-semibold
+                    text-white
+                    shadow-[0_8px_22px_rgba(6,42,63,0.11)]
+                    transition
+                    hover:bg-ocean-800
+                  "
+                  style={{
+                    color:
+                      "#ffffff",
+                  }}
+                >
+                  Settings
+
+                  <ArrowRight
+                    size={14}
+                    className="
+                      transition-transform
+                      group-hover:translate-x-0.5
+                    "
+                  />
+                </Link>
               </div>
-
-              <Link
-                href="/settings"
-                className="
-                  mt-7
-                  flex
-                  w-full
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[15px]
-                  border
-                  border-ocean-100
-                  bg-white/70
-                  px-4
-                  py-3
-                  text-sm
-                  font-semibold
-                  text-ocean-700
-                  transition
-                  hover:bg-white
-                "
-              >
-                <Settings
-                  size={15}
-                />
-
-                Open Settings
-              </Link>
             </aside>
           </section>
         </div>
       </main>
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * HERO STAT
+ * =========================================================
+ */
+
+function HeroStat({
+  value,
+  label,
+}: {
+  value:
+    number;
+
+  label:
+    string;
+}) {
+  return (
+    <div
+      className="
+        border-b
+        border-r
+        border-white/10
+        px-6
+        py-5
+        even:border-r-0
+        sm:border-b-0
+        sm:even:border-r
+        sm:last:border-r-0
+      "
+    >
+      <p
+        className="
+          font-display
+          text-[27px]
+          font-semibold
+          leading-none
+          tracking-[-0.035em]
+          text-white
+        "
+      >
+        {value}
+      </p>
+
+      <p
+        className="
+          mt-2
+          text-[10px]
+          font-medium
+          text-white/35
+        "
+      >
+        {label}
+      </p>
     </div>
   );
 }
@@ -1245,10 +1467,11 @@ function Field({
   label,
   children,
 }: {
-  label: string;
+  label:
+    string;
 
   children:
-    React.ReactNode;
+    ReactNode;
 }) {
   return (
     <div>
@@ -1257,76 +1480,14 @@ function Field({
           mb-2
           block
           text-xs
-          font-bold
-          text-ocean-800
+          font-medium
+          text-ocean-900
         "
       >
         {label}
       </label>
 
       {children}
-    </div>
-  );
-}
-
-/*
- * =========================================================
- * STAT
- * =========================================================
- */
-
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon:
-    ElementType;
-
-  value:
-    number;
-
-  label:
-    string;
-}) {
-  return (
-    <div
-      className="
-        glass-card
-        rounded-[23px]
-        p-4
-        sm:p-5
-      "
-    >
-      <Icon
-        size={18}
-        className="
-          text-ocean-600
-        "
-      />
-
-      <p
-        className="
-          mt-4
-          font-display
-          text-3xl
-          font-semibold
-          text-ocean-950
-        "
-      >
-        {value}
-      </p>
-
-      <p
-        className="
-          mt-1
-          text-[10px]
-          font-semibold
-          text-ink-soft
-        "
-      >
-        {label}
-      </p>
     </div>
   );
 }
@@ -1341,25 +1502,24 @@ function AccountRow({
   label,
   value,
 }: {
-  label: string;
+  label:
+    string;
 
-  value: string;
+  value:
+    string;
 }) {
   return (
     <div
       className="
-        border-b
-        border-ocean-100
-        pb-4
-        last:border-none
+        py-4
+        first:pt-0
+        last:pb-0
       "
     >
       <p
         className="
           text-[10px]
-          font-bold
-          uppercase
-          tracking-[0.1em]
+          font-medium
           text-ink-soft
         "
       >
@@ -1368,7 +1528,8 @@ function AccountRow({
 
       <p
         className="
-          mt-1
+          mt-1.5
+          break-words
           text-sm
           font-semibold
           text-ocean-950
@@ -1382,24 +1543,53 @@ function AccountRow({
 
 /*
  * =========================================================
+ * DECORATION
+ * =========================================================
+ */
+
+function MetaDot() {
+  return (
+    <span
+      className="
+        h-[3px]
+        w-[3px]
+        rounded-full
+        bg-white/25
+      "
+    />
+  );
+}
+
+/*
+ * =========================================================
  * HELPERS
  * =========================================================
  */
 
 function getInitials(
-  value: string
+  value:
+    string
 ) {
-  if (!value.trim()) {
+  if (
+    !value.trim()
+  ) {
     return "?";
   }
 
   return value
     .trim()
-    .split(/\s+/)
-    .slice(0, 2)
+    .split(
+      /\s+/
+    )
+    .slice(
+      0,
+      2
+    )
     .map(
       (part) =>
-        part.charAt(0)
+        part.charAt(
+          0
+        )
     )
     .join("")
     .toUpperCase();
@@ -1459,11 +1649,15 @@ function extractAvatarStoragePath(
 }
 
 function formatDate(
-  value: string
+  value:
+    string
 ) {
   return new Intl.DateTimeFormat(
     "id-ID",
     {
+      timeZone:
+        "Asia/Jakarta",
+
       day:
         "numeric",
 
@@ -1481,7 +1675,8 @@ function formatDate(
 }
 
 function formatDateOnly(
-  value: string
+  value:
+    string
 ) {
   return new Intl.DateTimeFormat(
     "id-ID",
@@ -1502,9 +1697,42 @@ function formatDateOnly(
   );
 }
 
+/*
+ * =========================================================
+ * ALERTS
+ * =========================================================
+ */
+
+async function showSuccess(
+  title:
+    string
+) {
+  await Swal.fire({
+    icon:
+      "success",
+
+    title,
+
+    timer:
+      900,
+
+    showConfirmButton:
+      false,
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
+  });
+}
+
 async function showWarning(
-  title: string,
-  message: string
+  title:
+    string,
+
+  message:
+    string
 ) {
   await Swal.fire({
     icon:
@@ -1516,13 +1744,22 @@ async function showWarning(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }
 
 async function showError(
-  title: string,
-  message: string
+  title:
+    string,
+
+  message:
+    string
 ) {
   await Swal.fire({
     icon:
@@ -1534,6 +1771,12 @@ async function showError(
       message,
 
     confirmButtonColor:
-      "#1688b5",
+      "#083b59",
+
+    background:
+      "#fffdf9",
+
+    color:
+      "#123d59",
   });
 }

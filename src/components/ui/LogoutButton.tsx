@@ -2,10 +2,13 @@
 
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+
 import {
   LogOut,
 } from "lucide-react";
+
 import Swal from "sweetalert2";
 
 import { createClient } from "@/lib/supabase/client";
@@ -14,79 +17,187 @@ export default function LogoutButton() {
   const router =
     useRouter();
 
+  const [
+    isLoggingOut,
+    setIsLoggingOut,
+  ] =
+    useState(false);
+
   const handleLogout =
     async () => {
+      if (
+        isLoggingOut
+      ) {
+        return;
+      }
+
       const result =
         await Swal.fire({
-          icon: "question",
-          title: "Logout?",
-          text:
-            "Kamu yakin ingin keluar dari Love4ever?",
-          showCancelButton: true,
-          confirmButtonText:
-            "Logout",
-          cancelButtonText:
-            "Batal",
-          confirmButtonColor:
-            "#1688b5",
-        });
+          icon:
+            "question",
 
-      if (!result.isConfirmed) {
-        return;
-      }
-
-      const supabase =
-        createClient();
-
-      const { error } =
-        await supabase.auth.signOut();
-
-      if (error) {
-        await Swal.fire({
-          icon: "error",
           title:
-            "Logout gagal",
+            "Log out?",
+
           text:
-            error.message,
+            "You’ll need to sign in again to open your space.",
+
+          showCancelButton:
+            true,
+
+          confirmButtonText:
+            "Log out",
+
+          cancelButtonText:
+            "Cancel",
+
           confirmButtonColor:
-            "#1688b5",
+            "#d85f72",
+
+          cancelButtonColor:
+            "#e8f8fc",
+
+          reverseButtons:
+            true,
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+
+          customClass: {
+            popup:
+              "love4ever-alert",
+          },
         });
 
+      if (
+        !result.isConfirmed
+      ) {
         return;
       }
 
-      router.replace(
-        "/login"
+      setIsLoggingOut(
+        true
       );
 
-      router.refresh();
+      try {
+        const supabase =
+          createClient();
+
+        const {
+          error,
+        } =
+          await supabase.auth
+            .signOut();
+
+        if (error) {
+          throw new Error(
+            error.message
+          );
+        }
+
+        router.replace(
+          "/login"
+        );
+
+        router.refresh();
+      } catch (error) {
+        await Swal.fire({
+          icon:
+            "error",
+
+          title:
+            "Could not log out",
+
+          text:
+            error instanceof
+              Error
+              ? error.message
+              : "Something went wrong.",
+
+          confirmButtonText:
+            "OK",
+
+          confirmButtonColor:
+            "#083b59",
+
+          background:
+            "#fffdf9",
+
+          color:
+            "#123d59",
+        });
+      } finally {
+        setIsLoggingOut(
+          false
+        );
+      }
     };
 
   return (
     <button
       type="button"
-      onClick={handleLogout}
+      onClick={() =>
+        void handleLogout()
+      }
+      disabled={
+        isLoggingOut
+      }
       className="
+        group
         flex
+        h-[44px]
         w-full
         items-center
-        justify-center
-        gap-2
-        rounded-2xl
-        border
-        border-ocean-200
-        bg-white/70
-        px-5
-        py-3.5
-        font-semibold
-        text-ocean-800
+        gap-3
+        rounded-[15px]
+        px-3
+        text-left
+        text-[13px]
+        font-medium
+        text-ink-soft
         transition
-        hover:bg-white
+        duration-200
+        hover:bg-heart-soft/55
+        hover:text-heart
+        active:scale-[0.99]
+        disabled:pointer-events-none
+        disabled:opacity-45
       "
     >
-      <LogOut size={18} />
+      <span
+        className="
+          flex
+          h-8
+          w-8
+          shrink-0
+          items-center
+          justify-center
+          rounded-[10px]
+          text-ocean-500
+          transition
+          duration-200
+          group-hover:bg-white/70
+          group-hover:text-heart
+        "
+      >
+        <LogOut
+          size={16}
+          strokeWidth={1.8}
+        />
+      </span>
 
-      Logout
+      <span
+        className="
+          flex-1
+        "
+      >
+        {isLoggingOut
+          ? "Logging out..."
+          : "Log out"}
+      </span>
     </button>
   );
 }
