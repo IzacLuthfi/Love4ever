@@ -8,8 +8,10 @@ import {
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -93,6 +95,8 @@ const inputClass = `
   focus:ring-ocean-100/50
 `;
 
+const PHOTO_BATCH_SIZE = 20;
+
 /*
  * =========================================================
  * MAIN
@@ -140,6 +144,9 @@ export default function GalleryClient({
 
   const [cameraFile, setCameraFile] =
     useState<File | null>(null);
+
+  const [visiblePhotoCount, setVisiblePhotoCount] =
+    useState(PHOTO_BATCH_SIZE);
 
   /*
    * =========================================================
@@ -213,6 +220,57 @@ export default function GalleryClient({
     selectedAlbumId,
     sharedPhotos,
   ]);
+
+  /*
+   * =========================================================
+   * LAZY RENDER / INFINITE SCROLL
+   * =========================================================
+   *
+   * Only the first 20 photo cards are mounted. More cards are
+   * mounted automatically as the user approaches the bottom.
+   * This prevents dozens/hundreds of large Supabase images from
+   * being decoded and painted at the same time.
+   */
+
+  useEffect(() => {
+    setVisiblePhotoCount(
+      PHOTO_BATCH_SIZE
+    );
+  }, [
+    activeTab,
+    selectedAlbumId,
+  ]);
+
+  const visibleDisplayedPhotos =
+    useMemo(
+      () =>
+        displayedPhotos.slice(
+          0,
+          visiblePhotoCount
+        ),
+      [
+        displayedPhotos,
+        visiblePhotoCount,
+      ]
+    );
+
+  const hasMoreDisplayedPhotos =
+    visiblePhotoCount <
+    displayedPhotos.length;
+
+  const loadMorePhotos =
+    useCallback(() => {
+      setVisiblePhotoCount(
+        (current) =>
+          Math.min(
+            current +
+              PHOTO_BATCH_SIZE,
+            displayedPhotos.length
+          )
+      );
+    }, [
+      displayedPhotos.length,
+    ]);
 
   /*
    * =========================================================
@@ -1182,29 +1240,46 @@ export default function GalleryClient({
               }
             />
           ) : (
-            <PhotoGrid
-              photos={
-                displayedPhotos
-              }
-              emptyLabel={
-                activeTab ===
-                "favorites"
-                  ? "No favorites yet."
-                  : activeTab ===
-                      "vault"
-                    ? "Vault is empty."
-                    : selectedAlbum
-                      ? "Album is empty."
-                      : "No photos yet."
-              }
-              onOpen={(
-                photo
-              ) =>
-                setActivePhotoId(
-                  photo.id
-                )
-              }
-            />
+            <>
+              <PhotoGrid
+                photos={
+                  visibleDisplayedPhotos
+                }
+                emptyLabel={
+                  activeTab ===
+                  "favorites"
+                    ? "No favorites yet."
+                    : activeTab ===
+                        "vault"
+                      ? "Vault is empty."
+                      : selectedAlbum
+                        ? "Album is empty."
+                        : "No photos yet."
+                }
+                onOpen={(
+                  photo
+                ) =>
+                  setActivePhotoId(
+                    photo.id
+                  )
+                }
+              />
+
+              <GalleryLoadMoreSentinel
+                hasMore={
+                  hasMoreDisplayedPhotos
+                }
+                loaded={
+                  visibleDisplayedPhotos.length
+                }
+                total={
+                  displayedPhotos.length
+                }
+                onLoadMore={
+                  loadMorePhotos
+                }
+              />
+            </>
           )}
         </div>
       </main>
@@ -1560,6 +1635,104 @@ function TabButton({
     >
       {children}
     </button>
+  );
+}
+
+/*
+ * =========================================================
+ * INFINITE SCROLL SENTINEL
+ * =========================================================
+ */
+
+function GalleryLoadMoreSentinel({
+  hasMore,
+  loaded,
+  total,
+  onLoadMore,
+}: {
+  hasMore: boolean;
+  loaded: number;
+  total: number;
+  onLoadMore: () => void;
+}) {
+  const sentinelRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
+  useEffect(() => {
+    if (!hasMore) {
+      return;
+    }
+
+    const node =
+      sentinelRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    if (
+      typeof IntersectionObserver ===
+      "undefined"
+    ) {
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (
+            entry?.isIntersecting
+          ) {
+            onLoadMore();
+          }
+        },
+        {
+          root: null,
+          rootMargin:
+            "500px 0px",
+          threshold: 0.01,
+        }
+      );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    hasMore,
+    onLoadMore,
+  ]);
+
+  if (total === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={sentinelRef}
+      className="
+        flex
+        min-h-16
+        items-center
+        justify-center
+        py-5
+      "
+    >
+      <p
+        className="
+          text-[11px]
+          font-medium
+          text-ink-soft/65
+        "
+      >
+        {hasMore
+          ? `${loaded} of ${total} photos`
+          : `${total} photos`}
+      </p>
+    </div>
   );
 }
 

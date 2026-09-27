@@ -5,14 +5,15 @@ import { redirect } from "next/navigation";
 import GalleryClient from "@/components/gallery/GalleryClient";
 import { createClient } from "@/lib/supabase/server";
 
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+const SIGNED_URL_BATCH_SIZE = 100;
+
 export default async function GalleryPage() {
   const supabase = await createClient();
 
-  /*
-   * =========================================================
-   * AUTH
-   * =========================================================
-   */
+  /* =========================================================
+     AUTH
+  ========================================================= */
 
   const {
     data: { user },
@@ -22,36 +23,49 @@ export default async function GalleryPage() {
     redirect("/login");
   }
 
-  /*
-   * =========================================================
-   * PROFILE
-   * =========================================================
-   */
+  /* =========================================================
+     PROFILE + MEMBERSHIP
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      `
-      full_name,
-      nickname,
-      avatar_url
-      `
-    )
-    .eq("id", user.id)
-    .maybeSingle();
+     Keduanya tidak saling bergantung, jadi jalankan paralel.
+  ========================================================= */
 
-  /*
-   * =========================================================
-   * MEMBERSHIP
-   * =========================================================
-   */
+  const [profileResult, membershipResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        `
+        full_name,
+        nickname,
+        avatar_url
+        `
+      )
+      .eq("id", user.id)
+      .maybeSingle(),
 
-  const { data: membership } = await supabase
-    .from("couple_members")
-    .select("couple_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
+    supabase
+      .from("couple_members")
+      .select("couple_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const profile = profileResult.data;
+  const membership = membershipResult.data;
+
+  if (profileResult.error) {
+    console.error(
+      "Gallery profile error:",
+      profileResult.error
+    );
+  }
+
+  if (membershipResult.error) {
+    console.error(
+      "Gallery membership error:",
+      membershipResult.error
+    );
+  }
 
   if (!membership) {
     return (
@@ -67,139 +81,199 @@ export default async function GalleryPage() {
 
   const coupleId = membership.couple_id;
 
-  /*
-   * =========================================================
-   * ALBUMS
-   * =========================================================
-   */
+  /* =========================================================
+     ALBUMS + PHOTO METADATA
 
-  const {
-    data: albums,
-    error: albumsError,
-  } = await supabase
-    .from("gallery_albums")
-    .select(
-      `
-      id,
-      couple_id,
-      created_by,
-      owner_id,
-      name,
-      description,
-      visibility,
-      created_at,
-      updated_at
-      `
-    )
-    .eq("couple_id", coupleId)
-    .order("created_at", {
-      ascending: false,
-    });
+     Metadata foto tetap diambil sekaligus karena ringan dan
+     dibutuhkan untuk Album / Favorites / Vault.
 
-  if (albumsError) {
+     Yang berat adalah:
+     - signed URL satu per satu
+     - semua <Image> dirender sekaligus
+
+     GalleryClient membatasi render menjadi 20 foto per batch.
+  ========================================================= */
+
+  const [albumsResult, photosResult] = await Promise.all([
+    supabase
+      .from("gallery_albums")
+      .select(
+        `
+        id,
+        couple_id,
+        created_by,
+        owner_id,
+        name,
+        description,
+        visibility,
+        created_at,
+        updated_at
+        `
+      )
+      .eq("couple_id", coupleId)
+      .order("created_at", {
+        ascending: false,
+      }),
+
+    supabase
+      .from("gallery_photos")
+      .select(
+        `
+        id,
+        couple_id,
+        album_id,
+        uploaded_by,
+        owner_id,
+        storage_bucket,
+        storage_path,
+        title,
+        caption,
+        visibility,
+        source_type,
+        source_memory_photo_id,
+        is_favorite,
+        created_at,
+        updated_at
+        `
+      )
+      .eq("couple_id", coupleId)
+      .order("created_at", {
+        ascending: false,
+      }),
+  ]);
+
+  if (albumsResult.error) {
     console.error(
       "Gallery albums error:",
-      albumsError
+      albumsResult.error
     );
   }
 
-  /*
-   * =========================================================
-   * PHOTOS
-   * =========================================================
-   */
-
-  const {
-    data: photos,
-    error: photosError,
-  } = await supabase
-    .from("gallery_photos")
-    .select(
-      `
-      id,
-      couple_id,
-      album_id,
-      uploaded_by,
-      owner_id,
-      storage_bucket,
-      storage_path,
-      title,
-      caption,
-      visibility,
-      source_type,
-      source_memory_photo_id,
-      is_favorite,
-      created_at,
-      updated_at
-      `
-    )
-    .eq("couple_id", coupleId)
-    .order("created_at", {
-      ascending: false,
-    });
-
-  if (photosError) {
+  if (photosResult.error) {
     console.error(
       "Gallery photos error:",
-      photosError
+      photosResult.error
     );
   }
 
-  /*
-   * =========================================================
-   * SIGNED URL
-   * =========================================================
-   */
+  const albums = albumsResult.data ?? [];
+  const photos = photosResult.data ?? [];
 
-  const photosWithUrls = await Promise.all(
-    (photos ?? []).map(async (photo) => {
-      const { data, error } =
-        await supabase.storage
-          .from(photo.storage_bucket)
-          .createSignedUrl(
-            photo.storage_path,
-            60 * 60
+  /* =========================================================
+     SIGNED URL — BATCH PER BUCKET
+
+     Sebelumnya:
+       100 foto = 100 request createSignedUrl()
+
+     Sekarang:
+       100 foto dari bucket yang sama = 1 request
+
+     Ini biasanya memangkas waktu masuk Gallery secara besar.
+  ========================================================= */
+
+  const photosWithUrls = photos.map((photo) => ({
+    ...photo,
+    signed_url: null as string | null,
+  }));
+
+  const bucketGroups = new Map<
+    string,
+    Array<{
+      index: number;
+      path: string;
+    }>
+  >();
+
+  photos.forEach((photo, index) => {
+    const existing =
+      bucketGroups.get(photo.storage_bucket) ?? [];
+
+    existing.push({
+      index,
+      path: photo.storage_path,
+    });
+
+    bucketGroups.set(
+      photo.storage_bucket,
+      existing
+    );
+  });
+
+  await Promise.all(
+    Array.from(bucketGroups.entries()).map(
+      async ([bucket, entries]) => {
+        for (
+          let start = 0;
+          start < entries.length;
+          start += SIGNED_URL_BATCH_SIZE
+        ) {
+          const chunk = entries.slice(
+            start,
+            start + SIGNED_URL_BATCH_SIZE
           );
 
-      if (error) {
-        console.error(
-          "Gallery signed URL error:",
-          error
-        );
+          const paths = chunk.map(
+            (entry) => entry.path
+          );
+
+          const {
+            data,
+            error,
+          } = await supabase.storage
+            .from(bucket)
+            .createSignedUrls(
+              paths,
+              SIGNED_URL_TTL_SECONDS
+            );
+
+          if (error) {
+            console.error(
+              `Gallery signed URLs error (${bucket}):`,
+              error
+            );
+
+            continue;
+          }
+
+          (data ?? []).forEach(
+            (signedItem, resultIndex) => {
+              const entry = chunk[resultIndex];
+
+              if (!entry) {
+                return;
+              }
+
+              photosWithUrls[entry.index].signed_url =
+                signedItem?.signedUrl ?? null;
+            }
+          );
+        }
       }
-
-      return {
-        ...photo,
-
-        signed_url:
-          data?.signedUrl ?? null,
-      };
-    })
+    )
   );
+
+  /* =========================================================
+     CLIENT
+  ========================================================= */
 
   return (
     <GalleryClient
       user={{
         id: user.id,
-
-        email:
-          user.email ?? "",
-
+        email: user.email ?? "",
         fullName:
           profile?.full_name ||
           "Love",
-
         nickname:
           profile?.nickname ||
           profile?.full_name ||
           "Love",
-
         avatarUrl:
           profile?.avatar_url ??
           null,
       }}
       coupleId={coupleId}
-      initialAlbums={albums ?? []}
+      initialAlbums={albums}
       initialPhotos={photosWithUrls}
     />
   );

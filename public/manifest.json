@@ -3,7 +3,7 @@
   "name": "Love4ever",
   "short_name": "Love4ever",
   "description": "A private space for our memories, plans, messages, photos, and music.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f7f7f4",

@@ -8,6 +8,9 @@ import {
 import MemoryDetailClient from "@/components/memories/MemoryDetailClient";
 import { createClient } from "@/lib/supabase/server";
 
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+const SIGNED_URL_BATCH_SIZE = 100;
+
 type MemoryDetailPageProps = {
   params: Promise<{
     id: string;
@@ -17,29 +20,30 @@ type MemoryDetailPageProps = {
 export default async function MemoryDetailPage({
   params,
 }: MemoryDetailPageProps) {
-  const { id } =
-    await params;
+  const { id } = await params;
 
-  const supabase =
-    await createClient();
+  const supabase = await createClient();
+
+  /* =========================================================
+     AUTH
+  ========================================================= */
 
   const {
     data: { user },
-  } =
-    await supabase.auth.getUser();
+  } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  /*
-   * PROFILE
-   */
+  /* =========================================================
+     PROFILE + MEMORY
 
-  const {
-    data: profile,
-  } =
-    await supabase
+     Tidak saling bergantung, jadi jalankan paralel.
+  ========================================================= */
+
+  const [profileResult, memoryResult] = await Promise.all([
+    supabase
       .from("profiles")
       .select(
         `
@@ -48,20 +52,10 @@ export default async function MemoryDetailPage({
         avatar_url
         `
       )
-      .eq(
-        "id",
-        user.id
-      )
-      .single();
+      .eq("id", user.id)
+      .maybeSingle(),
 
-  /*
-   * MEMORY
-   */
-
-  const {
-    data: memory,
-  } =
-    await supabase
+    supabase
       .from("memories")
       .select(
         `
@@ -81,120 +75,160 @@ export default async function MemoryDetailPage({
         updated_at
         `
       )
-      .eq(
-        "id",
-        id
-      )
-      .maybeSingle();
+      .eq("id", id)
+      .maybeSingle(),
+  ]);
+
+  const profile = profileResult.data;
+  const memory = memoryResult.data;
+
+  if (profileResult.error) {
+    console.error(
+      "Memory detail profile error:",
+      profileResult.error
+    );
+  }
+
+  if (memoryResult.error) {
+    console.error(
+      "Memory detail query error:",
+      memoryResult.error
+    );
+  }
 
   if (!memory) {
     notFound();
   }
 
-  /*
-   * PHOTOS
-   */
+  /* =========================================================
+     PHOTOS
+  ========================================================= */
 
   const {
     data: photos,
-  } =
-    await supabase
-      .from("memory_photos")
-      .select(
-        `
-        id,
-        memory_id,
-        uploaded_by,
-        storage_path,
-        caption,
-        is_cover,
-        sort_order,
-        created_at
-        `
-      )
-      .eq(
-        "memory_id",
-        id
-      )
-      .order(
-        "is_cover",
-        {
-          ascending: false,
-        }
-      )
-      .order(
-        "sort_order",
-        {
-          ascending: true,
-        }
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true,
-        }
+    error: photosError,
+  } = await supabase
+    .from("memory_photos")
+    .select(
+      `
+      id,
+      memory_id,
+      uploaded_by,
+      storage_path,
+      caption,
+      is_cover,
+      sort_order,
+      created_at
+      `
+    )
+    .eq("memory_id", id)
+    .order("is_cover", {
+      ascending: false,
+    })
+    .order("sort_order", {
+      ascending: true,
+    })
+    .order("created_at", {
+      ascending: true,
+    });
+
+  if (photosError) {
+    console.error(
+      "Memory detail photos error:",
+      photosError
+    );
+  }
+
+  const safePhotos = photos ?? [];
+
+  /* =========================================================
+     SIGNED URL — ONE BATCH REQUEST
+  ========================================================= */
+
+  const paths = safePhotos.map(
+    (photo) => photo.storage_path
+  );
+
+  let signedUrls: Array<
+    string | null
+  > = [];
+
+  if (paths.length > 0) {
+    signedUrls = Array.from(
+      { length: paths.length },
+      () => null as string | null
+    );
+
+    for (
+      let start = 0;
+      start < paths.length;
+      start += SIGNED_URL_BATCH_SIZE
+    ) {
+      const chunk = paths.slice(
+        start,
+        start + SIGNED_URL_BATCH_SIZE
       );
 
-  /*
-   * SIGNED URL
-   */
+      const {
+        data: signedData,
+        error: signedError,
+      } = await supabase.storage
+        .from("memory-photos")
+        .createSignedUrls(
+          chunk,
+          SIGNED_URL_TTL_SECONDS
+        );
 
-  const photosWithUrl =
-    await Promise.all(
-      (photos ?? []).map(
-        async (photo) => {
-          const {
-            data,
-          } =
-            await supabase.storage
-              .from(
-                "memory-photos"
-              )
-              .createSignedUrl(
-                photo.storage_path,
-                60 * 60
-              );
+      if (signedError) {
+        console.error(
+          "Memory detail signed URLs error:",
+          signedError
+        );
 
-          return {
-            ...photo,
+        continue;
+      }
 
-            signed_url:
-              data?.signedUrl ??
-              null,
-          };
+      (signedData ?? []).forEach(
+        (signedItem, index) => {
+          signedUrls[start + index] =
+            signedItem?.signedUrl ?? null;
         }
-      )
-    );
+      );
+    }
+  }
+
+  const photosWithUrl = safePhotos.map(
+    (photo, index) => ({
+      ...photo,
+      signed_url:
+        signedUrls[index] ??
+        null,
+    })
+  );
+
+  /* =========================================================
+     CLIENT
+  ========================================================= */
 
   return (
     <MemoryDetailClient
       user={{
-        id:
-          user.id,
-
+        id: user.id,
         email:
-          user.email ??
-          "",
-
+          user.email ?? "",
         fullName:
           profile?.full_name ||
           "Love",
-
         nickname:
           profile?.nickname ||
           profile?.full_name ||
           "Love",
-
         avatarUrl:
           profile?.avatar_url ??
           null,
       }}
-      initialMemory={
-        memory
-      }
-      initialPhotos={
-        photosWithUrl
-      }
+      initialMemory={memory}
+      initialPhotos={photosWithUrl}
     />
   );
 }

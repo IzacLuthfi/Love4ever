@@ -1,101 +1,131 @@
 // src/lib/supabase/proxy.ts
 
-import { createServerClient } from "@supabase/ssr";
+import {
+  createServerClient,
+} from "@supabase/ssr";
+
 import {
   NextResponse,
   type NextRequest,
 } from "next/server";
 
+/*
+ * =========================================================
+ * UPDATE SESSION
+ * =========================================================
+ */
+
 export async function updateSession(
   request: NextRequest
 ) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-
-        setAll(cookiesToSet, headers) {
-          /*
-           * Update cookie di request
-           * supaya Server Component menerima
-           * session terbaru.
-           */
-          cookiesToSet.forEach(
-            ({ name, value }) => {
-              request.cookies.set(
-                name,
-                value
-              );
-            }
-          );
-
-          /*
-           * Buat response baru berdasarkan
-           * request yang sudah diperbarui.
-           */
-          supabaseResponse =
-            NextResponse.next({
-              request,
-            });
-
-          /*
-           * Kirim session cookie terbaru
-           * kembali ke browser.
-           */
-          cookiesToSet.forEach(
-            ({
-              name,
-              value,
-              options,
-            }) => {
-              supabaseResponse.cookies.set(
-                name,
-                value,
-                options
-              );
-            }
-          );
-
-          /*
-           * Copy header penting yang diberikan
-           * oleh Supabase SSR.
-           */
-          Object.entries(headers).forEach(
-            ([key, value]) => {
-              supabaseResponse.headers.set(
-                key,
-                value
-              );
-            }
-          );
-        },
-      },
-    }
-  );
+  /*
+   * Response utama.
+   */
+  let supabaseResponse =
+    NextResponse.next({
+      request,
+    });
 
   /*
-   * Verifikasi session user.
+   * =======================================================
+   * SUPABASE
+   * =======================================================
    */
-  const { data } =
-    await supabase.auth.getClaims();
 
-  const user = data?.claims;
+  const supabase =
+    createServerClient(
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL!,
+
+      process.env
+        .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+
+      {
+        cookies: {
+          /*
+           * Ambil semua cookie dari request.
+           */
+          getAll() {
+            return request.cookies.getAll();
+          },
+
+          /*
+           * Jika Supabase melakukan refresh token,
+           * update request + response cookie.
+           */
+          setAll(
+            cookiesToSet
+          ) {
+            /*
+             * Update cookie pada request.
+             *
+             * Server Components setelah proxy
+             * akan menerima session terbaru.
+             */
+            cookiesToSet.forEach(
+              ({
+                name,
+                value,
+              }) => {
+                request.cookies.set(
+                  name,
+                  value
+                );
+              }
+            );
+
+            /*
+             * Buat response baru dari request
+             * yang cookie-nya sudah diperbarui.
+             */
+            supabaseResponse =
+              NextResponse.next({
+                request,
+              });
+
+            /*
+             * Kirim cookie baru ke browser.
+             */
+            cookiesToSet.forEach(
+              ({
+                name,
+                value,
+                options,
+              }) => {
+                supabaseResponse.cookies.set(
+                  name,
+                  value,
+                  options
+                );
+              }
+            );
+          },
+        },
+      }
+    );
+
+  /*
+   * =======================================================
+   * AUTH
+   * =======================================================
+   */
+
+  const {
+    data,
+  } =
+    await supabase.auth
+      .getClaims();
+
+  const user =
+    data?.claims ?? null;
 
   const pathname =
     request.nextUrl.pathname;
 
   /*
-   * =========================================
+   * =======================================================
    * PUBLIC ROUTES
-   * =========================================
+   * =======================================================
    */
 
   const isSplashPage =
@@ -109,7 +139,9 @@ export async function updateSession(
 
   const isAuthCallback =
     pathname === "/auth" ||
-    pathname.startsWith("/auth/");
+    pathname.startsWith(
+      "/auth/"
+    );
 
   const isPublicRoute =
     isSplashPage ||
@@ -118,110 +150,73 @@ export async function updateSession(
     isAuthCallback;
 
   /*
-   * =========================================
-   * USER BELUM LOGIN
-   * =========================================
+   * =======================================================
+   * PROTECTED ROUTES
+   * =======================================================
+   *
+   * Kalau belum login dan mencoba membuka halaman
+   * private → redirect ke login.
    */
 
-  if (!user && !isPublicRoute) {
+  if (
+    !user &&
+    !isPublicRoute
+  ) {
     const url =
       request.nextUrl.clone();
 
-    url.pathname = "/login";
+    url.pathname =
+      "/login";
+
+    url.search =
+      "";
 
     const redirectResponse =
-      NextResponse.redirect(url);
+      NextResponse.redirect(
+        url
+      );
 
     /*
-     * Copy cookie dari response Supabase
-     * satu per satu.
-     *
-     * Next.js ResponseCookies tidak mempunyai
-     * method setAll().
+     * Pertahankan cookie yang mungkin
+     * baru direfresh Supabase.
      */
     supabaseResponse.cookies
       .getAll()
-      .forEach(({ name, value }) => {
-        redirectResponse.cookies.set(
-          name,
-          value
-        );
-      });
-
-    copyCacheHeaders(
-      supabaseResponse,
-      redirectResponse
-    );
+      .forEach(
+        (cookie) => {
+          redirectResponse.cookies.set(
+            cookie.name,
+            cookie.value
+          );
+        }
+      );
 
     return redirectResponse;
   }
 
   /*
-   * =========================================
-   * USER SUDAH LOGIN
-   * =========================================
+   * =======================================================
+   * IMPORTANT
+   * =======================================================
    *
-   * Kalau user sudah login lalu membuka
-   * login/register, langsung ke dashboard.
+   * Jangan redirect user yang sudah login dari
+   * /login ke /dashboard di sini.
+   *
+   * Tujuannya:
+   *
+   * /
+   * ↓
+   * Splash
+   * ↓
+   * /login
+   * ↓
+   * login berhasil
+   * ↓
+   * /dashboard
+   *
+   * Dengan begitu tidak ada redirect silang antara
+   * Splash → Login dan Proxy → Dashboard.
    */
 
-  if (
-    user &&
-    (isLoginPage || isRegisterPage)
-  ) {
-    const url =
-      request.nextUrl.clone();
-
-    url.pathname = "/dashboard";
-
-    const redirectResponse =
-      NextResponse.redirect(url);
-
-    supabaseResponse.cookies
-      .getAll()
-      .forEach(({ name, value }) => {
-        redirectResponse.cookies.set(
-          name,
-          value
-        );
-      });
-
-    copyCacheHeaders(
-      supabaseResponse,
-      redirectResponse
-    );
-
-    return redirectResponse;
-  }
-
   return supabaseResponse;
-}
-
-/*
- * ===========================================
- * COPY CACHE HEADERS
- * ===========================================
- */
-
-function copyCacheHeaders(
-  source: NextResponse,
-  target: NextResponse
-) {
-  const headers = [
-    "cache-control",
-    "expires",
-    "pragma",
-  ];
-
-  headers.forEach((header) => {
-    const value =
-      source.headers.get(header);
-
-    if (value) {
-      target.headers.set(
-        header,
-        value
-      );
-    }
-  });
 }
