@@ -1,5 +1,3 @@
-// src/components/memories/MemoryMapInner.tsx
-
 "use client";
 
 import {
@@ -105,6 +103,7 @@ export default function MemoryMapInner({
         relative
         z-0
         h-[430px]
+        w-full
         overflow-hidden
         border-t
         border-ocean-100/70
@@ -125,6 +124,12 @@ export default function MemoryMapInner({
           h-full
           w-full
         "
+        style={{
+          height:
+            "100%",
+          width:
+            "100%",
+        }}
       >
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
@@ -341,7 +346,7 @@ function FitMapToMemories({
         14,
         {
           animate:
-            true,
+            false,
         }
       );
 
@@ -368,7 +373,7 @@ function FitMapToMemories({
           14,
 
         animate:
-          true,
+          false,
       }
     );
   }, [

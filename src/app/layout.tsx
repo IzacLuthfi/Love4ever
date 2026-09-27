@@ -9,6 +9,7 @@ import type {
   ReactNode,
 } from "react";
 
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 import ServiceWorkerRegister from "@/components/pwa/ServiceWorkerRegister";

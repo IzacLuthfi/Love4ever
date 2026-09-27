@@ -10,8 +10,6 @@ import Image from "next/image";
 
 import Link from "next/link";
 
-import dynamic from "next/dynamic";
-
 
 
 import {
@@ -66,6 +64,8 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 import MemoryLocationPicker from "@/components/memories/MemoryLocationPicker";
 
+import MemoryMap from "@/components/memories/MemoryMap";
+
 
 
 import { createClient } from "@/lib/supabase/client";
@@ -80,31 +80,6 @@ import {
 
 const MEMORY_BATCH_SIZE = 20;
 
-const MemoryMap = dynamic(
-  () =>
-    import(
-      "@/components/memories/MemoryMap"
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="
-          flex
-          min-h-[360px]
-          items-center
-          justify-center
-          bg-ocean-50/55
-          text-xs
-          font-medium
-          text-ink-soft/65
-        "
-      >
-        Loading map…
-      </div>
-    ),
-  }
-);
 
 /*
 
@@ -1910,7 +1885,7 @@ export default function MemoriesClient({
 
 
 
-            <LazyMemoryMap
+            <MemoryMap
               memories={
                 filteredMemories
               }
@@ -2187,100 +2162,6 @@ export default function MemoriesClient({
 }
 
 
-
-/*
- * =========================================================
- * LAZY MEMORY MAP
- * =========================================================
- */
-
-function LazyMemoryMap({
-  memories,
-}: {
-  memories: MemoryItem[];
-}) {
-  const containerRef =
-    useRef<HTMLDivElement | null>(
-      null
-    );
-
-  const [shouldRender, setShouldRender] =
-    useState(false);
-
-  useEffect(() => {
-    if (shouldRender) {
-      return;
-    }
-
-    const node =
-      containerRef.current;
-
-    if (!node) {
-      return;
-    }
-
-    if (
-      typeof IntersectionObserver ===
-      "undefined"
-    ) {
-      setShouldRender(true);
-      return;
-    }
-
-    const observer =
-      new IntersectionObserver(
-        ([entry]) => {
-          if (
-            entry?.isIntersecting
-          ) {
-            setShouldRender(true);
-            observer.disconnect();
-          }
-        },
-        {
-          rootMargin:
-            "280px 0px",
-          threshold: 0.01,
-        }
-      );
-
-    observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [shouldRender]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="
-        min-h-[360px]
-      "
-    >
-      {shouldRender ? (
-        <MemoryMap
-          memories={memories}
-        />
-      ) : (
-        <div
-          className="
-            flex
-            min-h-[360px]
-            items-center
-            justify-center
-            bg-ocean-50/55
-            text-xs
-            font-medium
-            text-ink-soft/65
-          "
-        >
-          Map loads when needed
-        </div>
-      )}
-    </div>
-  );
-}
 
 /*
  * =========================================================
@@ -4922,13 +4803,13 @@ function extractCoordinatesFromMapsUrl(
 
 
 
- const patterns = [
-  /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,|$)/,
+  const patterns = [
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,|$)/,
 
-  /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i,
+    /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i,
 
-  /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i,
-];
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i,
+  ];
 
 
 
